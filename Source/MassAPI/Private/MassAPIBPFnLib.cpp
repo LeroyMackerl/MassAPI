@@ -1,5 +1,6 @@
 ﻿#include "MassAPIBPFnLib.h"
 #include "MassAPISubsystem.h"
+#include "MassAPIEnums.h" // (新) 包含新的枚举头文件
 #include "MassEntityView.h"
 #include "MassEntitySubsystem.h"
 #include "UObject/StructOnScope.h"
@@ -9,6 +10,10 @@
 #include "MassDebugger.h" // Include for logging query validity if needed
 #include "HAL/Platform.h" // Include for PLATFORM_WINDOWS etc. if needed for logging
 #include "Logging/LogMacros.h" // Include for UE_LOG
+
+// (新) 包含 MassAPIStructs.h 以识别重命名的 FEntityFlagFragment
+#include "MassAPIStructs.h" 
+
 
 // Define a log category if needed, replace 'LogMassAPI' with your desired category name
 // DECLARE_LOG_CATEGORY_EXTERN(LogMassAPI, Log, All);
@@ -822,6 +827,7 @@ DEFINE_FUNCTION(UMassAPIBPFnLib::execSetConstSharedFragmentInTemplate)
     P_NATIVE_END
 }
 
+
 //----------------------------------------------------------------------//
 // Entity Querying & BP Processors
 //----------------------------------------------------------------------//
@@ -835,8 +841,8 @@ bool UMassAPIBPFnLib::MatchEntityQuery(const UObject* WorldContextObject, const 
     return false;
 }
 
-// Corrected GetMatchingEntities
-TArray<FEntityHandle> UMassAPIBPFnLib::GetMatchingEntities(const UObject* WorldContextObject, const FEntityQuery& Query)
+// (!!! 已修改为两阶段过滤: Composition + Flags !!!)
+TArray<FEntityHandle> UMassAPIBPFnLib::GetMatchingEntities(const UObject* WorldContextObject, UPARAM(ref) const FEntityQuery& Query)
 {
     TArray<FEntityHandle> BPHandles;
     UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
@@ -851,104 +857,270 @@ TArray<FEntityHandle> UMassAPIBPFnLib::GetMatchingEntities(const UObject* WorldC
         return BPHandles;
     }
 
-    // 1. Create the native FMassEntityQuery, passing the EntityManager reference
+    // 1. 创建原生的 FMassEntityQuery，如之前一样
     FMassEntityQuery NativeQuery(EntityManager->AsShared());
 
-    // 2. Iterate through the BP Query lists and add individual requirements using the correct functions
-    // Using ReadOnly access as we're just fetching handles.
+    // 2. 遍历 BP Query 列表并添加 Composition 要求
     for (const TObjectPtr<UScriptStruct>& Struct : Query.AllList)
     {
         if (!Struct) continue;
-
-        if (Struct->IsChildOf(FMassTag::StaticStruct()))
-        {
-            NativeQuery.AddTagRequirement(*Struct, EMassFragmentPresence::All);
-        }
-        else if (Struct->IsChildOf(FMassSharedFragment::StaticStruct()))
-        {
-            NativeQuery.AddSharedRequirement(Struct, EMassFragmentAccess::ReadOnly, EMassFragmentPresence::All);
-        }
-        else if (Struct->IsChildOf(FMassConstSharedFragment::StaticStruct()))
-        {
-            NativeQuery.AddConstSharedRequirement(Struct, EMassFragmentPresence::All);
-        }
-        else if (Struct->IsChildOf(FMassChunkFragment::StaticStruct()))
-        {
-            NativeQuery.AddChunkRequirement(Struct, EMassFragmentAccess::ReadOnly, EMassFragmentPresence::All);
-        }
-        else if (Struct->IsChildOf(FMassFragment::StaticStruct()))
-        {
-            NativeQuery.AddRequirement(Struct, EMassFragmentAccess::ReadOnly, EMassFragmentPresence::All);
-        }
-        else
-        {
-            // UE_LOG(LogMassAPI, Warning, TEXT("GetMatchingEntities: Skipping invalid type '%s' in AllList."), *Struct->GetName());
-        }
+        if (Struct->IsChildOf(FMassTag::StaticStruct())) { NativeQuery.AddTagRequirement(*Struct, EMassFragmentPresence::All); }
+        else if (Struct->IsChildOf(FMassSharedFragment::StaticStruct())) { NativeQuery.AddSharedRequirement(Struct, EMassFragmentAccess::ReadOnly, EMassFragmentPresence::All); }
+        else if (Struct->IsChildOf(FMassConstSharedFragment::StaticStruct())) { NativeQuery.AddConstSharedRequirement(Struct, EMassFragmentPresence::All); }
+        else if (Struct->IsChildOf(FMassChunkFragment::StaticStruct())) { NativeQuery.AddChunkRequirement(Struct, EMassFragmentAccess::ReadOnly, EMassFragmentPresence::All); }
+        else if (Struct->IsChildOf(FMassFragment::StaticStruct())) { NativeQuery.AddRequirement(Struct, EMassFragmentAccess::ReadOnly, EMassFragmentPresence::All); }
     }
     for (const TObjectPtr<UScriptStruct>& Struct : Query.AnyList)
     {
         if (!Struct) continue;
-
-        if (Struct->IsChildOf(FMassTag::StaticStruct()))
-        {
-            NativeQuery.AddTagRequirement(*Struct, EMassFragmentPresence::Any);
-        }
-        // NOTE: FMassEntityQuery does not support 'Any' presence for Shared, ConstShared, or Chunk fragments.
-        // FMassFragmentRequirements::AddSharedRequirement etc. check() for this.
-        // We will only add Fragments to the 'Any' list.
-        else if (Struct->IsChildOf(FMassFragment::StaticStruct()))
-        {
-            NativeQuery.AddRequirement(Struct, EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Any);
-        }
-        else
-        {
-            // UE_LOG(LogMassAPI, Warning, TEXT("GetMatchingEntities: Skipping unsupported type '%s' in AnyList. Only Fragments and Tags are supported."), *Struct->GetName());
-        }
+        if (Struct->IsChildOf(FMassTag::StaticStruct())) { NativeQuery.AddTagRequirement(*Struct, EMassFragmentPresence::Any); }
+        else if (Struct->IsChildOf(FMassFragment::StaticStruct())) { NativeQuery.AddRequirement(Struct, EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Any); }
     }
     for (const TObjectPtr<UScriptStruct>& Struct : Query.NoneList)
     {
         if (!Struct) continue;
-
-        if (Struct->IsChildOf(FMassTag::StaticStruct()))
-        {
-            NativeQuery.AddTagRequirement(*Struct, EMassFragmentPresence::None);
-        }
-        else if (Struct->IsChildOf(FMassSharedFragment::StaticStruct()))
-        {
-            NativeQuery.AddSharedRequirement(Struct, EMassFragmentAccess::None, EMassFragmentPresence::None); // Access None needed for None presence
-        }
-        else if (Struct->IsChildOf(FMassConstSharedFragment::StaticStruct()))
-        {
-            NativeQuery.AddConstSharedRequirement(Struct, EMassFragmentPresence::None);
-        }
-        else if (Struct->IsChildOf(FMassChunkFragment::StaticStruct()))
-        {
-            NativeQuery.AddChunkRequirement(Struct, EMassFragmentAccess::None, EMassFragmentPresence::None); // Access None needed for None presence
-        }
-        else if (Struct->IsChildOf(FMassFragment::StaticStruct()))
-        {
-            NativeQuery.AddRequirement(Struct, EMassFragmentAccess::None, EMassFragmentPresence::None); // Access None needed for None presence
-        }
-        else
-        {
-            // UE_LOG(LogMassAPI, Warning, TEXT("GetMatchingEntities: Skipping invalid type '%s' in NoneList."), *Struct->GetName());
-        }
+        if (Struct->IsChildOf(FMassTag::StaticStruct())) { NativeQuery.AddTagRequirement(*Struct, EMassFragmentPresence::None); }
+        else if (Struct->IsChildOf(FMassSharedFragment::StaticStruct())) { NativeQuery.AddSharedRequirement(Struct, EMassFragmentAccess::None, EMassFragmentPresence::None); }
+        else if (Struct->IsChildOf(FMassConstSharedFragment::StaticStruct())) { NativeQuery.AddConstSharedRequirement(Struct, EMassFragmentPresence::None); }
+        else if (Struct->IsChildOf(FMassChunkFragment::StaticStruct())) { NativeQuery.AddChunkRequirement(Struct, EMassFragmentAccess::None, EMassFragmentPresence::None); }
+        else if (Struct->IsChildOf(FMassFragment::StaticStruct())) { NativeQuery.AddRequirement(Struct, EMassFragmentAccess::None, EMassFragmentPresence::None); }
     }
 
-    // 3. REMOVED Validity Check Block - Relying on GetMatchingEntityHandles calling CacheArchetypes internally
+    // 3. 执行原生查询，获取所有匹配 *Composition* 的实体
+    TArray<FMassEntityHandle> CompositionMatches = NativeQuery.GetMatchingEntityHandles();
 
-    // 4. Execute the query and get the results (UE 5.6+ returns the array)
-    // IMPORTANT: GetMatchingEntityHandles calls CacheArchetypes internally in 5.6
-    TArray<FMassEntityHandle> NativeHandles = NativeQuery.GetMatchingEntityHandles();
+    // 4. 从查询中获取缓存的标志位掩码
+    const int64 AllFlagsQuery = Query.GetAllFlagsBitmask();
+    const int64 AnyFlagsQuery = Query.GetAnyFlagsBitmask();
+    const int64 NoneFlagsQuery = Query.GetNoneFlagsBitmask();
 
-    // 5. Convert the results to the Blueprint-safe FEntityHandle
-    BPHandles.Reserve(NativeHandles.Num());
-    for (const FMassEntityHandle& NativeHandle : NativeHandles)
+    // 5. 如果没有标志位查询，我们可以直接返回结果
+    if (AllFlagsQuery == 0 && AnyFlagsQuery == 0 && NoneFlagsQuery == 0)
     {
-        BPHandles.Add(FEntityHandle(NativeHandle)); // Using the FEntityHandle constructor
+        BPHandles.Reserve(CompositionMatches.Num());
+        for (const FMassEntityHandle& NativeHandle : CompositionMatches)
+        {
+            BPHandles.Add(FEntityHandle(NativeHandle));
+        }
+        return BPHandles;
     }
 
-    // 6. Return the BP-safe array
+    // 6. 执行第二遍过滤：检查我们的自定义标志位
+    BPHandles.Reserve(CompositionMatches.Num()); // 优化：预分配最坏情况的大小
+    for (const FMassEntityHandle& Handle : CompositionMatches)
+    {
+        // (已重命名: FMassEntityFlagFragment -> FEntityFlagFragment)
+        const FEntityFlagFragment* FlagFragment = EntityManager->GetFragmentDataPtr<FEntityFlagFragment>(Handle);
+        const int64 EntityFlags = FlagFragment ? FlagFragment->Flags : 0;
+
+        // 执行检查
+        const bool bAllFlags = (AllFlagsQuery == 0) || ((EntityFlags & AllFlagsQuery) == AllFlagsQuery);
+        const bool bAnyFlags = (AnyFlagsQuery == 0) || ((EntityFlags & AnyFlagsQuery) != 0);
+        const bool bNoneFlags = (NoneFlagsQuery == 0) || ((EntityFlags & NoneFlagsQuery) == 0);
+
+        if (bAllFlags && bAnyFlags && bNoneFlags)
+        {
+            // 只有通过了标志位检查的才被添加到最终数组
+            BPHandles.Add(FEntityHandle(Handle));
+        }
+    }
+
+    // 7. 返回 BP 安全的数组
     return BPHandles;
+}
+
+
+//----------------------------------------------------------------------//
+// (新) Flag Fragment Operations (TemplateData)
+//----------------------------------------------------------------------//
+
+int64 UMassAPIBPFnLib::GetTemplateFlags(const FEntityTemplateData& TemplateData)
+{
+    if (const FMassEntityTemplateData* Data = TemplateData.Get())
+    {
+        TConstArrayView<FInstancedStruct> InitialValues = Data->GetInitialFragmentValues();
+        for (const FInstancedStruct& Value : InitialValues)
+        {
+            if (Value.GetScriptStruct() == FEntityFlagFragment::StaticStruct())
+            {
+                if (const FEntityFlagFragment* FlagFragment = reinterpret_cast<const FEntityFlagFragment*>(Value.GetMemory()))
+                {
+                    return FlagFragment->Flags;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+bool UMassAPIBPFnLib::HasTemplateFlag(const FEntityTemplateData& TemplateData, EEntityFlags FlagToTest)
+{
+    if (FlagToTest >= EEntityFlags::EEntityFlags_MAX)
+    {
+        return false;
+    }
+
+    const int64 TemplateFlags = GetTemplateFlags(TemplateData);
+    return (TemplateFlags & (1LL << static_cast<uint8>(FlagToTest))) != 0;
+}
+
+void UMassAPIBPFnLib::SetTemplateFlag(FEntityTemplateData& TemplateData, EEntityFlags FlagToSet)
+{
+    if (FlagToSet >= EEntityFlags::EEntityFlags_MAX)
+    {
+        return;
+    }
+
+    // 1. Get current flags
+    const int64 CurrentFlags = GetTemplateFlags(TemplateData);
+
+    // 2. Create new fragment with modified flags
+    FEntityFlagFragment NewFlagFragment;
+    NewFlagFragment.Flags = CurrentFlags | (1LL << static_cast<uint8>(FlagToSet));
+
+    // 3. Call the generic "Set Fragment" function to replace the data
+    // This is required because FEntityTemplateData is immutable-by-pointer
+    Generic_SetFragmentInTemplate(TemplateData, FEntityFlagFragment::StaticStruct(), &NewFlagFragment);
+}
+
+void UMassAPIBPFnLib::ClearTemplateFlag(FEntityTemplateData& TemplateData, EEntityFlags FlagToClear)
+{
+    if (FlagToClear >= EEntityFlags::EEntityFlags_MAX)
+    {
+        return;
+    }
+
+    // 1. Get current flags
+    const int64 CurrentFlags = GetTemplateFlags(TemplateData);
+
+    // 2. Create new fragment with modified flags
+    FEntityFlagFragment NewFlagFragment;
+    NewFlagFragment.Flags = CurrentFlags & ~(1LL << static_cast<uint8>(FlagToClear));
+
+    // 3. Call the generic "Set Fragment" function to replace the data
+    Generic_SetFragmentInTemplate(TemplateData, FEntityFlagFragment::StaticStruct(), &NewFlagFragment);
+}
+
+
+//----------------------------------------------------------------------//
+// (新) Flag Fragment Operations (已重构)
+//----------------------------------------------------------------------//
+
+int64 UMassAPIBPFnLib::GetEntityFlags(const UObject* WorldContextObject, const FEntityHandle& EntityHandle)
+{
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    if (!MassAPI)
+    {
+        return 0;
+    }
+
+    // FMassEntityManager& EntityManager = *MassAPI->GetEntityManager();
+    // if (!EntityManager.IsEntityValid(EntityHandle))
+    // {
+    //     return 0;
+    // }
+    // 
+    // if (const FEntityFlagFragment* FlagFragment = EntityManager.GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+    // {
+    //     return FlagFragment->Flags;
+    // }
+    // 
+    // return 0;
+
+    // FEntityHandle implicitly converts to FMassEntityHandle
+    return MassAPI->GetEntityFlags(EntityHandle);
+}
+
+bool UMassAPIBPFnLib::HasEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToTest)
+{
+    // if (FlagToTest >= EEntityFlags::EEntityFlags_MAX)
+    // {
+    //     return false;
+    // }
+    // 
+    // const int64 EntityFlags = GetEntityFlags(WorldContextObject, EntityHandle);
+    // return (EntityFlags & (1LL << static_cast<uint8>(FlagToTest))) != 0;
+    if (UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject))
+    {
+        return MassAPI->HasEntityFlag(EntityHandle, FlagToTest);
+    }
+    return false;
+}
+
+bool UMassAPIBPFnLib::SetEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToSet)
+{
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    // if (!MassAPI || FlagToSet >= EEntityFlags::EEntityFlags_MAX)
+    // {
+    //     return false;
+    // }
+    // 
+    // FMassEntityManager& EntityManager = *MassAPI->GetEntityManager();
+    // if (!EntityManager.IsEntityValid(EntityHandle))
+    // {
+    //     return false;
+    // }
+    // 
+    // // 如果实体没有该 Fragment，则为其添加
+    // if (!MassAPI->HasFragment(EntityHandle, FEntityFlagFragment::StaticStruct()))
+    // {
+    //     EntityManager.AddFragmentToEntity(EntityHandle, FEntityFlagFragment::StaticStruct());
+    // }
+    // 
+    // // 获取可变指针
+    // if (FEntityFlagFragment* FlagFragment = EntityManager.GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+    // {
+    //     FlagFragment->Flags |= (1LL << static_cast<uint8>(FlagToSet));
+    //     return true;
+    // }
+    // 
+    // return false;
+    if (MassAPI)
+    {
+        return MassAPI->SetEntityFlag(EntityHandle, FlagToSet);
+    }
+    return false;
+}
+
+bool UMassAPIBPFnLib::ClearEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToClear)
+{
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    // if (!MassAPI || FlagToClear >= EEntityFlags::EEntityFlags_MAX)
+    // {
+    //     return false;
+    // }
+    // 
+    // FMassEntityManager& EntityManager = *MassAPI->GetEntityManager();
+    // if (!EntityManager.IsEntityValid(EntityHandle))
+    // {
+    //     return false;
+    // }
+    // 
+    // // 如果实体没有该 Fragment，则无需执行任何操作
+    // if (FEntityFlagFragment* FlagFragment = EntityManager.GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+    // {
+    //     FlagFragment->Flags &= ~(1LL << static_cast<uint8>(FlagToClear));
+    //     return true;
+    // }
+    // 
+    // return false;
+    if (MassAPI)
+    {
+        return MassAPI->ClearEntityFlag(EntityHandle, FlagToClear);
+    }
+    return false;
+}
+
+int64 UMassAPIBPFnLib::ConvertFlagsArrayToBitmask(const TArray<EEntityFlags>& Flags)
+{
+    int64 Bitmask = 0;
+    for (const EEntityFlags Flag : Flags)
+    {
+        if (Flag < EEntityFlags::EEntityFlags_MAX)
+        {
+            Bitmask |= (1LL << static_cast<uint8>(Flag));
+        }
+    }
+    return Bitmask;
 }
 

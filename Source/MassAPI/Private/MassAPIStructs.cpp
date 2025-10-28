@@ -50,3 +50,4 @@ void FEntityTemplate::GetTemplateData(FMassEntityTemplateData& OutTemplateData, 
         }
     }
 }
+

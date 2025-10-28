@@ -2,7 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "MassSubsystemBase.h"
-#include "MassAPIStructs.h"
+#include "MassAPIStructs.h" // 已包含 FEntityFlagFragment 和 FEntityQuery
+#include "MassAPIEnums.h"
 #include "MassEntitySubsystem.h"
 #include "MassEntityManager.h"
 #include "MassEntityView.h"
@@ -117,6 +118,7 @@ public:
 	}
 
 	// Check if Entity matches filter
+	// (!!! 已修改为使用新的缓存标志位掩码 !!!)
 	FORCEINLINE bool MatchQuery(const FEntityHandle EntityHandle, const FEntityQuery& Query) const
 	{
 		FMassEntityManager* Manager = GetEntityManager();
@@ -127,15 +129,48 @@ public:
 		const FMassArchetypeHandle ArchetypeHandle = Manager->GetArchetypeForEntity(EntityHandle);
 		if (UNLIKELY(!ArchetypeHandle.IsValid())) return false;
 
-		// Get Entity's Composition
+		// --- 1. 检查 Composition (Tag / Fragment 存在性) ---
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(ArchetypeHandle);
-
-		// Judge AND/OR/NOT
 		const bool AllResult = Query.AllList.IsEmpty() || HasAll(Composition, Query.GetAllComposition());
 		const bool AnyResult = Query.AnyList.IsEmpty() || HasAny(Composition, Query.GetAnyComposition());
 		const bool NoneResult = Query.NoneList.IsEmpty() || !HasAny(Composition, Query.GetNoneComposition());
 
-		return AllResult && AnyResult && NoneResult;
+		// 如果 Composition (Tag/Fragment) 不匹配，立即失败
+		if (!(AllResult && AnyResult && NoneResult))
+		{
+			return false;
+		}
+
+		// --- 2. 检查 Flags (如果 Composition 匹配) ---
+
+		// 从查询中获取缓存的位掩码
+		const int64 AllFlagsQuery = Query.GetAllFlagsBitmask();
+		const int64 AnyFlagsQuery = Query.GetAnyFlagsBitmask();
+		const int64 NoneFlagsQuery = Query.GetNoneFlagsBitmask();
+
+		// 只有在有标志位查询时才执行检查
+		if (AllFlagsQuery != 0 || AnyFlagsQuery != 0 || NoneFlagsQuery != 0)
+		{
+			// 尝试获取实体的 Flag Fragment
+			const FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle);
+
+			// 如果实体没有 Flag Fragment，则认为它的标志位为 0
+			// (注意: BuildEntities 现已修改为始终添加此 Fragment, 所以 'FlagFragment' 理论上不应为 null)
+			const int64 EntityFlags = FlagFragment ? FlagFragment->Flags : 0;
+
+			// 执行标志位检查
+			const bool bAllFlags = (AllFlagsQuery == 0) || ((EntityFlags & AllFlagsQuery) == AllFlagsQuery);
+			const bool bAnyFlags = (AnyFlagsQuery == 0) || ((EntityFlags & AnyFlagsQuery) != 0);
+			const bool bNoneFlags = (NoneFlagsQuery == 0) || ((EntityFlags & NoneFlagsQuery) == 0);
+
+			if (!(bAllFlags && bAnyFlags && bNoneFlags))
+			{
+				return false;
+			}
+		}
+
+		// 所有检查都通过
+		return true;
 	}
 
 
@@ -168,6 +203,7 @@ public:
 	/**
 	 * Spawn entities with mixed tags, fragments, and shared fragments
 	 * The function automatically distinguishes between different types
+	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to all created entities !!!)
 	 * @param Quantity Number of entities to spawn
 	 * @param Args Mixed tags, fragments, and shared fragments
 	 * @return Array of spawned entity handles
@@ -193,6 +229,10 @@ public:
 		FMassTagBitSet Tags;
 		FMassSharedFragmentBitSet SharedFragments;
 		FMassConstSharedFragmentBitSet ConstSharedFragments;
+
+		// (!!! MODIFICATION: Automatically add FEntityFlagFragment !!!)
+		// We add it here. If the user also passes it in TArgs, the bitset will just handle the duplicate add.
+		// Fragments.Add(*FEntityFlagFragment::StaticStruct()); // [DELETED] Reverted this change.
 
 		TArray<FInstancedStruct> FragmentInstances;
 		FMassArchetypeSharedFragmentValues SharedFragmentValues;
@@ -301,6 +341,7 @@ public:
 	 * Spawns an entity deferentially using a raw command buffer.
 	 * This is the base implementation that other overloads call.
 	 * The entity is reserved immediately, and a command is pushed to build it with the specified fragments and tags.
+	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the build command !!!)
 	 *
 	 * @param CommandBuffer The command buffer to push the build command to.
 	 * @param Args A variadic list of fragment instances and/or tag types to build the entity with.
@@ -313,13 +354,19 @@ public:
 		checkf(Manager, TEXT("EntityManager is not available"));
 
 		const FMassEntityHandle ReservedEntity = Manager->ReserveEntity();
-		CommandBuffer.PushCommand<FMassCommandBuildEntity>(ReservedEntity, Forward<TArgs>(Args)...);
+
+		// (!!! MODIFICATION: Inject FEntityFlagFragment{} into the arguments list !!!)
+		// This ensures the command builds the entity with the flag fragment, default-initialized.
+		// CommandBuffer.PushCommand<FMassCommandBuildEntity>(ReservedEntity, FEntityFlagFragment{}, Forward<TArgs>(Args)...); // [DELETED]
+		CommandBuffer.PushCommand<FMassCommandBuildEntity>(ReservedEntity, Forward<TArgs>(Args)...); // [RESTORED] Original behavior.
+
 		return ReservedEntity;
 	}
 
 	/**
 	 * Spawns an entity deferentially using the execution context from a processor.
 	 * The entity is reserved immediately, and a command is pushed to build it with the specified fragments and tags.
+	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment via the base overload !!!)
 	 *
 	 * @param Context The processor's execution context, used to get the command buffer.
 	 * @param Args A variadic list of fragment instances and/or tag types to build the entity with.
@@ -329,23 +376,29 @@ public:
 	FORCEINLINE FMassEntityHandle BuildEntityDefer(FMassExecutionContext& Context, TArgs&&... Args) const
 	{
 		// This is a convenience wrapper that calls the base overload with the context's command buffer.
+		// The base overload now handles adding the FEntityFlagFragment.
 		return BuildEntityDefer(Context.Defer(), Forward<TArgs>(Args)...);
 	}
 
 	/**
 	 * Defers the creation of a single entity using a template.
 	 * The entity is reserved immediately, and a command is pushed to the command buffer to build the entity based on the template.
+	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the template's composition !!!)
 	 * @param Context The processor's execution context, used to get the command buffer.
 	 * @param TemplateData The template defining the entity's archetype and initial values.
 	 * @return A reserved FMassEntityHandle. The entity will not be active until the command buffer is flushed.
 	 */
 	FMassEntityHandle BuildEntityDefer(FMassExecutionContext& Context, FMassEntityTemplateData& TemplateData) const;
 
+	/**
+	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the template's composition !!!)
+	 */
 	FMassEntityHandle BuildEntityDefer(FMassCommandBuffer& CommandBuffer, FMassEntityTemplateData& TemplateData) const;
 
 	/**
 	 * Defers the creation of multiple entities using a template.
 	 * The entities are reserved immediately, and a command is pushed to the command buffer to build them based on the template.
+	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the 's composition !!!)
 	 * @param Context The processor's execution context, used to get the command buffer.
 	 * @param Quantity The number of entities to create.
 	 * @param TemplateData The template defining the entities' archetype and initial values.
@@ -353,6 +406,9 @@ public:
 	 */
 	void BuildEntitiesDefer(FMassExecutionContext& Context, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
 
+	/**
+	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the template's composition !!!)
+	 */
 	void BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
 
 	/**
@@ -839,6 +895,42 @@ public:
 		return Manager->RemoveConstSharedFragmentFromEntity(EntityHandle, *T::StaticStruct());
 	}
 
+	//--------------- (新) Flag Operations ---------------
+
+	/**
+	 * 获取实体当前的 64 位标志位掩码。
+	 * @param EntityHandle The entity to check.
+	 * @return The 64-bit flag mask. Returns 0 if the entity is invalid or has no flag fragment.
+	 */
+	int64 GetEntityFlags(FMassEntityHandle EntityHandle) const;
+
+	/**
+	 * 检查实体是否拥有某个特定标志。
+	 * @param EntityHandle The entity to check.
+	 * @param FlagToTest The flag to check for.
+	 * @return True if the entity has the FEntityFlagFragment and the flag is set, false otherwise.
+	 */
+	bool HasEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToTest) const;
+
+	/**
+	 * 向实体添加一个标志。
+	 * (如果 FEntityFlagFragment 不存在，会自动添加)
+	 * @param EntityHandle The entity to modify.
+	 * @param FlagToSet The flag to add.
+	 * @return True if the flag was successfully set (or was already set), false on failure (e.g., invalid entity).
+	 */
+	bool SetEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToSet) const;
+
+	/**
+	 * 从实体移除一个标志。
+	 * (如果 FEntityFlagFragment 不存在，此操作无效)
+	 * @param EntityHandle The entity to modify.
+	 * @param FlagToClear The flag to remove.
+	 * @return True if the flag was successfully cleared (or was already clear), false on failure.
+	 */
+	bool ClearEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToClear) const;
+
+
 	//--------------- Entity Data Operations - Deferred ---------------
 
 	/**
@@ -906,6 +998,8 @@ public:
 			CommandBuffer.RemoveTag<T>(EntityHandle);
 		}
 
+
+
 		/**
 		 * Deferred swap tags.
 		 * @param EntityHandle The entity to swap tags on.
@@ -966,3 +1060,5 @@ protected:
 		Manager->CheckIfEntityIsActive(EntityHandle);
 	}
 };
+
+

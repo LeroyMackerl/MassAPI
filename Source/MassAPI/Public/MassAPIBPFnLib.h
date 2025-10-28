@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "MassAPISubsystem.h"
+#include "MassAPIEnums.h" // (新) 包含新的枚举头文件
 #include "MassAPIBPFnLib.generated.h"
 
 // Forward declaration for the generic struct placeholder used in CustomThunks
@@ -25,37 +26,37 @@ public:
 	/**
 	 * Checks if the entity handle is valid and the corresponding entity is alive and fully created.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "IsValid (EntityHandle)", Keywords = "valid isvalid mass entity"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "IsValid (EntityHandle)", Keywords = "valid isvalid mass entity"))
 	static bool IsValid(const UObject* WorldContextObject, const FEntityHandle& EntityHandle);
 
 	/**
 	 * Checks if an entity has a specific fragment.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Has Mass Fragment", Keywords = "has hasfragment mass entity fragment"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Has Mass Fragment", Keywords = "has hasfragment mass entity fragment"))
 	static bool HasFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassFragment")) UScriptStruct* FragmentType);
 
 	/**
 	 * Checks if an entity has a specific tag.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Has Mass Tag", Keywords = "has hastag mass entity tag"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Has Mass Tag", Keywords = "has hastag mass entity tag"))
 	static bool HasTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassTag")) UScriptStruct* TagType);
 
 	/**
 	 * Gets a copy of a fragment's data from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Mass Fragment", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment", Keywords = "get getfragment gf mass entity fragment"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Mass Fragment", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment", Keywords = "get getfragment gf mass entity fragment"))
 	static void GetFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 
 	/**
 	 * Sets the data for an existing fragment on an entity, or adds it if it doesn't exist.
 	 */
-	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Mass Fragment", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment", Keywords = "set setfragment sf mass entity fragment"))
+	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Mass Fragment", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment", Keywords = "set setfragment sf mass entity fragment"))
 	static void SetFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment, bool& bSuccess);
 
 	/**
 	 * Adds a tag to an entity. Does nothing if the tag already exists.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Add Mass Tag", Keywords = "add tag mass entity"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Add Mass Tag", Keywords = "add tag mass entity"))
 	static void AddTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassTag")) UScriptStruct* TagType);
 
 	/**
@@ -63,7 +64,7 @@ public:
 	 * @param WorldContextObject The world context.
 	 * @param EntityHandle The handle to the entity to destroy.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Destroy Entity", Keywords = "destroy delete remove mass entity"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Destroy Entity", Keywords = "destroy delete remove mass entity"))
 	static void DestroyEntity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle);
 
 	//----------------------------------------------------------------------//
@@ -75,7 +76,7 @@ public:
 	 * @param WorldContextObject The world context.
 	 * @param EntityHandles An array of entity handles to destroy.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Destroy Entities", Keywords = "destroy delete remove batch mass entity"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Destroy Entities", Keywords = "destroy delete remove batch mass entity"))
 	static void DestroyEntities(const UObject* WorldContextObject, const TArray<FEntityHandle>& EntityHandles);
 
 	// Batch Add/Remove Tag removed as requested
@@ -87,13 +88,13 @@ public:
 	/**
 	 * Gets a copy of a shared fragment's data from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Shared Mass Fragment", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment", Keywords = "get shared mass entity fragment"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Shared Mass Fragment", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment", Keywords = "get shared mass entity fragment"))
 	static void GetSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 
 	/**
 	 * Sets the shared fragment for an entity. This might change the entity's archetype.
 	 */
-	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Shared Mass Fragment", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment", Keywords = "set shared mass entity fragment"))
+	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Shared Mass Fragment", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment", Keywords = "set shared mass entity fragment"))
 	static void SetSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassSharedFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment, bool& bSuccess);
 
 	//----------------------------------------------------------------------//
@@ -103,13 +104,13 @@ public:
 	/**
 	 * Gets a copy of a const shared fragment's data from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Const Shared Mass Fragment", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment", Keywords = "get const shared mass entity fragment"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Const Shared Mass Fragment", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment", Keywords = "get const shared mass entity fragment"))
 	static void GetConstSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 
 	/**
 	 * Sets the const shared fragment for an entity. This might change the entity's archetype.
 	 */
-	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Const Shared Mass Fragment", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment", Keywords = "set const shared mass entity fragment"))
+	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Const Shared Mass Fragment", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment", Keywords = "set const shared mass entity fragment"))
 	static void SetConstSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassConstSharedFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment, bool& bSuccess);
 
 
@@ -123,7 +124,7 @@ public:
 	 * @param TemplateData The template data to use for building the entity.
 	 * @return The handle to the newly created entity. Will be invalid if building fails.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entity From Template Data"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entity From Template Data"))
 	static FEntityHandle BuildEntityFromTemplateData(const UObject* WorldContextObject, const FEntityTemplateData& TemplateData);
 
 	/**
@@ -133,7 +134,7 @@ public:
 	 * @param TemplateData The template data to use for building the entities.
 	 * @return An array of handles to the newly created entities.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Mass|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entities From Template Data"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entities From Template Data"))
 	static TArray<FEntityHandle> BuildEntitiesFromTemplateData(const UObject* WorldContextObject, int32 Quantity, const FEntityTemplateData& TemplateData);
 
 
@@ -145,64 +146,101 @@ public:
 	 * Converts an FEntityTemplate into a modifiable FEntityTemplateData handle.
 	 * This creates a new template data instance that can be edited with other nodes.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Mass|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Template Data"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Template Data"))
 	static FEntityTemplateData GetTemplateData(const UObject* WorldContextObject, const FEntityTemplate& Template);
 
 	/**
 	 * Checks if the template data is empty (contains no fragments or tags).
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Mass|Template", meta = (DisplayName = "IsEmpty (TemplateData)"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Template", meta = (DisplayName = "IsEmpty (TemplateData)"))
 	static bool IsEmpty_TemplateData(const FEntityTemplateData& TemplateData);
 
 	/**
 	 * Checks if the template data contains a specific fragment type.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Mass|Template", meta = (DisplayName = "Has Fragment (TemplateData)"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Template", meta = (DisplayName = "Has Fragment (TemplateData)"))
 	static bool HasFragment_TemplateData(const FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassFragment")) UScriptStruct* FragmentType);
 
 	/**
 	 * Adds a tag to the template data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Mass|Template", meta = (DisplayName = "Add Tag (TemplateData)"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", meta = (DisplayName = "Add Tag (TemplateData)"))
 	static void AddTag_TemplateData(UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassTag")) UScriptStruct* TagType);
 
 	/**
 	 * Removes a tag from the template data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Mass|Template", meta = (DisplayName = "Remove Tag (TemplateData)"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", meta = (DisplayName = "Remove Tag (TemplateData)"))
 	static void RemoveTag_TemplateData(UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassTag")) UScriptStruct* TagType);
 
 	/**
 	 * Checks if the template data contains a specific tag type.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Mass|Template", meta = (DisplayName = "Has Tag (TemplateData)"))
-	static bool HasTag_TemplateData(const FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassTag")) UScriptStruct* TagType);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Template", meta = (DisplayName = "Has Tag (TemplateData)"))
+	static bool HasTag_TemplateData(const FEntityTemplateData& TemplateData, UScriptStruct* TagType);
 
 	/**
 	 * Gets a copy of a fragment's initial value from the template data.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Template", meta = (DisplayName = "Get Fragment from Template", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Template", meta = (DisplayName = "Get Fragment from Template", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
 	static void GetFragmentFromTemplate(const FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 
 	/**
 	 * Adds or sets a fragment's initial value in the template data.
 	 */
-	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Template", meta = (DisplayName = "Set Fragment in Template", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
+	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Template", meta = (DisplayName = "Set Fragment in Template", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetFragmentInTemplate(UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment);
 
 	/**
 	 * Adds or sets a shared fragment's value in the template data.
 	 */
-	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Shared Fragment in Template", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
+	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Shared Fragment in Template", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassSharedFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment);
 
 	/**
 	 * Adds or sets a const shared fragment's value in the template data.
 	 */
-	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "Mass|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Const Shared Fragment in Template", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
+	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Const Shared Fragment in Template", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetConstSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassConstSharedFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment);
 
 
+	//----------------------------------------------------------------------//
+	// (新) Flag Fragment Operations (TemplateData)
+	//----------------------------------------------------------------------//
+
+	/**
+	 * (新) 获取模板数据中 FEntityFlagFragment 的 64 位标志位掩码。
+	 * @param TemplateData The template data to check.
+	 * @return The 64-bit flag mask. Returns 0 if the template is invalid or has no flag fragment.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Template|Flags", meta = (DisplayName = "Get Template Flags (Bitmask)"))
+	static int64 GetTemplateFlags(const FEntityTemplateData& TemplateData);
+
+	/**
+	 * (新) 检查模板数据是否拥有某个特定标志。
+	 * @param TemplateData The template data to check.
+	 * @param FlagToTest The flag to check for.
+	 * @return True if the template has the FEntityFlagFragment and the flag is set, false otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Template|Flags", meta = (DisplayName = "Has Template Flag", CompactNodeTitle = "HAS"))
+	static bool HasTemplateFlag(const FEntityTemplateData& TemplateData, EEntityFlags FlagToTest);
+
+	/**
+	 * (新) 向模板数据添加一个标志。
+	 * (如果 FEntityFlagFragment 不存在，会自动添加)
+	 * @param TemplateData The template data to modify.
+	 * @param FlagToSet The flag to add.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template|Flags", meta = (DisplayName = "Set Template Flag", CompactNodeTitle = "SET"))
+	static void SetTemplateFlag(UPARAM(ref) FEntityTemplateData& TemplateData, EEntityFlags FlagToSet);
+
+	/**
+	 * (新) 从模板数据移除一个标志。
+	 * @param TemplateData The template data to modify.
+	 * @param FlagToClear The flag to remove.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template|Flags", meta = (DisplayName = "Clear Template Flag", CompactNodeTitle = "CLEAR"))
+	static void ClearTemplateFlag(UPARAM(ref) FEntityTemplateData& TemplateData, EEntityFlags FlagToClear);
 	//----------------------------------------------------------------------//
 	// Entity Querying & BP Processors
 	//----------------------------------------------------------------------//
@@ -214,7 +252,7 @@ public:
 	 * @param Query The query to match against.
 	 * @return True if the entity matches the query (passes All, Any, and None requirements), false otherwise.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Mass|Query", meta = (WorldContext = "WorldContextObject", DisplayName = "Match Entity Query", Keywords = "match query filter mass entity"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject", DisplayName = "Match Entity Query", Keywords = "match query filter mass entity"))
 	static bool MatchEntityQuery(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(ref) const FEntityQuery& Query);
 
 	/**
@@ -225,8 +263,58 @@ public:
 	 * @param Query The query describing the required components.
 	 * @return An array of matching entity handles.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Mass|Query", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Matching Entities", Keywords = "get query filter mass entity entities array"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Matching Entities", Keywords = "get query filter mass entity entities array"))
 	static TArray<FEntityHandle> GetMatchingEntities(const UObject* WorldContextObject, UPARAM(ref) const FEntityQuery& Query);
+
+
+	//----------------------------------------------------------------------//
+	// (新) Flag Fragment Operations (已重构)
+	//----------------------------------------------------------------------//
+
+	/**
+	 * 获取实体当前的 64 位标志位掩码。
+	 * @param WorldContextObject The world context.
+	 * @param EntityHandle The entity to check.
+	 * @return The 64-bit flag mask. Returns 0 if the entity is invalid or has no flag fragment.
+	 */
+	//UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Flags", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Entity Flags (Bitmask)"))
+	static int64 GetEntityFlags(const UObject* WorldContextObject, const FEntityHandle& EntityHandle);
+
+	/**
+	 * 检查实体是否拥有某个特定标志。
+	 * @param WorldContextObject The world context.
+	 * @param EntityHandle The entity to check.
+	 * @param FlagToTest The flag to check for.
+	 * @return True if the entity has the FEntityFlagFragment and the flag is set, false otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Flags", meta = (WorldContext = "WorldContextObject", DisplayName = "Has Entity Flag", CompactNodeTitle = "HAS"))
+	static bool HasEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToTest);
+
+	/**
+	 * 向实体添加一个标志。
+	 * (如果 FEntityFlagFragment 不存在，会自动添加)
+	 * @param WorldContextObject The world context.
+	 * @param EntityHandle The entity to modify.
+	 * @param FlagToSet The flag to add.
+	 * @return True if the flag was successfully set (or was already set), false on failure (e.g., invalid entity).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flags", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Entity Flag", CompactNodeTitle = "SET"))
+	static bool SetEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToSet);
+
+	/**
+	 * 从实体移除一个标志。
+	 * (如果 FEntityFlagFragment 不存在，此操作无效)
+	 * @param WorldContextObject The world context.
+	 * @param EntityHandle The entity to modify.
+	 * @param FlagToClear The flag to remove.
+	 * @return True if the flag was successfully cleared (or was already clear), false on failure.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flags", meta = (WorldContext = "WorldContextObject", DisplayName = "Clear Entity Flag", CompactNodeTitle = "CLEAR"))
+	static bool ClearEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToClear);
+
+	/** 将一个 EEntityFlags 数组转换为一个 int64 位掩码。 (此函数保持不变) */
+	//UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Flags", meta = (DisplayName = "Convert Flags Array to Bitmask", CompactNodeTitle = "-> Bitmask"))
+	static int64 ConvertFlagsArrayToBitmask(const TArray<EEntityFlags>& Flags);
 
 
 private:

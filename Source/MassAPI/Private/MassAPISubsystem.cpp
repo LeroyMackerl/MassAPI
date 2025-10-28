@@ -2,7 +2,10 @@
 #include "MassAPISubsystem.h"
 #include "Engine/World.h"
 #include "MassCommands.h"
+#include "MassEntityManager.h" // [ADDED] Include for logging entity handle
 
+// [ADDED] Define a log category for MassAPI, or use LogTemp if you prefer.
+DEFINE_LOG_CATEGORY_STATIC(LogMassAPI, Log, All);
 
 void UMassAPISubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -82,13 +85,14 @@ TArray<FMassEntityHandle> UMassAPISubsystem::BuildEntities(int32 Quantity, FMass
         return SpawnedEntities;
     }
 
-    // Reserve space for the entities array
-    SpawnedEntities.Reserve(Quantity);
+    // (!!! MODIFICATION: Create a copy of the composition and add FEntityFlagFragment !!!)
+    // FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor(); // [DELETED]
+    // Composition.Fragments.Add(*FEntityFlagFragment::StaticStruct()); // [DELETED]
 
-    // Create an archetype from the template data
+    // Create an archetype from the MODIFIED template data composition
     FMassArchetypeHandle ArchetypeHandle = Manager->CreateArchetype
     (
-        TemplateData.GetCompositionDescriptor(),
+        TemplateData.GetCompositionDescriptor(), // [RESTORED] Use original composition
         TemplateData.GetArchetypeCreationParams()
     );
 
@@ -139,7 +143,11 @@ FMassEntityHandle UMassAPISubsystem::BuildEntityDefer(FMassExecutionContext& Con
     const FMassEntityHandle ReservedEntity = Manager->ReserveEntity();
 
     // 2. Capture template data by value for deferred execution
-    const FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor();
+    // (!!! MODIFICATION: Create a copy of the composition and add FEntityFlagFragment !!!)
+    // FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor(); // [DELETED]
+    // Composition.Fragments.Add(*FEntityFlagFragment::StaticStruct()); // [DELETED]
+
+    const FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor(); // [RESTORED]
     const FMassArchetypeCreationParams CreationParams = TemplateData.GetArchetypeCreationParams();
     const FMassArchetypeSharedFragmentValues SharedValues = TemplateData.GetSharedFragmentValues();
     const TArray<FInstancedStruct> InitialFragments(TemplateData.GetInitialFragmentValues());
@@ -147,7 +155,7 @@ FMassEntityHandle UMassAPISubsystem::BuildEntityDefer(FMassExecutionContext& Con
     // 3. Push deferred creation command
     Context.Defer().PushCommand<FMassDeferredCreateCommand>([ReservedEntity, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& EntityManager)
         {
-            // Get or create archetype
+            // Get or create archetype (using the modified Composition)
             const FMassArchetypeHandle ArchetypeHandle = EntityManager.CreateArchetype(Composition, CreationParams);
             if (!ArchetypeHandle.IsValid())
             {
@@ -178,7 +186,11 @@ FMassEntityHandle UMassAPISubsystem::BuildEntityDefer(FMassCommandBuffer& Comman
     const FMassEntityHandle ReservedEntity = Manager->ReserveEntity();
 
     // 2. Capture template data by value for deferred execution
-    const FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor();
+    // (!!! MODIFICATION: Create a copy of the composition and add FEntityFlagFragment !!!)
+    // FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor(); // [DELETED]
+    // Composition.Fragments.Add(*FEntityFlagFragment::StaticStruct()); // [DELETED]
+
+    const FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor(); // [RESTORED]
     const FMassArchetypeCreationParams CreationParams = TemplateData.GetArchetypeCreationParams();
     const FMassArchetypeSharedFragmentValues SharedValues = TemplateData.GetSharedFragmentValues();
     const TArray<FInstancedStruct> InitialFragments(TemplateData.GetInitialFragmentValues());
@@ -186,7 +198,7 @@ FMassEntityHandle UMassAPISubsystem::BuildEntityDefer(FMassCommandBuffer& Comman
     // 3. Push deferred creation command
     CommandBuffer.PushCommand<FMassDeferredCreateCommand>([ReservedEntity, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& EntityManager)
         {
-            // Get or create archetype
+            // Get or create archetype (using the modified Composition)
             const FMassArchetypeHandle ArchetypeHandle = EntityManager.CreateArchetype(Composition, CreationParams);
             if (!ArchetypeHandle.IsValid())
             {
@@ -222,7 +234,11 @@ void UMassAPISubsystem::BuildEntitiesDefer(FMassExecutionContext& Context, int32
     OutEntities.Append(ReservedEntities);
 
     // 2. Capture template data by value
-    const FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor();
+    // (!!! MODIFICATION: Create a copy of the composition and add FEntityFlagFragment !!!)
+    // FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor(); // [DELETED]
+    // Composition.Fragments.Add(*FEntityFlagFragment::StaticStruct()); // [DELETED]
+
+    const FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor(); // [RESTORED]
     const FMassArchetypeCreationParams CreationParams = TemplateData.GetArchetypeCreationParams();
     const FMassArchetypeSharedFragmentValues SharedValues = TemplateData.GetSharedFragmentValues();
     const TArray<FInstancedStruct> InitialFragments(TemplateData.GetInitialFragmentValues());
@@ -230,7 +246,7 @@ void UMassAPISubsystem::BuildEntitiesDefer(FMassExecutionContext& Context, int32
     // 3. Push deferred creation command
     Context.Defer().PushCommand<FMassDeferredCreateCommand>([ReservedEntities, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& EntityManager)
         {
-            // Get or create archetype
+            // Get or create archetype (using the modified Composition)
             const FMassArchetypeHandle ArchetypeHandle = EntityManager.CreateArchetype(Composition, CreationParams);
             if (!ArchetypeHandle.IsValid())
             {
@@ -269,7 +285,11 @@ void UMassAPISubsystem::BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, in
     OutEntities.Append(ReservedEntities);
 
     // 2. Capture template data by value
-    const FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor();
+    // (!!! MODIFICATION: Create a copy of the composition and add FEntityFlagFragment !!!)
+    // FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor(); // [DELETED]
+    // Composition.Fragments.Add(*FEntityFlagFragment::StaticStruct()); // [DELETED]
+
+    const FMassArchetypeCompositionDescriptor Composition = TemplateData.GetCompositionDescriptor(); // [RESTORED]
     const FMassArchetypeCreationParams CreationParams = TemplateData.GetArchetypeCreationParams();
     const FMassArchetypeSharedFragmentValues SharedValues = TemplateData.GetSharedFragmentValues();
     const TArray<FInstancedStruct> InitialFragments(TemplateData.GetInitialFragmentValues());
@@ -277,7 +297,7 @@ void UMassAPISubsystem::BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, in
     // 3. Push deferred creation command
     CommandBuffer.PushCommand<FMassDeferredCreateCommand>([ReservedEntities, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& EntityManager)
         {
-            // Get or create archetype
+            // Get or create archetype (using the modified Composition)
             const FMassArchetypeHandle ArchetypeHandle = EntityManager.CreateArchetype(Composition, CreationParams);
             if (!ArchetypeHandle.IsValid())
             {
@@ -300,5 +320,111 @@ void UMassAPISubsystem::BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, in
                 EntityManager.BatchSetEntityFragmentValues(EntityCollections, InitialFragments);
             }
         });
+}
+
+//----------------------------------------------------------------------//
+// (新) Flag Fragment Operations
+//----------------------------------------------------------------------//
+
+int64 UMassAPISubsystem::GetEntityFlags(FMassEntityHandle EntityHandle) const
+{
+    FMassEntityManager* Manager = GetEntityManager();
+    if (!Manager || !Manager->IsEntityValid(EntityHandle))
+    {
+        return 0;
+    }
+
+    if (const FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+    {
+        return FlagFragment->Flags;
+    }
+
+    // [MODIFIED] Log a warning if the fragment is missing
+    UE_LOG(LogMassAPI, Warning, TEXT("GetEntityFlags: Entity does not have FEntityFlagFragment. Add the fragment to the entity template or manually."));
+    return 0;
+}
+
+bool UMassAPISubsystem::HasEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToTest) const
+{
+    if (FlagToTest >= EEntityFlags::EEntityFlags_MAX)
+    {
+        return false;
+    }
+
+    // [MODIFIED] Get fragment directly without logging.
+    FMassEntityManager* Manager = GetEntityManager();
+    if (!Manager || !Manager->IsEntityValid(EntityHandle))
+    {
+        return false;
+    }
+
+    if (const FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+    {
+        // [MODIFIED] Perform check directly
+        return (FlagFragment->Flags & (1LL << static_cast<uint8>(FlagToTest))) != 0;
+    }
+
+    // const int64 EntityFlags = GetEntityFlags(EntityHandle); // [DELETED] This would log a warning
+    // return (EntityFlags & (1LL << static_cast<uint8>(FlagToTest))) != 0; // [DELETED]
+
+    // No fragment, so it can't have the flag. No log.
+    return false;
+}
+
+bool UMassAPISubsystem::SetEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToSet) const
+{
+    if (FlagToSet >= EEntityFlags::EEntityFlags_MAX)
+    {
+        return false;
+    }
+
+    FMassEntityManager* Manager = GetEntityManager();
+    if (!Manager || !Manager->IsEntityValid(EntityHandle))
+    {
+        return false;
+    }
+
+    // 如果实体没有该 Fragment，则为其添加
+    // Use the subsystem's own HasFragment method
+    // if (!HasFragment<FEntityFlagFragment>(EntityHandle)) // [DELETED]
+    // { // [DELETED]
+    // 	Manager->AddFragmentToEntity(EntityHandle, FEntityFlagFragment::StaticStruct()); // [DELETED]
+    // } // [DELETED]
+
+    // 获取可变指针
+    if (FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+    {
+        FlagFragment->Flags |= (1LL << static_cast<uint8>(FlagToSet));
+        return true;
+    }
+
+    // [MODIFIED] Log a warning if the fragment is missing
+    UE_LOG(LogMassAPI, Warning, TEXT("SetEntityFlag: Entity does not have FEntityFlagFragment. Flag not set."));
+    return false;
+}
+
+bool UMassAPISubsystem::ClearEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToClear) const
+{
+    if (FlagToClear >= EEntityFlags::EEntityFlags_MAX)
+    {
+        return false;
+    }
+
+    FMassEntityManager* Manager = GetEntityManager();
+    if (!Manager || !Manager->IsEntityValid(EntityHandle))
+    {
+        return false;
+    }
+
+    // 如果实体没有该 Fragment，则无需执行任何操作
+    if (FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+    {
+        FlagFragment->Flags &= ~(1LL << static_cast<uint8>(FlagToClear));
+        return true;
+    }
+
+    // [MODIFIED] Log a warning if the fragment is missing
+    UE_LOG(LogMassAPI, Warning, TEXT("ClearEntityFlag: Entity does not have FEntityFlagFragment. Flag not cleared."));
+    return false;
 }
 
