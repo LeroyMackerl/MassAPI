@@ -1,5 +1,8 @@
 # **MassAPI Plugin for Unreal Engine 5**
 
+[![Join Discord](https://img.shields.io/badge/Discord-Join%20Chat-blue?logo=discord)](https://discord.gg/NDPHVvBh)
+[![QQ Group](https://img.shields.io/badge/QQ%20Group-916358710-blue?logo=tencentqq)](https://jq.qq.com/?_wv=1027&k=5R5X5wX)
+
 **\[UE 5.6.1 compatible\]**
 
 MassAPI is an Unreal Engine 5 plugin designed to significantly simplify interaction with the native Mass Entity Component System (Mass ECS), particularly from Blueprints. It bridges the gap between the high-performance C++ backend of Mass and the user-friendly environment of Blueprints.
