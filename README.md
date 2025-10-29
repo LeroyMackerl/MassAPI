@@ -1,5 +1,6 @@
 # Mass API Plugin Documentation
 This doc is generated with AI. It may contain erros. Use with caution.
+https://discord.gg/8AUMxq3SgV
 
 ## Table of Contents
 * [Overview](#overview)
