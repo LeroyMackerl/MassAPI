@@ -251,13 +251,13 @@ Entity handles are lightweight references that can be safely passed around and s
 
 ### Fragment Types
 
-Mass API supports all Mass Entity fragment types:
+Mass API supports these Mass Entity fragment types:
 
 1. **Regular Fragments** (`FMassFragment`): Per-entity data, most common type
 2. **Tags** (`FMassTag`): Marker components with no data
 3. **Shared Fragments** (`FMassSharedFragment`): Mutable data shared between entities
 4. **Const Shared Fragments** (`FMassConstSharedFragment`): Immutable shared data
-5. **Chunk Fragments** (`FMassChunkFragment`): Per-chunk data for entity groups
+5. **Chunk Fragments** (`FMassChunkFragment`): Currently NOT supported
 
 ### Entity Flags System
 
