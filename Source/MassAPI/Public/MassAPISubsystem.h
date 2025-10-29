@@ -55,6 +55,20 @@ public:
 	 */
 	FMassEntityManager* GetEntityManager() const;
 
+	/**
+	 * Gets the global command buffer from the entity manager.
+	 * This is a convenience wrapper for GetEntityManager()->Defer()
+	 * WARNING: Only use this outside of processor contexts!
+	 * Inside processors, use Context.Defer() instead
+	 * @return Reference to the global command buffer
+	 */
+	FORCEINLINE FMassCommandBuffer& Defer() const
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available"));
+		return Manager->Defer();
+	}
+
 
 	//----------------- Filters ---------------
 
@@ -118,7 +132,6 @@ public:
 	}
 
 	// Check if Entity matches filter
-	// (!!! 已修改为使用新的缓存标志位掩码 !!!)
 	FORCEINLINE bool MatchQuery(const FEntityHandle EntityHandle, const FEntityQuery& Query) const
 	{
 		FMassEntityManager* Manager = GetEntityManager();
@@ -203,7 +216,6 @@ public:
 	/**
 	 * Spawn entities with mixed tags, fragments, and shared fragments
 	 * The function automatically distinguishes between different types
-	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to all created entities !!!)
 	 * @param Quantity Number of entities to spawn
 	 * @param Args Mixed tags, fragments, and shared fragments
 	 * @return Array of spawned entity handles
@@ -229,10 +241,6 @@ public:
 		FMassTagBitSet Tags;
 		FMassSharedFragmentBitSet SharedFragments;
 		FMassConstSharedFragmentBitSet ConstSharedFragments;
-
-		// (!!! MODIFICATION: Automatically add FEntityFlagFragment !!!)
-		// We add it here. If the user also passes it in TArgs, the bitset will just handle the duplicate add.
-		// Fragments.Add(*FEntityFlagFragment::StaticStruct()); // [DELETED] Reverted this change.
 
 		TArray<FInstancedStruct> FragmentInstances;
 		FMassArchetypeSharedFragmentValues SharedFragmentValues;
@@ -341,7 +349,6 @@ public:
 	 * Spawns an entity deferentially using a raw command buffer.
 	 * This is the base implementation that other overloads call.
 	 * The entity is reserved immediately, and a command is pushed to build it with the specified fragments and tags.
-	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the build command !!!)
 	 *
 	 * @param CommandBuffer The command buffer to push the build command to.
 	 * @param Args A variadic list of fragment instances and/or tag types to build the entity with.
@@ -355,9 +362,6 @@ public:
 
 		const FMassEntityHandle ReservedEntity = Manager->ReserveEntity();
 
-		// (!!! MODIFICATION: Inject FEntityFlagFragment{} into the arguments list !!!)
-		// This ensures the command builds the entity with the flag fragment, default-initialized.
-		// CommandBuffer.PushCommand<FMassCommandBuildEntity>(ReservedEntity, FEntityFlagFragment{}, Forward<TArgs>(Args)...); // [DELETED]
 		CommandBuffer.PushCommand<FMassCommandBuildEntity>(ReservedEntity, Forward<TArgs>(Args)...); // [RESTORED] Original behavior.
 
 		return ReservedEntity;
@@ -383,22 +387,17 @@ public:
 	/**
 	 * Defers the creation of a single entity using a template.
 	 * The entity is reserved immediately, and a command is pushed to the command buffer to build the entity based on the template.
-	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the template's composition !!!)
 	 * @param Context The processor's execution context, used to get the command buffer.
 	 * @param TemplateData The template defining the entity's archetype and initial values.
 	 * @return A reserved FMassEntityHandle. The entity will not be active until the command buffer is flushed.
 	 */
 	FMassEntityHandle BuildEntityDefer(FMassExecutionContext& Context, FMassEntityTemplateData& TemplateData) const;
 
-	/**
-	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the template's composition !!!)
-	 */
 	FMassEntityHandle BuildEntityDefer(FMassCommandBuffer& CommandBuffer, FMassEntityTemplateData& TemplateData) const;
 
 	/**
 	 * Defers the creation of multiple entities using a template.
 	 * The entities are reserved immediately, and a command is pushed to the command buffer to build them based on the template.
-	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the 's composition !!!)
 	 * @param Context The processor's execution context, used to get the command buffer.
 	 * @param Quantity The number of entities to create.
 	 * @param TemplateData The template defining the entities' archetype and initial values.
@@ -406,9 +405,6 @@ public:
 	 */
 	void BuildEntitiesDefer(FMassExecutionContext& Context, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
 
-	/**
-	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment to the template's composition !!!)
-	 */
 	void BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
 
 	/**
@@ -978,113 +974,163 @@ public:
 	bool ClearEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToClear) const;
 
 
-	//--------------- Entity Data Operations - Deferred ---------------
+	//--------------- Entity Data Operations - Deferred with Execution Context ---------------
 
 	/**
-		* Deferred operations helper class, updated for modern FMassCommandBuffer API.
-		*/
-	struct FDefer
+	* Deferred add fragment with default value using execution context
+	* Safe for use in Mass processors
+	* @param Context The execution context from the processor
+	* @param EntityHandle The entity to add the fragment to
+	*/
+	template<typename T>
+	FORCEINLINE void AddFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
 	{
-	public:
-		FORCEINLINE FDefer(FMassCommandBuffer& InCommandBuffer) : CommandBuffer(InCommandBuffer) {}
-
-		/**
-		 * Deferred add fragment with a specific initial value.
-		 * Note: This still uses PushCommand as there's no high-level wrapper for adding a fragment with an initial value.
-		 * @param EntityHandle The entity to add the fragment to.
-		 * @param FragmentValue The initial value for the new fragment.
-		 */
-		template<typename T>
-		FORCEINLINE void AddFragment(FMassEntityHandle EntityHandle, const T& FragmentValue)
-		{
-			static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
-			CommandBuffer.PushCommand<FMassCommandAddFragmentInstances>(EntityHandle, FragmentValue);
-		}
-
-		/**
-		 * Deferred add fragment with its default-constructed value.
-		 * @param EntityHandle The entity to add the fragment to.
-		 */
-		template<typename T>
-		FORCEINLINE void AddFragment(FMassEntityHandle EntityHandle)
-		{
-			static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
-			CommandBuffer.AddFragment<T>(EntityHandle);
-		}
-
-		/**
-		 * Deferred remove fragment.
-		 * @param EntityHandle The entity to remove fragment from.
-		 */
-		template<typename T>
-		FORCEINLINE void RemoveFragment(FMassEntityHandle EntityHandle)
-		{
-			static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
-			CommandBuffer.RemoveFragment<T>(EntityHandle);
-		}
-
-		/**
-		 * Deferred add tag.
-		 * @param EntityHandle The entity to add tag to.
-		 */
-		template<typename T>
-		FORCEINLINE void AddTag(FMassEntityHandle EntityHandle)
-		{
-			static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
-			CommandBuffer.AddTag<T>(EntityHandle);
-		}
-
-		/**
-		 * Deferred remove tag.
-		 * @param EntityHandle The entity to remove tag from.
-		 */
-		template<typename T>
-		FORCEINLINE void RemoveTag(FMassEntityHandle EntityHandle)
-		{
-			static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
-			CommandBuffer.RemoveTag<T>(EntityHandle);
-		}
-
-
-
-		/**
-		 * Deferred swap tags.
-		 * @param EntityHandle The entity to swap tags on.
-		 */
-		template<typename TOld, typename TNew>
-		FORCEINLINE void SwapTags(FMassEntityHandle EntityHandle)
-		{
-			static_assert(UE::Mass::CTag<TOld>, "TOld must be a valid tag type inheriting from FMassTag");
-			static_assert(UE::Mass::CTag<TNew>, "TNew must be a valid tag type inheriting from FMassTag");
-			CommandBuffer.SwapTags<TOld, TNew>(EntityHandle);
-		}
-
-		/**
-		 * Deferred destroy entity.
-		 * @param EntityHandle The entity to destroy.
-		 */
-		FORCEINLINE void DestroyEntity(FMassEntityHandle EntityHandle)
-		{
-			CommandBuffer.DestroyEntity(EntityHandle);
-		}
-
-		// Regarding Shared Fragments: Deferred operations on Shared Fragments are not directly supported
-		// by the standard FMassCommandBuffer. This requires more advanced, custom handling.
-
-	private:
-		FMassCommandBuffer& CommandBuffer;
-	};
-
-	/**
-	 * Get deferred operations helper for chaining deferred operations
-	 * Usage: MA.Defer().SetFragment(EntityHandle, Fragment)
-	 */
-	FORCEINLINE FDefer Defer() const
-	{
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for Defer"));
-		return FDefer(Manager->Defer());
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		Context.Defer().AddFragment<T>(EntityHandle);
 	}
+
+	/**
+	 * Deferred add fragment with specific value using execution context
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to add the fragment to
+	 * @param FragmentValue The initial value for the new fragment
+	 */
+	template<typename T>
+	FORCEINLINE void AddFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, const T& FragmentValue) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		Context.Defer().PushCommand<FMassCommandAddFragmentInstances>(EntityHandle, FragmentValue);
+	}
+
+	/**
+	 * Deferred remove fragment using execution context
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to remove fragment from
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		Context.Defer().RemoveFragment<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred add tag using execution context
+	 * Safe for use in Mass processors
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to add tag to
+	 */
+	template<typename T>
+	FORCEINLINE void AddTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		Context.Defer().AddTag<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred remove tag using execution context
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to remove tag from
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		Context.Defer().RemoveTag<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred swap tags using execution context
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to swap tags on
+	 */
+	template<typename TOld, typename TNew>
+	FORCEINLINE void SwapTags(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<TOld>, "TOld must be a valid tag type inheriting from FMassTag");
+		static_assert(UE::Mass::CTag<TNew>, "TNew must be a valid tag type inheriting from FMassTag");
+		Context.Defer().SwapTags<TOld, TNew>(EntityHandle);
+	}
+
+
+	//--------------- Entity Data Operations - Deferred with Command Buffer ---------------
+
+	/**
+	 * Deferred add fragment with default value using command buffer
+	 * Use this when you have direct access to a command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to add the fragment to
+	 */
+	template<typename T>
+	FORCEINLINE void AddFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		CommandBuffer.AddFragment<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred add fragment with specific value using command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to add the fragment to
+	 * @param FragmentValue The initial value for the new fragment
+	 */
+	template<typename T>
+	FORCEINLINE void AddFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, const T& FragmentValue) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		CommandBuffer.PushCommand<FMassCommandAddFragmentInstances>(EntityHandle, FragmentValue);
+	}
+
+	/**
+	 * Deferred remove fragment using command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to remove fragment from
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		CommandBuffer.RemoveFragment<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred add tag using command buffer
+	 * Use this when you have direct access to a command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to add tag to
+	 */
+	template<typename T>
+	FORCEINLINE void AddTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		CommandBuffer.AddTag<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred remove tag using command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to remove tag from
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		CommandBuffer.RemoveTag<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred swap tags using command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to swap tags on
+	 */
+	template<typename TOld, typename TNew>
+	FORCEINLINE void SwapTags(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<TOld>, "TOld must be a valid tag type inheriting from FMassTag");
+		static_assert(UE::Mass::CTag<TNew>, "TNew must be a valid tag type inheriting from FMassTag");
+		CommandBuffer.SwapTags<TOld, TNew>(EntityHandle);
+	}
+
 
 private:
 	//------------------- Other ---------------
