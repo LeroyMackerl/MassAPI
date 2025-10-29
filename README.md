@@ -1,95 +1,88 @@
+````markdown
 # Mass API Plugin Documentation
 
 ## Table of Contents
-1. [Overview](#overview)
-2. [Installation & Setup](#installation--setup)
-3. [Quick Start Guide](#quick-start-guide)
-4. [Core Concepts](#core-concepts)
-5. [C++ API Reference](#c-api-reference)
-6. [Blueprint API Reference](#blueprint-api-reference)
-7. [K2 Node System](#k2-node-system)
-8. [Advanced Topics](#advanced-topics)
-9. [Best Practices](#best-practices)
-10. [Common Pitfalls](#common-pitfalls)
-11. [Conclusion](#conclusion)
+* [Overview](#overview)
+* [Installation & Setup](#installation--setup)
+* [Quick Start Guide](#quick-start-guide)
+* [Core Concepts](#core-concepts)
+* [C++ API Reference](#c-api-reference)
+* [Blueprint API Reference](#blueprint-api-reference)
+* [K2 Node System](#k2-node-system)
+* [Advanced Topics](#advanced-topics)
+* [Best Practices](#best-practices)
+* [Common Pitfalls](#common-pitfalls)
+* [Conclusion](#conclusion)
 
 ---
 
 ## Overview
-
 The Mass API Plugin is a comprehensive wrapper for Unreal Engine's Mass Entity framework, designed to make the powerful but complex Mass Entity Component System (ECS) accessible to both C++ developers and Blueprint users. This plugin bridges the gap between the high-performance, data-oriented Mass Entity system and Unreal's traditional object-oriented workflow.
 
 ### Why Mass API?
-
 The Mass Entity framework in Unreal Engine 5 provides exceptional performance for managing thousands or millions of entities through data-oriented design. However, its native API can be challenging to work with, especially in Blueprints. The Mass API plugin addresses these challenges by:
 
-1. **Simplifying Entity Operations**: Providing intuitive functions for creating, modifying, and querying entities
-2. **Blueprint Support**: Full Blueprint integration through custom K2 nodes and function libraries
-3. **Type Safety**: Maintaining compile-time type checking while offering runtime flexibility
-4. **Performance**: Zero-overhead abstractions that don't sacrifice the performance benefits of Mass Entity
-5. **Dynamic Flags System**: A flexible 64-bit flag system for runtime entity state management without archetype changes
+* **Simplifying Entity Operations**: Providing intuitive functions for creating, modifying, and querying entities
+* **Blueprint Support**: Full Blueprint integration through custom K2 nodes and function libraries
+* **Type Safety**: Maintaining compile-time type checking while offering runtime flexibility
+* **Performance**: Zero-overhead abstractions that don't sacrifice the performance benefits of Mass Entity
+* **Dynamic Flags System**: A flexible 64-bit flag system for runtime entity state management without archetype changes
 
 ### When to Use Mass API vs Native Mass
 
 **Use Mass API when:**
-- Working outside of Mass processors (gameplay code, subsystems, actors)
-- Spawning entities from Blueprint or gameplay events
-- Performing simple entity queries and iterations
-- Need Blueprint support for entity operations
-- Want cleaner syntax for deferred operations
+* Working outside of Mass processors (gameplay code, subsystems, actors)
+* Spawning entities from Blueprint or gameplay events
+* Performing simple entity queries and iterations
+* Need Blueprint support for entity operations
+* Want cleaner syntax for deferred operations
 
 **Use Native Mass API when:**
-- Inside Mass processors (for optimal performance)
-- Performing chunk-based operations
-- Need direct access to fragment views
-- Working with complex archetype operations
+* Inside Mass processors (for optimal performance)
+* Performing chunk-based operations
+* Need direct access to fragment views
+* Working with complex archetype operations
 
 ### Key Features
-
-- **Unified API**: Single subsystem (`UMassAPISubsystem`) as the primary entry point
-- **Simplified Command Buffer Access**: New `Defer()` method for cleaner deferred operations
-- **Entity Handles**: Blueprint-compatible wrapper (`FEntityHandle`) for Mass entity references
-- **Query System**: Powerful entity filtering through `FEntityQuery` with All/Any/None logic and flag support
-- **Template System**: Reusable entity templates for efficient batch creation
-- **Flag Fragment**: Dynamic 64-bit flags that don't cause archetype migrations
-- **Thread-Safe Deferred Operations**: Explicit command buffer parameters for safe multi-threaded execution
-- **Full Fragment Support**: Works with all Mass fragment types (regular, shared, const shared, chunk, and tags)
+* **Unified API**: Single subsystem (`UMassAPISubsystem`) as the primary entry point
+* **Simplified Command Buffer Access**: New `Defer()` method for cleaner deferred operations
+* **Entity Handles**: Blueprint-compatible wrapper (`FEntityHandle`) for Mass entity references
+* **Query System**: Powerful entity filtering through `FEntityQuery` with All/Any/None logic and flag support
+* **Template System**: Reusable entity templates for efficient batch creation
+* **Flag Fragment**: Dynamic 64-bit flags that don't cause archetype migrations
+* **Thread-Safe Deferred Operations**: Explicit command buffer parameters for safe multi-threaded execution
+* **Full Fragment Support**: Works with all Mass fragment types (regular, shared, const shared, chunk, and tags)
 
 ---
 
 ## Installation & Setup
 
 ### Prerequisites
-
-- Unreal Engine 5.6 or later
-- MassGameplay plugin enabled
-- C++ project (for full functionality)
+* Unreal Engine 5.6 or later
+* `MassGameplay` plugin enabled
+* C++ project (for full functionality)
 
 ### Installation Steps
-
-1. **Add the Plugin**: Copy the MassAPI folder to your project's Plugins directory
-
-2. **Enable Dependencies**: In your project's `.uproject` file or through the Plugins window, ensure these are enabled:
-   - MassGameplay
-   - MassEntity (automatically enabled with MassGameplay)
-   - MassAPI
-
-3. **Configure Build**: Add to your module's `.Build.cs` file:
-   ```csharp
-   PublicDependencyModuleNames.AddRange(new string[] { 
-       "MassAPI",
-       "MassEntity",
-       "MassCommon",
-       "StructUtils"
-   });
-   ```
-
-4. **Include Headers**: In your C++ code:
-   ```cpp
-   #include "MassAPISubsystem.h"
-   #include "MassAPIStructs.h"
-   #include "MassAPIEnums.h"
-   ```
+1.  **Add the Plugin**: Copy the `MassAPI` folder to your project's `Plugins` directory
+2.  **Enable Dependencies**: In your project's `.uproject` file or through the Plugins window, ensure these are enabled:
+    * `MassGameplay`
+    * `MassEntity` (automatically enabled with `MassGameplay`)
+    * `MassAPI`
+3.  **Configure Build**: Add to your module's `.Build.cs` file:
+    ```cpp
+    PublicDependencyModuleNames.AddRange(new string[] { 
+        "MassAPI",
+        "MassEntity",
+        "MassCommon",
+        "StructUtils"
+    });
+    ```
+4.  **Include Headers**: In your C++ code:
+    ```cpp
+    #include "MassAPISubsystem.h"
+    #include "MassAPIStructs.h"
+    #include "MassAPIEnums.h"
+    ```
 
 ---
 
@@ -135,15 +128,15 @@ MassAPI.Defer()
     .RemoveFragment<FTempFragment>(Enemies[1])
     .DestroyEntity(Enemies[2]);
 // Auto-flushes at end of frame
-```
+````
 
 ### Creating Entities in Blueprints
 
-1. **Get the Mass API**: Use the "Get Mass API Subsystem" node
-2. **Create Template**: Use "Create Entity Template" to define the entity composition
-3. **Add Components**: Use "Set Fragment in Template" nodes to add data
-4. **Build Entities**: Use "Build Entities from Template" to create multiple entities
-5. **Modify Entities**: Use "Set Mass Fragment" nodes to change entity data
+1.  **Get the Mass API**: Use the "Get Mass API Subsystem" node
+2.  **Create Template**: Use "Create Entity Template" to define the entity composition
+3.  **Add Components**: Use "Set Fragment in Template" nodes to add data
+4.  **Build Entities**: Use "Build Entities from Template" to create multiple entities
+5.  **Modify Entities**: Use "Set Mass Fragment" nodes to change entity data
 
 ### Working Inside Mass Processors
 
@@ -184,13 +177,13 @@ public:
 };
 ```
 
----
+-----
 
 ## Core Concepts
 
 ### Command Buffer Access
 
-The Defer() convenience method provides cleaner access to the global command buffer:
+The `Defer()` convenience method provides cleaner access to the global command buffer:
 
 ```cpp
 // OLD way (verbose):
@@ -201,6 +194,7 @@ MassAPISubsystem->Defer().AddTag<FDestroyTag>(Entity);
 ```
 
 **Important Context Rules:**
+
 ```cpp
 // OUTSIDE processors - use MassAPI->Defer()
 void GameplayFunction()
@@ -225,11 +219,12 @@ void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
 }
 ```
 
-**Why Context.Defer() is Best Practice:**
-- More concise and readable
-- Avoids unnecessary subsystem lookup
-- Makes the processor context explicit
-- Follows Unreal's Mass Entity conventions
+**Why `Context.Defer()` is Best Practice:**
+
+  * More concise and readable
+  * Avoids unnecessary subsystem lookup
+  * Makes the processor context explicit
+  * Follows Unreal's Mass Entity conventions
 
 ### Entity Handle System
 
@@ -251,13 +246,13 @@ Entity handles are lightweight references that can be safely passed around and s
 
 ### Fragment Types
 
-Mass API supports these Mass Entity fragment types:
+Mass API supports all Mass Entity fragment types:
 
-1. **Regular Fragments** (`FMassFragment`): Per-entity data, most common type
-2. **Tags** (`FMassTag`): Marker components with no data
-3. **Shared Fragments** (`FMassSharedFragment`): Mutable data shared between entities
-4. **Const Shared Fragments** (`FMassConstSharedFragment`): Immutable shared data
-5. **Chunk Fragments** (`FMassChunkFragment`): Currently NOT supported
+  * **Regular Fragments** (`FMassFragment`): Per-entity data, most common type
+  * **Tags** (`FMassTag`): Marker components with no data
+  * **Shared Fragments** (`FMassSharedFragment`): Mutable data shared between entities
+  * **Const Shared Fragments** (`FMassConstSharedFragment`): Immutable shared data
+  * **Chunk Fragments** (`FMassChunkFragment`): Per-chunk data for entity groups
 
 ### Entity Flags System
 
@@ -273,7 +268,7 @@ MassAPI.ClearEntityFlag(Entity, EEntityFlags::Flag0);  // Clear flag
 FEntityQuery Query;
 Query.AllFlags({EEntityFlags::Flag0, EEntityFlags::Flag1})  // Must have both
      .AnyFlags({EEntityFlags::Flag2, EEntityFlags::Flag3})  // Must have at least one
-     .NoneFlags({EEntityFlags::Flag4});  // Must not have
+     .NoneFlags({EExampleFlags::Flag4});  // Must not have
 ```
 
 ### Query System
@@ -297,9 +292,8 @@ Query.AllFlags({EEntityFlags::Flag0})
      .NoneFlags({EEntityFlags::Flag1});
 ```
 
-### Performance Considerations
-
-**Important:** The performance difference between `GetMatchingEntities` with a for loop and `ForEachEntityChunk` is not as significant as often assumed. For many use cases, especially with smaller entity counts or when you need random access to entities, `GetMatchingEntities` is perfectly acceptable:
+**Performance Considerations**
+Important: The performance difference between `GetMatchingEntities` with a `for` loop and `ForEachEntityChunk` is not as significant as often assumed. For many use cases, especially with smaller entity counts or when you need random access to entities, `GetMatchingEntities` is perfectly acceptable:
 
 ```cpp
 // This is NOT slow for most gameplay scenarios
@@ -311,7 +305,7 @@ for (FMassEntityHandle Enemy : Enemies)
 }
 ```
 
----
+-----
 
 ## C++ API Reference
 
@@ -319,343 +313,393 @@ for (FMassEntityHandle Enemy : Enemies)
 
 The main entry point for all Mass API operations.
 
-#### Getting the Subsystem
+#### Getting the Subsystem & Core Access
 
 ```cpp
 // Get as pointer (can be null)
-UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContext);
+static UMassAPISubsystem* GetPtr(const UObject* WorldContextObject);
 
 // Get as reference (will assert if not available)
-UMassAPISubsystem& MassAPI = UMassAPISubsystem::GetRef(WorldContext);
-```
+static UMassAPISubsystem& GetRef(const UObject* WorldContextObject);
 
-#### Command Buffer Access
+// Get the entity manager
+FMassEntityManager* GetEntityManager() const;
 
-```cpp
 // Get the global command buffer
 // WARNING: Only use outside of processor contexts!
-FMassCommandBuffer& Defer() const;
-
-// Usage examples:
-MassAPI.Defer().AddTag<FMyTag>(Entity);
-MassAPI.Defer().RemoveFragment<FOldFragment>(Entity);
-MassAPI.Defer().DestroyEntity(Entity);
+FORCEINLINE FMassCommandBuffer& Defer() const;
 ```
 
-#### Entity Creation and Management
-
-##### Immediate Entity Creation
+#### Query & Filter Operations
 
 ```cpp
-// Build a single entity with mixed fragments and tags
+// Check if archetype composition A contains all of B
+FORCEINLINE static bool HasAll(const FMassArchetypeCompositionDescriptor& ThisComposition, const FMassArchetypeCompositionDescriptor& OtherComposition);
+
+// Check if archetype composition A contains any of B
+FORCEINLINE static bool HasAny(const FMassArchetypeCompositionDescriptor& ThisComposition, const FMassArchetypeCompositionDescriptor& OtherComposition);
+
+// Check if composition matches ALL requirements of a query
+FORCEINLINE static bool MatchQueryAll(const FMassArchetypeCompositionDescriptor& Composition, const FEntityQuery& Query);
+
+// Check if composition matches ANY requirements of a query
+FORCEINLINE static bool MatchQueryAny(const FMassArchetypeCompositionDescriptor& Composition, const FEntityQuery& Query);
+
+// Check if composition matches NONE requirements of a query
+FORCEINLINE static bool MatchQueryNone(const FMassArchetypeCompositionDescriptor& Composition, const FEntityQuery& Query);
+
+// Check if composition matches all (All, Any, None) requirements of a query
+FORCEINLINE static bool MatchQuery(const FMassArchetypeCompositionDescriptor& Composition, const FEntityQuery& Query);
+
+// Check if a specific entity matches all requirements of a query (composition and flags)
+FORCEINLINE bool MatchQuery(const FEntityHandle EntityHandle, const FEntityQuery& Query) const;
+```
+
+#### Entity Operations (Creation, Destruction)
+
+```cpp
+// Check if EntityHandle is valid and built
+FORCEINLINE bool IsValid(const FEntityHandle EntityHandle) const;
+
+// Reserve an entity handle without creating its data
+FORCEINLINE FMassEntityHandle ReserveEntity() const;
+
+// Build entities from a template (immediate)
+TArray<FMassEntityHandle> BuildEntities(int32 Quantity, FMassEntityTemplateData& TemplateData) const;
+
+// Build multiple entities with mixed fragments and tags (immediate)
 template<typename... TArgs>
-FMassEntityHandle BuildEntity(TArgs&&... Args);
+TArray<FMassEntityHandle> BuildEntities(int32 Quantity, TArgs&&... Args) const;
 
-// Build multiple entities with mixed fragments and tags
+// Build a single entity with mixed fragments and tags (immediate)
 template<typename... TArgs>
-TArray<FMassEntityHandle> BuildEntities(int32 Quantity, TArgs&&... Args);
+FORCEINLINE FMassEntityHandle BuildEntity(TArgs&&... Args) const;
 
-// Build entities from a template
-TArray<FMassEntityHandle> BuildEntities(int32 Quantity, FMassEntityTemplateData& TemplateData);
-
-// Reserve an entity handle without building
-FMassEntityHandle ReserveEntity();
-
-// Destroy entity immediately
-void DestroyEntity(FMassEntityHandle EntityHandle);
-void DestroyEntities(TArray<FMassEntityHandle>& EntityHandles);
-```
-
-##### Deferred Entity Creation
-
-```cpp
-// Defer entity creation using execution context (for processors)
-// Returns reserved handle immediately, entity built when buffer flushes
+// Build a single entity (deferred)
 template<typename... TArgs>
-FMassEntityHandle BuildEntityDefer(FMassExecutionContext& Context, TArgs&&... Args);
+FORCEINLINE FMassEntityHandle BuildEntityDefer(FMassCommandBuffer& CommandBuffer, TArgs&&... Args) const;
 
-// Defer entity creation using command buffer
+// Build a single entity (deferred, from context)
 template<typename... TArgs>
-FMassEntityHandle BuildEntityDefer(FMassCommandBuffer& CommandBuffer, TArgs&&... Args);
+FORCEINLINE FMassEntityHandle BuildEntityDefer(FMassExecutionContext& Context, TArgs&&... Args) const;
 
-// Defer entity creation from template
-FMassEntityHandle BuildEntityDefer(FMassExecutionContext& Context, FMassEntityTemplateData& TemplateData);
-FMassEntityHandle BuildEntityDefer(FMassCommandBuffer& CommandBuffer, FMassEntityTemplateData& TemplateData);
+// Build a single entity from template (deferred)
+FMassEntityHandle BuildEntityDefer(FMassCommandBuffer& CommandBuffer, FMassEntityTemplateData& TemplateData) const;
 
-// Defer multiple entities from template
-void BuildEntitiesDefer(FMassExecutionContext& Context, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntityHandles);
-void BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntityHandles);
+// Build a single entity from template (deferred, from context)
+FMassEntityHandle BuildEntityDefer(FMassExecutionContext& Context, FMassEntityTemplateData& TemplateData) const;
 
-// Destroy entity deferred
-void DestroyEntityDefer(FMassExecutionContext& Context, FMassEntityHandle EntityHandle);
-void DestroyEntityDefer(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle);
+// Build multiple entities from template (deferred)
+void BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
+
+// Build multiple entities from template (deferred, from context)
+void BuildEntitiesDefer(FMassExecutionContext& Context, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
+
+// Destroy an entity (immediate)
+FORCEINLINE void DestroyEntity(FMassEntityHandle EntityHandle) const;
+
+// Destroy an entity (deferred, from context)
+FORCEINLINE void DestroyEntityDefer(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const;
+
+// Destroy an entity (deferred)
+FORCEINLINE void DestroyEntityDefer(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const;
 ```
 
-#### Fragment Operations
+#### Template Data Operations
 
 ```cpp
-// Check if entity has fragment
-template<typename T> 
-bool HasFragment(FMassEntityHandle EntityHandle);
-
-// Get fragment value (copies data)
-template<typename T> 
-T GetFragment(FMassEntityHandle EntityHandle);
-
-// Get fragment pointer (for direct modification)
-template<typename T> 
-T* GetFragmentPtr(FMassEntityHandle EntityHandle);
-
-// Set fragment value
-template<typename T> 
-void SetFragment(FMassEntityHandle EntityHandle, const T& Value);
-
-// Add fragment to entity (immediate)
-template<typename T> 
-bool AddFragment(FMassEntityHandle EntityHandle);
-
-// Remove fragment from entity (immediate)
-template<typename T> 
-bool RemoveFragment(FMassEntityHandle EntityHandle);
-
-// Deferred fragment operations
-template<typename T> 
-void AddFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle);
-
-template<typename T> 
-void AddFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle);
-
-template<typename T> 
-void RemoveFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle);
-
-template<typename T> 
-void RemoveFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle);
+// Get a mutable reference to a fragment within a template
+template<typename TFragment>
+FORCEINLINE TFragment& GetFragmentRef(FMassEntityTemplateData& TemplateData) const;
 ```
 
-#### Tag Operations
+#### Fragment Operations (Synchronous)
 
 ```cpp
-// Check if entity has tag
-template<typename T> 
-bool HasTag(FMassEntityHandle EntityHandle);
+// Check if entity has fragment (by type)
+FORCEINLINE bool HasFragment(FMassEntityHandle EntityHandle, const UScriptStruct* FragmentType) const;
 
-// Add tag to entity (immediate)
-template<typename T> 
-bool AddTag(FMassEntityHandle EntityHandle);
+// Check if entity has fragment (templated)
+template<typename T>
+FORCEINLINE bool HasFragment(FMassEntityHandle EntityHandle) const;
 
-// Remove tag from entity (immediate)
-template<typename T> 
-bool RemoveTag(FMassEntityHandle EntityHandle);
+// Get fragment data by value (copy)
+template<typename T>
+FORCEINLINE T GetFragment(FMassEntityHandle EntityHandle) const;
 
-// Deferred tag operations
-template<typename T> 
-void AddTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle);
+// Get fragment data pointer
+template<typename T>
+FORCEINLINE T* GetFragmentPtr(FMassEntityHandle EntityHandle) const;
 
-template<typename T> 
-void AddTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle);
+// Get fragment data reference
+template<typename T>
+FORCEINLINE T& GetFragmentRef(FMassEntityHandle EntityHandle) const;
 
-template<typename T> 
-void RemoveTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle);
+// Add a fragment with value (immediate)
+template<typename T>
+FORCEINLINE void AddFragment(FMassEntityHandle EntityHandle, const T& FragmentValue) const;
 
-template<typename T> 
-void RemoveTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle);
+// Add a fragment with FInstancedStruct (immediate)
+FORCEINLINE void AddFragment(FMassEntityHandle EntityHandle, const FInstancedStruct& FragmentStruct) const;
+
+// Remove a fragment (templated, immediate)
+template<typename T>
+FORCEINLINE void RemoveFragment(FMassEntityHandle EntityHandle) const;
+
+// Remove a fragment (by type, immediate)
+FORCEINLINE bool RemoveFragment(FMassEntityHandle EntityHandle, UScriptStruct* FragmentType);
 ```
 
-#### Shared Fragment Operations
+#### Tag Operations (Synchronous)
 
 ```cpp
-// Get shared fragment
-template<typename T> 
-FSharedStruct GetSharedFragment(FMassEntityHandle EntityHandle);
+// Check if entity has tag (by type)
+FORCEINLINE bool HasTag(FMassEntityHandle EntityHandle, const UScriptStruct* TagType) const;
 
-// Set shared fragment (creates shared instance)
-template<typename T> 
-FSharedStruct SetSharedFragment(FMassEntityHandle EntityHandle, const T& Value);
+// Check if entity has tag (templated)
+template<typename T>
+FORCEINLINE bool HasTag(FMassEntityHandle EntityHandle) const;
 
-// Add shared fragment (deferred)
-template<typename T> 
-void AddSharedFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, const FSharedStruct& SharedFragment);
+// Add a tag (templated, immediate)
+template<typename T>
+FORCEINLINE void AddTag(FMassEntityHandle EntityHandle) const;
 
-template<typename T> 
-void AddSharedFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, const FSharedStruct& SharedFragment);
-
-// Remove shared fragment (deferred)
-template<typename T> 
-void RemoveSharedFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle);
-
-template<typename T> 
-void RemoveSharedFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle);
+// Remove a tag (templated, immediate)
+template<typename T>
+FORCEINLINE void RemoveTag(FMassEntityHandle EntityHandle) const;
 ```
 
-#### Const Shared Fragment Operations
+#### Shared Fragment Operations (Synchronous)
 
 ```cpp
-// Get const shared fragment
-template<typename T> 
-FConstSharedStruct GetConstSharedFragment(FMassEntityHandle EntityHandle);
+// Check if entity has shared fragment (templated)
+template<typename T>
+FORCEINLINE void HasSharedFragment(FMassEntityHandle EntityHandle) const;
 
-// Set const shared fragment (creates const shared instance)
-template<typename T> 
-FConstSharedStruct SetConstSharedFragment(FMassEntityHandle EntityHandle, const T& Value);
+// Get shared fragment data by value (copy)
+template<typename T>
+FORCEINLINE T GetSharedFragment(FMassEntityHandle EntityHandle) const;
 
-// Add const shared fragment (deferred)
-template<typename T> 
-void AddConstSharedFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, const FConstSharedStruct& ConstSharedFragment);
+// Get shared fragment data pointer
+template<typename T>
+FORCEINLINE T* GetSharedFragmentPtr(FMassEntityHandle EntityHandle) const;
 
-template<typename T> 
-void AddConstSharedFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, const FConstSharedStruct& ConstSharedFragment);
+// Get shared fragment data reference
+template<typename T>
+FORCEINLINE T& GetSharedFragmentRef(FMassEntityHandle EntityHandle) const;
 
-// Remove const shared fragment (deferred)
-template<typename T> 
-void RemoveConstSharedFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle);
+// Add a shared fragment (immediate)
+template<typename T>
+FORCEINLINE bool AddSharedFragment(FMassEntityHandle EntityHandle, const T& SharedFragmentValue) const;
 
-template<typename T> 
-void RemoveConstSharedFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle);
+// Remove a shared fragment (templated, immediate)
+template<typename T>
+FORCEINLINE bool RemoveSharedFragment(FMassEntityHandle EntityHandle) const;
+
+// Remove a shared fragment (by type, immediate)
+FORCEINLINE bool RemoveSharedFragment(FMassEntityHandle EntityHandle, const UScriptStruct* SharedFragmentType) const;
 ```
 
-#### Flag Operations (Immediate Only)
+#### Const Shared Fragment Operations (Synchronous)
 
 ```cpp
+// Check if entity has const shared fragment (templated)
+template<typename T>
+FORCEINLINE void HasConstSharedFragment(FMassEntityHandle EntityHandle) const;
+
+// Get const shared fragment data by value (copy)
+template<typename T>
+FORCEINLINE T GetConstSharedFragment(FMassEntityHandle EntityHandle) const;
+
+// Get const shared fragment data pointer
+template<typename T>
+FORCEINLINE const T* GetConstSharedFragmentPtr(FMassEntityHandle EntityHandle) const;
+
+// Get const shared fragment data reference
+template<typename T>
+FORCEINLINE const T& GetConstSharedFragmentRef(FMassEntityHandle EntityHandle) const;
+
+// Add a const shared fragment (immediate)
+template<typename T>
+FORCEINLINE bool AddConstSharedFragment(FMassEntityHandle EntityHandle, const T& ConstSharedFragmentValue) const;
+
+// Remove a const shared fragment (templated, immediate)
+template<typename T>
+FORCEINLINE bool RemoveConstSharedFragment(FMassEntityHandle EntityHandle) const;
+
+// Remove a const shared fragment (by type, immediate)
+FORCEINLINE bool RemoveConstSharedFragment(FMassEntityHandle EntityHandle, const UScriptStruct* ConstSharedFragmentType) const;
+```
+
+#### Flag Operations (Synchronous)
+
+```cpp
+// Get all flags as a bitmask
+int64 GetEntityFlags(FMassEntityHandle EntityHandle) const;
+
+// Check if entity has a specific flag
+bool HasEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToTest) const;
+
 // Set a flag on an entity
-void SetEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags Flag);
+bool SetEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToSet) const;
 
 // Clear a flag on an entity
-void ClearEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags Flag);
-
-// Toggle a flag on an entity
-void ToggleEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags Flag);
-
-// Check if entity has a flag
-bool HasEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags Flag) const;
-
-// Check if entity has all specified flags
-bool HasAllEntityFlags(FMassEntityHandle EntityHandle, const TArray<EEntityFlags>& Flags) const;
-
-// Check if entity has any of the specified flags
-bool HasAnyEntityFlags(FMassEntityHandle EntityHandle, const TArray<EEntityFlags>& Flags) const;
-
-// Check if entity has none of the specified flags
-bool HasNoneEntityFlags(FMassEntityHandle EntityHandle, const TArray<EEntityFlags>& Flags) const;
-
-// Get all flags as a bitmask
-uint64 GetEntityFlags(FMassEntityHandle EntityHandle) const;
-
-// Set all flags from a bitmask
-void SetEntityFlags(FMassEntityHandle EntityHandle, uint64 FlagMask);
+bool ClearEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToClear) const;
 ```
 
-#### Query Operations
+#### Deferred Operations (with Execution Context)
 
 ```cpp
-// Get entities matching a query
-TArray<FMassEntityHandle> GetMatchingEntities(const FEntityQuery& Query);
+// Deferred add fragment (default value)
+template<typename T>
+FORCEINLINE void AddFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const;
 
-// Check if entity matches a query
-bool MatchQuery(FMassEntityHandle EntityHandle, const FEntityQuery& Query);
+// Deferred add fragment (specific value)
+template<typename T>
+FORCEINLINE void AddFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, const T& FragmentValue) const;
+
+// Deferred remove fragment
+template<typename T>
+FORCEINLINE void RemoveFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const;
+
+// Deferred add tag
+template<typename T>
+FORCEINLINE void AddTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const;
+
+// Deferred remove tag
+template<typename T>
+FORCEINLINE void RemoveTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const;
+
+// Deferred swap tags
+template<typename TOld, typename TNew>
+FORCEINLINE void SwapTags(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const;
 ```
 
-#### Template Operations
+#### Deferred Operations (with Command Buffer)
 
 ```cpp
-// Build entitiy from template
-FEntityHandle BuildEntityFromTemplateData(const UObject* WorldContextObject, const FEntityTemplateData& TemplateData);
+// Deferred add fragment (default value)
+template<typename T>
+FORCEINLINE void AddFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const;
 
-// Build entities from template (deferred)
-TArray<FEntityHandle> BuildEntitiesFromTemplateData(const UObject* WorldContextObject, int32 Quantity, const FEntityTemplateData& TemplateData);
+// Deferred add fragment (specific value)
+template<typename T>
+FORCEINLINE void AddFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, const T& FragmentValue) const;
+
+// Deferred remove fragment
+template<typename T>
+FORCEINLINE void RemoveFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const;
+
+// Deferred add tag
+template<typename T>
+FORCEINLINE void AddTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const;
+
+// Deferred remove tag
+template<typename T>
+FORCEINLINE void RemoveTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const;
+
+// Deferred swap tags
+template<typename TOld, typename TNew>
+FORCEINLINE void SwapTags(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const;
 ```
 
----
+-----
 
 ## Blueprint API Reference
 
 ### Getting Started with Blueprints
 
 The Mass API provides comprehensive Blueprint support through:
-- Custom K2 nodes for type-safe fragment operations
-- Blueprint Function Library with utility functions
-- Blueprint-compatible structs and enums
+
+  * Custom K2 nodes for type-safe fragment operations
+  * Blueprint Function Library with utility functions
+  * Blueprint-compatible structs and enums
+
+> **Note:** The Get/Set fragment nodes are provided as custom K2 nodes (see next section) for type safety. The Blueprint Function Library provides the other utility functions.
 
 ### Blueprint Function Library
 
-#### System Functions
-
-| Function | Description | Usage |
-|----------|-------------|-------|
-| **Get Mass API Subsystem** | Returns the Mass API subsystem instance | Call first to access all other functions |
-| **Is Valid Entity** | Checks if an entity handle is valid | Always validate before operations |
-
-#### Entity Creation Functions
-
-| Function | Description | Parameters |
-|----------|-------------|------------|
-| **Build Entity** | Creates a single entity | Template data |
-| **Build Entities** | Creates multiple entities | Quantity, Template |
-| **Destroy Entity** | Destroys an entity immediately | Entity Handle |
-| **Destroy Entities** | Destroys multiple entities | Array of Handles |
-
-#### Fragment Operations
+#### Entity Operations (Category: MassAPI|Entity)
 
 | Function | Description | Notes |
-|----------|-------------|-------|
-| **Has Mass Fragment** | Checks if entity has fragment | Returns boolean |
-| **Get Mass Fragment** | Gets fragment value | Type-specific node |
-| **Set Mass Fragment** | Sets fragment value | Type-specific node |
-| **Add Mass Fragment** | Adds fragment to entity | Causes archetype change |
-| **Remove Mass Fragment** | Removes fragment | Causes archetype change |
+| :--- | :--- | :--- |
+| **IsValid (EntityHandle)** | Checks if the entity handle is valid and the entity is alive. | Pure function. |
+| **Has Mass Fragment** | Checks if an entity has a specific fragment. | Pure function. |
+| **Has Mass Tag** | Checks if an entity has a specific tag. | Pure function. |
+| **Remove Mass Fragment** | Removes a standard fragment from an entity. | Causes archetype change. |
+| **Remove Mass Shared Fragment** | Removes a shared fragment from an entity. | Causes archetype change. |
+| **Remove Mass Const Shared Fragment** | Removes a const shared fragment from an entity. | Causes archetype change. |
+| **Add Mass Tag** | Adds a tag to an entity. | Causes archetype change. |
+| **Remove Mass Tag** | Removes a tag from an entity. | Causes archetype change. |
+| **Destroy Entity** | Synchronously destroys a single entity. | |
+| **Destroy Entities** | Synchronously destroys multiple entities. | |
+| **Build Entity From Template Data** | Synchronously builds a single entity from template data. | |
+| **Build Entities From Template Data** | Synchronously builds multiple entities from template data. | |
 
-#### Tag Operations
+#### Template Data Operations (Category: MassAPI|Template)
 
 | Function | Description | Notes |
-|----------|-------------|-------|
-| **Has Mass Tag** | Checks if entity has tag | Returns boolean |
-| **Add Mass Tag** | Adds tag to entity | Causes archetype change |
-| **Remove Mass Tag** | Removes tag | Causes archetype change |
+| :--- | :--- | :--- |
+| **Get Template Data** | Converts an `FEntityTemplate` (from a data asset) into modifiable `FEntityTemplateData`. | |
+| **Template To Template Data** | Auto-cast node to convert `FEntityTemplate` to `FEntityTemplateData`. | Pure, compact node. |
+| **IsEmpty (TemplateData)** | Checks if the template data is empty (no fragments or tags). | Pure function. |
+| **Has Fragment (TemplateData)** | Checks if the template data contains a specific fragment type. | Pure function. |
+| **Has Tag (TemplateData)** | Checks if the template data contains a specific tag type. | Pure function. |
+| **Add Tag (TemplateData)** | Adds a tag to the template data. | Modifies template data by-ref. |
+| **Remove Tag (TemplateData)** | Removes a tag from the template data. | Modifies template data by-ref. |
+| **Remove Fragment in Template** | Removes a fragment from the template data. | Modifies template data by-ref. |
+| **Remove Shared Fragment in Template** | Removes a shared fragment from the template data. | Modifies template data by-ref. |
+| **Remove Const Shared Fragment in Template** | Removes a const shared fragment from the template data. | Modifies template data by-ref. |
 
-#### Flag Operations
+#### Template Flag Operations (Category: MassAPI|Template|Flags)
 
 | Function | Description | Notes |
-|----------|-------------|-------|
-| **Set Entity Flag** | Sets a flag bit on entity | No archetype change |
-| **Set Template Flag** | Sets a flag bit in template | For entity creation |
-| **Clear Entity Flag** | Clears a flag bit | No archetype change |
-| **Has Entity Flag** | Checks flag state | Returns boolean |
+| :--- | :--- | :--- |
+| **Has Template Flag** | Checks if the template data has a specific flag set. | Pure function. |
+| **Set Template Flag** | Sets a specific flag in the template data (adds `FEntityFlagFragment` if needed). | Modifies template data by-ref. |
+| **Clear Template Flag** | Clears a specific flag in the template data. | Modifies template data by-ref. |
 
-#### Query Operations
+#### Entity Flag Operations (Category: MassAPI|Flags)
 
-| Function | Description | Returns |
-|----------|-------------|---------|
-| **Get Matching Entities** | Finds entities matching query | Array of handles |
-| **Match Query** | Checks if entity matches query | Boolean |
+| Function | Description | Notes |
+| :--- | :--- | :--- |
+| **Has Entity Flag** | Checks if an entity has a specific flag set. | Pure function. |
+| **Set Entity Flag** | Sets a specific flag on an entity (adds `FEntityFlagFragment` if needed). | |
+| **Clear Entity Flag** | Clears a specific flag on an entity. | |
+
+#### Query Operations (Category: MassAPI|Query)
+
+| Function | Description | Notes |
+| :--- | :--- | :--- |
+| **Match Entity Query** | Checks if a single entity matches all requirements of a query. | Pure function. |
+| **Get Matching Entities** | Gets an array of all entity handles that currently match the query. | Warning: Can be slow for large numbers of entities. |
 
 ### Blueprint Workflow Examples
 
-#### Example 1: Creating and Managing Enemies
+**Example 1: Creating and Managing Enemies**
 
-1. **Create Enemy Template**:
-   - Create FEntityTemplate variable
-   - Add FEnemyTag to Tags array
-   - Add FHealthFragment to Fragments array
-   - Add FEntityFlagFragment to Fragments array
+1.  **Create Enemy Template**:
+      * Create `FEntityTemplate` variable
+      * Add `FEnemyTag` to `Tags` array
+      * Add `FHealthFragment` to `Fragments` array
+      * Add `FEntityFlagFragment` to `Fragments` array
+2.  **Spawn Enemies**:
+      * Get Mass API Subsystem
+      * Call `Build Entities` with template
+      * Store returned entity handles
+3.  **Update Enemies**:
+      * `For Each Loop` over EntityHandles
+      * `Get Mass Fragment` (`FHealthFragment`)
+      * Modify health value
+      * `Set Mass Fragment` with updated value
+4.  **Query Enemies**:
+      * Create `FEntityQuery` variable
+      * Set `All` list: `$FHealthFragment$, $FEnemyTag$`
+      * Set `None` list: `$FDeadTag$`
+      * `Get Matching Entities` with query
+      * Process results
 
-2. **Spawn Enemies**:
-   - Get Mass API Subsystem
-   - Call Build Entities with template
-   - Store returned entity handles
-
-3. **Update Enemies**:
-   - For Each Loop over EntityHandles
-   - Get Mass Fragment (FHealthFragment)
-   - Modify health value
-   - Set Mass Fragment with updated value
-
-4. **Query Enemies**:
-   - Create FEntityQuery variable
-   - Set All list: [FHealthFragment, FEnemyTag]
-   - Set None list: [FDeadTag]
-   - Get Matching Entities with query
-   - Process results
-
----
+-----
 
 ## K2 Node System
 
@@ -665,43 +709,42 @@ The plugin includes custom K2 nodes for advanced Blueprint integration. These no
 
 The plugin implements specialized Blueprint nodes that extend the standard function call nodes:
 
-#### Base Fragment Function Node (UK2Node_FragmentFunction)
-
+**Base Fragment Function Node (`UK2Node_FragmentFunction`)**
 All fragment-related K2 nodes inherit from this base class, which provides:
-- Dynamic pin generation based on selected fragment type
-- Type validation
-- Automatic pin connection management
 
-#### Fragment Access Nodes
+  * Dynamic pin generation based on selected fragment type
+  * Type validation
+  * Automatic pin connection management
 
+**Fragment Access Nodes**
 | Node Class | Purpose | Special Features |
-|------------|---------|------------------|
-| **UK2Node_GetFragment** | Gets fragment from entity | Dynamically creates output pin matching fragment type |
-| **UK2Node_SetFragment** | Sets fragment on entity | Dynamically creates input pin for fragment data |
-| **UK2Node_GetSharedFragment** | Gets shared fragment | Handles shared fragment references |
-| **UK2Node_SetSharedFragment** | Sets shared fragment | Manages shared instance creation |
-| **UK2Node_GetConstSharedFragment** | Gets immutable shared fragment | Read-only access |
-| **UK2Node_SetConstSharedFragment** | Sets immutable shared fragment | Creates const shared instances |
+| :--- | :--- | :--- |
+| `UK2Node_GetFragment` | Gets fragment from entity | Dynamically creates output pin matching fragment type |
+| `UK2Node_SetFragment` | Sets fragment on entity | Dynamically creates input pin for fragment data |
+| `UK2Node_GetSharedFragment` | Gets shared fragment | Handles shared fragment references |
+| `UK2Node_SetSharedFragment` | Sets shared fragment | Manages shared instance creation |
+| `UK2Node_GetConstSharedFragment` | Gets immutable shared fragment | Read-only access |
+| `UK2Node_SetConstSharedFragment` | Sets immutable shared fragment | Creates const shared instances |
 
-#### Template Nodes
-
+**Template Nodes**
 | Node Class | Purpose | Special Features |
-|------------|---------|------------------|
-| **UK2Node_GetFragmentFromTemplate** | Extracts fragment from template | Template introspection |
-| **UK2Node_SetFragmentInTemplate** | Adds fragment to template | Template building |
-| **UK2Node_SetSharedFragmentInTemplate** | Adds shared fragment to template | Shared instance management |
-| **UK2Node_SetConstSharedFragmentInTemplate** | Adds const shared fragment | Const instance management |
+| :--- | :--- | :--- |
+| `UK2Node_GetFragmentFromTemplate` | Extracts fragment from template | Template introspection |
+| `UKK2Node_SetFragmentInTemplate` | Adds fragment to template | Template building |
+| `UK2Node_SetSharedFragmentInTemplate` | Adds shared fragment to template | Shared instance management |
+| `UK2Node_SetConstSharedFragmentInTemplate` | Adds const shared fragment | Const instance management |
 
 ### Node Implementation Details
 
 Each K2 node follows this pattern:
 
-1. **Pin Allocation**: Creates pins based on the selected fragment type
-2. **Type Validation**: Ensures only valid Mass fragment types are used
-3. **Dynamic Updates**: Refreshes pins when fragment type changes
-4. **Compilation**: Translates to efficient runtime calls
+  * **Pin Allocation**: Creates pins based on the selected fragment type
+  * **Type Validation**: Ensures only valid Mass fragment types are used
+  * **Dynamic Updates**: Refreshes pins when fragment type changes
+  * **Compilation**: Translates to efficient runtime calls
 
 Example node structure:
+
 ```cpp
 class UK2Node_GetFragment : public UK2Node_FragmentFunction
 {
@@ -716,7 +759,7 @@ class UK2Node_GetFragment : public UK2Node_FragmentFunction
 };
 ```
 
----
+-----
 
 ## Advanced Topics
 
@@ -725,6 +768,7 @@ class UK2Node_GetFragment : public UK2Node_FragmentFunction
 The Mass API plugin maintains the performance benefits of the Mass Entity system while adding convenience. Here are key optimization strategies:
 
 #### Batch Operations
+
 ```cpp
 // Good: Batch operations with command buffer
 UMassAPISubsystem& MassAPI = UMassAPISubsystem::GetRef(GetWorld());
@@ -746,6 +790,7 @@ for (FMassEntityHandle Entity : Entities)
 ```
 
 #### Query Caching
+
 ```cpp
 // Cache queries that are used frequently
 class AMyGameMode : public AGameMode
@@ -793,12 +838,12 @@ MassAPI.RemoveTag<FStunnedTag>(Entity);
 
 The Mass Entity system is designed for multi-threaded execution. When using Mass API:
 
-1. **Entity Manager Access**: The entity manager is not thread-safe for modifications
-2. **Read Operations**: Safe from multiple threads
-3. **Write Operations**: Must be synchronized or use command buffers
-4. **Deferred Operations**: Thread-safe when each thread uses its own command buffer
+  * **Entity Manager Access**: The entity manager is not thread-safe for modifications
+  * **Read Operations**: Safe from multiple threads
+  * **Write Operations**: Must be synchronized or use command buffers
+  * **Deferred Operations**: Thread-safe when each thread uses its own command buffer
 
-**Important Rule**: Inside processors, always prefer `Context.Defer()` for thread-safe deferred operations. While `MassAPI->AddTag(Context, Entity)` technically works, it's more verbose and less idiomatic. Never use `MassAPI.Defer()` inside processors as it's thread-unsafe.
+> **Important Rule**: Inside processors, always prefer `Context.Defer()` for thread-safe deferred operations. While `MassAPI->AddTag(Context, Entity)` technically works, it's more verbose and less idiomatic. Never use `MassAPI.Defer()` inside processors as it's thread-unsafe.
 
 ### Memory Management
 
@@ -904,21 +949,21 @@ public:
 };
 ```
 
----
+-----
 
 ## Best Practices
 
 ### Key Guidelines
 
-1. **Context Rules**: 
-   - Outside processors: Use `MassAPI.Defer()`
-   - Inside processors: Use `Context.Defer()` (best practice)
-   - Avoid: `MassAPI->AddTag(Context, Entity)` (works but verbose)
-2. **Flag System**: Use flags for frequently changing states to avoid archetype migrations
-3. **Query Caching**: Build queries once and reuse them
-4. **Batch Operations**: Group archetype changes using deferred operations
-5. **Entity Validation**: Always check entity handles before use
-6. **Fragment Pointers**: Get pointers after archetype changes, not before
+  * **Context Rules**:
+      * **Outside processors**: Use `MassAPI.Defer()`
+      * **Inside processors**: Use `Context.Defer()` (best practice)
+      * **Avoid**: `MassAPI->AddTag(Context, Entity)` (works but verbose)
+  * **Flag System**: Use flags for frequently changing states to avoid archetype migrations
+  * **Query Caching**: Build queries once and reuse them
+  * **Batch Operations**: Group archetype changes using deferred operations
+  * **Entity Validation**: Always check entity handles before use
+  * **Fragment Pointers**: Get pointers *after* archetype changes, not before
 
 ### Command Buffer Patterns
 
@@ -941,144 +986,139 @@ MassAPI->AddTag<FTag>(Context.Defer(), Entity); // Unnecessary indirection
 
 ### Quick Decision Tree
 
-```
-Are you in a Mass Processor?
-├── YES 
-│   ├── Best Practice → Context.Defer().AddTag<>(Entity)
-│   ├── Alternative → MassAPI->AddTag<>(Context, Entity) [works but verbose]
-│   └── Never → MassAPI->Defer().AddTag<>(Entity) [thread-unsafe!]
-└── NO  → Use MassAPI.Defer() for deferred operations
-```
+  * **Are you in a Mass Processor?**
+      * **YES**
+          * **Best Practice** → `Context.Defer().AddTag<>(Entity)`
+          * **Alternative** → `MassAPI->AddTag<>(Context, Entity)` [works but verbose]
+          * **Never** → `MassAPI->Defer().AddTag<>(Entity)` [thread-unsafe\!]
+      * **NO** → Use `MassAPI.Defer()` for deferred operations
 
----
+-----
 
 ## Common Pitfalls
 
-### 1. Using Wrong Command Buffer Context
+### 1\. Using Wrong Command Buffer Context
 
-**Problem**: Using `MassAPI.Defer()` inside processors
-```cpp
-// ❌ WRONG - Thread-unsafe in processors!
-void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
-{
-    MassAPI->Defer().AddTag<FTag>(Entity);
-}
-```
+  * **Problem**: Using `MassAPI.Defer()` inside processors
+    ```cpp
+    // ❌ WRONG - Thread-unsafe in processors!
+    void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
+    {
+        MassAPI->Defer().AddTag<FTag>(Entity);
+    }
+    ```
+  * **Solution**: Use `Context.Defer()` in processors
+    ```cpp
+    // ✅ BEST PRACTICE
+    void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
+    {
+        Context.Defer().AddTag<FTag>(Entity);
+    }
 
-**Solution**: Use Context.Defer() in processors
-```cpp
-// ✅ BEST PRACTICE
-void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
-{
-    Context.Defer().AddTag<FTag>(Entity);
-}
+    // ⚠️ WORKS but not recommended (verbose)
+    void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
+    {
+        UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(GetWorld());
+        MassAPI->AddTag<FTag>(Context, Entity);         // Works but unnecessary
+        MassAPI->AddTag<FTag>(Context.Defer(), Entity); // Works but redundant
+    }
+    ```
 
-// ⚠️ WORKS but not recommended (verbose)
-void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
-{
-    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(GetWorld());
-    MassAPI->AddTag<FTag>(Context, Entity);         // Works but unnecessary
-    MassAPI->AddTag<FTag>(Context.Defer(), Entity); // Works but redundant
-}
-```
+### 2\. Fragment Pointer Invalidation
 
-### 2. Fragment Pointer Invalidation
+  * **Problem**: Storing fragment pointers across archetype changes
+    ```cpp
+    // ❌ WRONG
+    FHealthFragment* Health = MassAPI.GetFragmentPtr<FHealthFragment>(Entity);
+    MassAPI.AddFragment<FShieldFragment>(Entity);  // Archetype change!
+    Health->Value = 100.0f;  // Pointer is now invalid!
+    ```
+  * **Solution**: Get pointers after archetype changes
+    ```cpp
+    // ✅ CORRECT
+    MassAPI.AddFragment<FShieldFragment>(Entity);
+    FHealthFragment* Health = MassAPI.GetFragmentPtr<FHealthFragment>(Entity);
+    Health->Value = 100.0f;
+    ```
 
-**Problem**: Storing fragment pointers across archetype changes
-```cpp
-// ❌ WRONG
-FHealthFragment* Health = MassAPI.GetFragmentPtr<FHealthFragment>(Entity);
-MassAPI.AddFragment<FShieldFragment>(Entity);  // Archetype change!
-Health->Value = 100.0f;  // Pointer is now invalid!
-```
+### 3\. Forgetting Entity Flag Fragment
 
-**Solution**: Get pointers after archetype changes
-```cpp
-// ✅ CORRECT
-MassAPI.AddFragment<FShieldFragment>(Entity);
-FHealthFragment* Health = MassAPI.GetFragmentPtr<FHealthFragment>(Entity);
-Health->Value = 100.0f;
-```
+  * **Problem**: Trying to use flags without the flag fragment
+    ```cpp
+    // ❌ WRONG
+    FMassEntityHandle Entity = MassAPI.BuildEntity(FEnemyTag{});
+    MassAPI.SetEntityFlag(Entity, EEntityFlags::Flag0);  // Crash or undefined behavior!
+    ```
+  * **Solution**: Always include `FEntityFlagFragment`
+    ```cpp
+    // ✅ CORRECT
+    FMassEntityHandle Entity = MassAPI.BuildEntity(
+        FEnemyTag{},
+        FEntityFlagFragment{}  // Required for flag operations
+    );
+    MassAPI.SetEntityFlag(Entity, EEntityFlags::Flag0);
+    ```
 
-### 3. Forgetting Entity Flag Fragment
+### 4\. Query System Misunderstanding
 
-**Problem**: Trying to use flags without the flag fragment
-```cpp
-// ❌ WRONG
-FMassEntityHandle Entity = MassAPI.BuildEntity(FEnemyTag{});
-MassAPI.SetEntityFlag(Entity, EEntityFlags::Flag0);  // Crash or undefined behavior!
-```
-
-**Solution**: Always include FEntityFlagFragment
-```cpp
-// ✅ CORRECT
-FMassEntityHandle Entity = MassAPI.BuildEntity(
-    FEnemyTag{},
-    FEntityFlagFragment{}  // Required for flag operations
-);
-MassAPI.SetEntityFlag(Entity, EEntityFlags::Flag0);
-```
-
-### 4. Query System Misunderstanding
-
-**Problem**: Expecting FEntityQuery to have iteration methods
-```cpp
-// ❌ WRONG - FEntityQuery doesn't have ForEachEntityChunk
-FEntityQuery Query;
-Query.ForEachEntityChunk(...);  // This doesn't exist!
-```
-
-**Solution**: Use GetMatchingEntities for query results
-```cpp
-// ✅ CORRECT
-FEntityQuery Query;
-TArray<FMassEntityHandle> Results = MassAPI.GetMatchingEntities(Query);
-for (FMassEntityHandle Entity : Results) { /* ... */ }
-```
-
-### 5. Performance Anti-Patterns
-
-**Problem**: Creating queries every frame
-```cpp
-// ❌ WRONG - Inefficient
-void Tick()
-{
+  * **Problem**: Expecting `FEntityQuery` to have iteration methods
+    ```cpp
+    // ❌ WRONG - FEntityQuery doesn't have ForEachEntityChunk
     FEntityQuery Query;
-    Query.All<FHealthFragment>();  // Building query every tick
-    auto Results = MassAPI.GetMatchingEntities(Query);
-}
-```
+    Query.ForEachEntityChunk(...);  // This doesn't exist!
+    ```
+  * **Solution**: Use `GetMatchingEntities` for query results
+    ```cpp
+    // ✅ CORRECT
+    FEntityQuery Query;
+    TArray<FMassEntityHandle> Results = MassAPI.GetMatchingEntities(Query);
+    for (FMassEntityHandle Entity : Results) { /* ... */ }
+    ```
 
-**Solution**: Cache and reuse queries
-```cpp
-// ✅ CORRECT - Efficient
-FEntityQuery CachedQuery;
+### 5\. Performance Anti-Patterns
 
-void BeginPlay()
-{
-    CachedQuery.All<FHealthFragment>();  // Build once
-}
+  * **Problem**: Creating queries every frame
+    ```cpp
+    // ❌ WRONG - Inefficient
+    void Tick()
+    {
+        FEntityQuery Query;
+        Query.All<FHealthFragment>();  // Building query every tick
+        auto Results = MassAPI.GetMatchingEntities(Query);
+    }
+    ```
+  * **Solution**: Cache and reuse queries
+    ```cpp
+    // ✅ CORRECT - Efficient
+    FEntityQuery CachedQuery;
 
-void Tick()
-{
-    auto Results = MassAPI.GetMatchingEntities(CachedQuery);  // Reuse
-}
-```
+    void BeginPlay()
+    {
+        CachedQuery.All<FHealthFragment>();  // Build once
+    }
 
----
+    void Tick()
+    {
+        auto Results = MassAPI.GetMatchingEntities(CachedQuery);  // Reuse
+    }
+    ```
 
----
+-----
 
 ## Conclusion
 
-The Mass API Plugin provides a powerful convenience layer for Unreal Engine's Mass Entity system. The Defer() method makes deferred operations intuitive, while maintaining full compatibility with the native Mass Entity API.
+The Mass API Plugin provides a powerful convenience layer for Unreal Engine's Mass Entity system. The `Defer()` method makes deferred operations intuitive, while maintaining full compatibility with the native Mass Entity API.
 
 Remember the golden rules:
-- Use `MassAPI.Defer()` outside processors
-- Use `Context.Defer()` inside processors (best practice)
-  - While `MassAPI->AddTag(Context, Entity)` works, it's more verbose
-- Include `FEntityFlagFragment` for flag support
-- Cache queries for better performance
-- Validate entity handles before use
+
+  * Use `MassAPI.Defer()` **outside** processors
+  * Use `Context.Defer()` **inside** processors (best practice)
+  * While `MassAPI->AddTag(Context, Entity)` works, it's more verbose
+  * Include `FEntityFlagFragment` for flag support
+  * Cache queries for better performance
+  * Validate entity handles before use
 
 This documentation represents the complete state of the Mass API Plugin, providing a robust foundation for building high-performance entity systems while maintaining the ease of use expected in modern Unreal Engine development.
+
+```
+```
