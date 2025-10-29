@@ -1,4 +1,5 @@
 # Mass API Plugin Documentation
+This doc is generated with AI. It may contain erros. Use with caution.
 
 ## Table of Contents
 * [Overview](#overview)
