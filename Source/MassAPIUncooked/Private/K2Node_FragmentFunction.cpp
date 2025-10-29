@@ -62,7 +62,7 @@ void UK2Node_FragmentFunction::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
 
 FText UK2Node_FragmentFunction::GetMenuCategory() const
 {
-    return FText::FromString(TEXT("Mass|Entity"));
+    return FText::FromString(TEXT("MassAPI|Entity"));
 }
 
 UScriptStruct* UK2Node_FragmentFunction::GetFragmentStruct() const

@@ -54,10 +54,46 @@ public:
 	static void SetFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment, bool& bSuccess);
 
 	/**
+	 * Removes a standard fragment from an entity. Does nothing if the fragment doesn't exist.
+	 * @param WorldContextObject The world context.
+	 * @param EntityHandle The entity to remove the fragment from.
+	 * @param FragmentType The type of the fragment to remove.
+	 * @return True if the fragment was removed, false otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Remove Mass Fragment", Keywords = "remove delete fragment mass entity"))
+	static bool RemoveFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassFragment")) UScriptStruct* FragmentType);
+
+	/**
+	 * Removes a shared fragment from an entity. Does nothing if the fragment doesn't exist.
+	 * @param WorldContextObject The world context.
+	 * @param EntityHandle The entity to remove the shared fragment from.
+	 * @param FragmentType The type of the shared fragment to remove.
+	 * @return True if the shared fragment was removed, false otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Remove Mass Shared Fragment", Keywords = "remove delete shared fragment mass entity"))
+	static bool RemoveSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassSharedFragment")) UScriptStruct* FragmentType);
+
+	/**
+	 * Removes a const shared fragment from an entity. Does nothing if the fragment doesn't exist.
+	 * @param WorldContextObject The world context.
+	 * @param EntityHandle The entity to remove the const shared fragment from.
+	 * @param FragmentType The type of the const shared fragment to remove.
+	 * @return True if the const shared fragment was removed, false otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Remove Mass Const Shared Fragment", Keywords = "remove delete const shared fragment mass entity"))
+	static bool RemoveConstSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassConstSharedFragment")) UScriptStruct* FragmentType);
+
+	/**
 	 * Adds a tag to an entity. Does nothing if the tag already exists.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Add Mass Tag", Keywords = "add tag mass entity"))
 	static void AddTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassTag")) UScriptStruct* TagType);
+
+	/**
+	 * Removes a tag from an entity. Does nothing if the tag doesn't exist.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Remove Mass Tag", Keywords = "remove delete tag mass entity"))
+	static void RemoveTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(meta = (StructBase = "MassTag")) UScriptStruct* TagType);
 
 	/**
 	 * Synchronously destroys an entity.
@@ -150,6 +186,22 @@ public:
 	static FEntityTemplateData GetTemplateData(const UObject* WorldContextObject, const FEntityTemplate& Template);
 
 	/**
+	 * AUTO-CAST conversion function from FEntityTemplate to FEntityTemplateData.
+	 * This enables automatic conversion in Blueprint graphs when connecting pins.
+	 * Acts as an auto-cast node that implicitly converts template definitions to template data.
+	 * @param WorldContextObject The world context.
+	 * @param Template The template definition to convert.
+	 * @return The constructed template data.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Template", meta = (
+		WorldContext = "WorldContextObject",
+		DisplayName = "Template To Template Data",
+		CompactNodeTitle = "->",
+		BlueprintAutocast,
+		Keywords = "convert cast template data mass auto"))
+	static FEntityTemplateData Conv_TemplateToTemplateData(const UObject* WorldContextObject, const FEntityTemplate& Template);
+
+	/**
 	 * Checks if the template data is empty (contains no fragments or tags).
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Template", meta = (DisplayName = "IsEmpty (TemplateData)"))
@@ -192,16 +244,42 @@ public:
 	static void SetFragmentInTemplate(UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment);
 
 	/**
+	 * Removes a fragment from the template data.
+	 * @param TemplateData The template data to modify.
+	 * @param FragmentType The type of the fragment to remove.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", meta = (DisplayName = "Remove Fragment in Template"))
+	static void RemoveFragmentInTemplate(UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassFragment")) UScriptStruct* FragmentType);
+
+	/**
 	 * Adds or sets a shared fragment's value in the template data.
 	 */
 	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Shared Fragment in Template", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassSharedFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment);
 
 	/**
+	 * Removes a shared fragment from the template data.
+	 * @param WorldContextObject The world context.
+	 * @param TemplateData The template data to modify.
+	 * @param FragmentType The type of the shared fragment to remove.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Remove Shared Fragment in Template"))
+	static void RemoveSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassSharedFragment")) UScriptStruct* FragmentType);
+
+	/**
 	 * Adds or sets a const shared fragment's value in the template data.
 	 */
 	UFUNCTION(BlueprintCallable, CustomThunk, BlueprintInternalUseOnly, Category = "MassAPI|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Set Const Shared Fragment in Template", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetConstSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassConstSharedFragment")) UScriptStruct* FragmentType, const FGenericStruct& InFragment);
+
+	/**
+	 * Removes a const shared fragment from the template data.
+	 * @param WorldContextObject The world context.
+	 * @param TemplateData The template data to modify.
+	 * @param FragmentType The type of the const shared fragment to remove.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Remove Const Shared Fragment in Template"))
+	static void RemoveConstSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UPARAM(meta = (StructBase = "MassConstSharedFragment")) UScriptStruct* FragmentType);
 
 
 	//----------------------------------------------------------------------//
@@ -213,7 +291,7 @@ public:
 	 * @param TemplateData The template data to check.
 	 * @return The 64-bit flag mask. Returns 0 if the template is invalid or has no flag fragment.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Template|Flags", meta = (DisplayName = "Get Template Flags (Bitmask)"))
+	 //UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Template|Flags", meta = (DisplayName = "Get Template Flags (Bitmask)"))
 	static int64 GetTemplateFlags(const FEntityTemplateData& TemplateData);
 
 	/**
@@ -277,7 +355,7 @@ public:
 	 * @param EntityHandle The entity to check.
 	 * @return The 64-bit flag mask. Returns 0 if the entity is invalid or has no flag fragment.
 	 */
-	//UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Flags", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Entity Flags (Bitmask)"))
+	 //UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MassAPI|Flags", meta = (WorldContext = "WorldContextObject", DisplayName = "Get Entity Flags (Bitmask)"))
 	static int64 GetEntityFlags(const UObject* WorldContextObject, const FEntityHandle& EntityHandle);
 
 	/**
@@ -351,6 +429,15 @@ private:
 	static void Generic_SetFragmentInTemplate(FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, const void* InFragmentPtr);
 	DECLARE_FUNCTION(execSetFragmentInTemplate);
 
+	// Generic implementation for RemoveFragmentInTemplate (No Thunk needed)
+	static void Generic_RemoveFragmentInTemplate(FEntityTemplateData& TemplateData, UScriptStruct* FragmentType);
+
+	// Generic implementation for RemoveSharedFragmentInTemplate (No Thunk needed)
+	static void Generic_RemoveSharedFragmentInTemplate(const UObject* WorldContextObject, FEntityTemplateData& TemplateData, UScriptStruct* FragmentType);
+
+	// Generic implementation for RemoveConstSharedFragmentInTemplate (No Thunk needed)
+	static void Generic_RemoveConstSharedFragmentInTemplate(const UObject* WorldContextObject, FEntityTemplateData& TemplateData, UScriptStruct* FragmentType);
+
 	// Generic and Thunk implementations for SetSharedFragmentInTemplate
 	static void Generic_SetSharedFragmentInTemplate(const UObject* WorldContextObject, FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, const void* InFragmentPtr);
 	DECLARE_FUNCTION(execSetSharedFragmentInTemplate);
@@ -360,4 +447,3 @@ private:
 	DECLARE_FUNCTION(execSetConstSharedFragmentInTemplate);
 
 };
-

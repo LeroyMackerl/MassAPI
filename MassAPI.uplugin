@@ -1,16 +1,17 @@
 {
 	"FileVersion": 3,
-	"Version": 1,
+	"Version": 1.0,
 	"VersionName": "1.0",
 	"FriendlyName": "MassAPI",
-	"Description": "",
-	"Category": "Other",
+	"Description": "Provide user-friendly C++ and blueprint API for MassEntity",
+	"Category": "MassEntity",
 	"CreatedBy": "LeroyWorks",
-	"CreatedByURL": "",
+	"CreatedByURL": "https://www.fab.com/sellers/Leroy%20Works",
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
-	"CanContainContent": false,
+	"EngineVersion": "5.6",
+	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
 	"Installed": false,
@@ -20,7 +21,11 @@
 			"Type": "Runtime",
 			"LoadingPhase": "PreDefault",
 			"PlatformAllowList": [
-				"Win64"
+				"Win64",
+				"Linux",
+				"Mac",
+				"Android",
+				"IOS"
 			]
 		},
 		{
@@ -28,7 +33,11 @@
 			"Type": "UncookedOnly",
 			"LoadingPhase": "Default",
 			"PlatformAllowList": [
-				"Win64"
+				"Win64",
+				"Linux",
+				"Mac",
+				"Android",
+				"IOS"
 			]
 		}
 	],

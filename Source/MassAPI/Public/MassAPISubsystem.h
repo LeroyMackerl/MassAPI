@@ -643,6 +643,22 @@ public:
 	}
 
 	/**
+	 * Remove a fragment from the entity
+	 * (Non-templated version for BP use)
+	 * @param EntityHandle The entity to remove fragment from
+	 * @param FragmentType The fragment type to remove.
+	 * @return True if fragment was removed, false if entity didn't have the fragment or was invalid.
+	 */
+	FORCEINLINE bool RemoveFragment(FMassEntityHandle EntityHandle, UScriptStruct* FragmentType)
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for RemoveFragment"));
+		if (UNLIKELY(!FragmentType) || !FragmentType->IsChildOf(FMassFragment::StaticStruct())) return false;
+		Manager->RemoveFragmentFromEntity(EntityHandle, FragmentType);  // This function takes pointer and returns void
+		return true;  // Successfully called remove
+	}
+
+	/**
 	 * Add a tag to the entity
 	 * @param EntityHandle The entity to add tag to
 	 */
@@ -879,6 +895,21 @@ public:
 	}
 
 	/**
+	 * Remove a shared fragment from the entity
+	 * (Non-templated version for BP use)
+	 * @param EntityHandle The entity to remove shared fragment from
+	 * @param SharedFragmentType The shared fragment type to remove.
+	 * @return true if shared fragment was removed, false if entity didn't have it or was invalid.
+	 */
+	FORCEINLINE bool RemoveSharedFragment(FMassEntityHandle EntityHandle, const UScriptStruct* SharedFragmentType) const
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for RemoveSharedFragment"));
+		if (UNLIKELY(!SharedFragmentType) || !SharedFragmentType->IsChildOf(FMassSharedFragment::StaticStruct())) return false;
+		return Manager->RemoveSharedFragmentFromEntity(EntityHandle, *SharedFragmentType);  // Dereference pointer!
+	}
+
+	/**
 	 * Remove a const shared fragment from the entity
 	 * @param EntityHandle The entity to remove const shared fragment from
 	 * @return true if const shared fragment was removed, false if entity didn't have it
@@ -894,6 +925,22 @@ public:
 
 		return Manager->RemoveConstSharedFragmentFromEntity(EntityHandle, *T::StaticStruct());
 	}
+
+	/**
+	 * Remove a const shared fragment from the entity
+	 * (Non-templated version for BP use)
+	 * @param EntityHandle The entity to remove const shared fragment from
+	 * @param ConstSharedFragmentType The const shared fragment type to remove.
+	 * @return true if const shared fragment was removed, false if entity didn't have it or was invalid.
+	 */
+	FORCEINLINE bool RemoveConstSharedFragment(FMassEntityHandle EntityHandle, const UScriptStruct* ConstSharedFragmentType) const
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for RemoveConstSharedFragment"));
+		if (UNLIKELY(!ConstSharedFragmentType) || !ConstSharedFragmentType->IsChildOf(FMassConstSharedFragment::StaticStruct())) return false;
+		return Manager->RemoveConstSharedFragmentFromEntity(EntityHandle, *ConstSharedFragmentType);  // Dereference pointer!
+	}
+
 
 	//--------------- (新) Flag Operations ---------------
 
@@ -1060,5 +1107,3 @@ protected:
 		Manager->CheckIfEntityIsActive(EntityHandle);
 	}
 };
-
-

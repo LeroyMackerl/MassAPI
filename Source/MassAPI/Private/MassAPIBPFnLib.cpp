@@ -171,6 +171,45 @@ DEFINE_FUNCTION(UMassAPIBPFnLib::execSetFragment)
     P_NATIVE_END
 }
 
+// REMOVE FRAGMENT (Entity Operation)
+bool UMassAPIBPFnLib::RemoveFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType)
+{
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    if (!MassAPI || !FragmentType || !FragmentType->IsChildOf(FMassFragment::StaticStruct()))
+    {
+        return false;
+    }
+
+    // Use the generic non-templated function added to the subsystem
+    return MassAPI->RemoveFragment(EntityHandle, FragmentType);
+}
+
+// REMOVE SHARED FRAGMENT (Entity Operation)
+bool UMassAPIBPFnLib::RemoveSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType)
+{
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    if (!MassAPI || !FragmentType || !FragmentType->IsChildOf(FMassSharedFragment::StaticStruct()))
+    {
+        return false;
+    }
+
+    // Use the generic non-templated function added to the subsystem
+    return MassAPI->RemoveSharedFragment(EntityHandle, FragmentType);
+}
+
+// REMOVE CONST SHARED FRAGMENT (Entity Operation)
+bool UMassAPIBPFnLib::RemoveConstSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType)
+{
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    if (!MassAPI || !FragmentType || !FragmentType->IsChildOf(FMassConstSharedFragment::StaticStruct()))
+    {
+        return false;
+    }
+
+    // Use the generic non-templated function added to the subsystem
+    return MassAPI->RemoveConstSharedFragment(EntityHandle, FragmentType);
+}
+
 // ADD TAG
 void UMassAPIBPFnLib::AddTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType)
 {
@@ -191,6 +230,24 @@ void UMassAPIBPFnLib::AddTag(const UObject* WorldContextObject, const FEntityHan
     EntityManager.AddTagToEntity(EntityHandle, TagType);
 }
 
+void UMassAPIBPFnLib::RemoveTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType)
+{
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    if (!MassAPI || !MassAPI->IsValid(EntityHandle) || !TagType)
+    {
+        return;
+    }
+
+    if (!TagType->IsChildOf(FMassTag::StaticStruct()))
+    {
+        // UE_LOG(LogMassAPI, Warning, TEXT("RemoveTag: Provided type '%s' is not a valid FMassTag."), *TagType->GetName());
+        return;
+    }
+
+    // Call subsystem function
+    FMassEntityManager& EntityManager = *MassAPI->GetEntityManager();
+    EntityManager.RemoveTagFromEntity(EntityHandle, TagType);
+}
 
 void UMassAPIBPFnLib::DestroyEntity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle)
 {
@@ -486,6 +543,13 @@ FEntityTemplateData UMassAPIBPFnLib::GetTemplateData(const UObject* WorldContext
     return FEntityTemplateData();
 }
 
+FEntityTemplateData UMassAPIBPFnLib::Conv_TemplateToTemplateData(const UObject* WorldContextObject, const FEntityTemplate& Template)
+{
+    // This is the auto-cast conversion function
+    // It simply calls the existing GetTemplateData function
+    return GetTemplateData(WorldContextObject, Template);
+}
+
 bool UMassAPIBPFnLib::IsEmpty_TemplateData(const FEntityTemplateData& TemplateData)
 {
     if (const FMassEntityTemplateData* Data = TemplateData.Get())
@@ -676,6 +740,58 @@ DEFINE_FUNCTION(UMassAPIBPFnLib::execSetFragmentInTemplate)
     P_NATIVE_END
 }
 
+// REMOVE FRAGMENT IN TEMPLATE
+void UMassAPIBPFnLib::RemoveFragmentInTemplate(FEntityTemplateData& TemplateData, UScriptStruct* FragmentType)
+{
+    Generic_RemoveFragmentInTemplate(TemplateData, FragmentType);
+}
+
+void UMassAPIBPFnLib::Generic_RemoveFragmentInTemplate(FEntityTemplateData& TemplateData, UScriptStruct* FragmentType)
+{
+    if (!FragmentType || !FragmentType->IsChildOf(FMassFragment::StaticStruct()))
+    {
+        return;
+    }
+
+    const FMassEntityTemplateData* OldData = TemplateData.Get();
+    TSharedPtr<FMassEntityTemplateData> NewData = MakeShared<FMassEntityTemplateData>();
+
+    if (OldData)
+    {
+        // 1. Copy everything from OldData to NewData
+        NewData->SetTemplateName(OldData->GetTemplateName());
+
+        // Copy fragment types and initial values, SKIPPING the one to be removed.
+        OldData->GetCompositionDescriptor().Fragments.ExportTypes([&](const UScriptStruct* Type)
+            {
+                if (Type != FragmentType)
+                {
+                    NewData->AddFragment(*Type);
+                }
+                return true;
+            });
+
+        // Copy initial values, skipping the one to be removed.
+        for (const FInstancedStruct& Fragment : OldData->GetInitialFragmentValues())
+        {
+            if (Fragment.GetScriptStruct() != FragmentType)
+            {
+                NewData->AddFragment(FConstStructView(Fragment));
+            }
+        }
+
+        // Copy other types (Tags, Shared, ConstShared, Chunk)
+        OldData->GetTags().ExportTypes([&](const UScriptStruct* TagType) { NewData->AddTag(*TagType); return true; });
+        const FMassArchetypeSharedFragmentValues& SharedValues = OldData->GetSharedFragmentValues();
+        for (const FSharedStruct& SharedFragment : SharedValues.GetSharedFragments()) { NewData->AddSharedFragment(SharedFragment); }
+        for (const FConstSharedStruct& ConstSharedFragment : SharedValues.GetConstSharedFragments()) { NewData->AddConstSharedFragment(ConstSharedFragment); }
+        OldData->GetCompositionDescriptor().ChunkFragments.ExportTypes([&](const UScriptStruct* Type) { return true; }); // Placeholder
+    }
+
+    // 2. Replace the TSharedPtr in the handle.
+    TemplateData = FEntityTemplateData(NewData);
+}
+
 // SetSharedFragmentInTemplate - Corrected copying implementation
 void UMassAPIBPFnLib::SetSharedFragmentInTemplate(const UObject* WorldContextObject, FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, const FGenericStruct& InFragment)
 {
@@ -752,6 +868,51 @@ DEFINE_FUNCTION(UMassAPIBPFnLib::execSetSharedFragmentInTemplate)
     P_NATIVE_END
 }
 
+// REMOVE SHARED FRAGMENT IN TEMPLATE
+void UMassAPIBPFnLib::RemoveSharedFragmentInTemplate(const UObject* WorldContextObject, FEntityTemplateData& TemplateData, UScriptStruct* FragmentType)
+{
+    Generic_RemoveSharedFragmentInTemplate(WorldContextObject, TemplateData, FragmentType);
+}
+
+void UMassAPIBPFnLib::Generic_RemoveSharedFragmentInTemplate(const UObject* WorldContextObject, FEntityTemplateData& TemplateData, UScriptStruct* FragmentType)
+{
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    if (!MassAPI || !FragmentType || !FragmentType->IsChildOf(FMassSharedFragment::StaticStruct()))
+    {
+        return;
+    }
+
+    const FMassEntityTemplateData* OldData = TemplateData.Get();
+    TSharedPtr<FMassEntityTemplateData> NewData = MakeShared<FMassEntityTemplateData>();
+
+    if (OldData)
+    {
+        // 1. Copy everything from OldData to NewData
+        NewData->SetTemplateName(OldData->GetTemplateName());
+
+        // Copy Fragments and Tags (no change)
+        OldData->GetCompositionDescriptor().Fragments.ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
+        for (const FInstancedStruct& Fragment : OldData->GetInitialFragmentValues()) { NewData->AddFragment(FConstStructView(Fragment)); }
+        OldData->GetTags().ExportTypes([&](const UScriptStruct* TagType) { NewData->AddTag(*TagType); return true; });
+        OldData->GetCompositionDescriptor().ChunkFragments.ExportTypes([&](const UScriptStruct* Type) { return true; }); // Placeholder
+
+        const FMassArchetypeSharedFragmentValues& SharedValues = OldData->GetSharedFragmentValues();
+        // Copy existing Shared Fragments, SKIPPING the one with the same type as the one we are removing
+        for (const FSharedStruct& SharedFragment : SharedValues.GetSharedFragments())
+        {
+            if (SharedFragment.GetScriptStruct() != FragmentType)
+            {
+                NewData->AddSharedFragment(SharedFragment);
+            }
+        }
+        // Copy ALL Const Shared Fragments (no change)
+        for (const FConstSharedStruct& ConstSharedFragment : SharedValues.GetConstSharedFragments()) { NewData->AddConstSharedFragment(ConstSharedFragment); }
+    }
+
+    // 2. Replace the TSharedPtr in the handle.
+    TemplateData = FEntityTemplateData(NewData);
+}
+
 // SetConstSharedFragmentInTemplate - Corrected copying implementation
 void UMassAPIBPFnLib::SetConstSharedFragmentInTemplate(const UObject* WorldContextObject, FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, const FGenericStruct& InFragment)
 {
@@ -825,6 +986,51 @@ DEFINE_FUNCTION(UMassAPIBPFnLib::execSetConstSharedFragmentInTemplate)
     P_NATIVE_BEGIN
         Generic_SetConstSharedFragmentInTemplate(WorldContextObject, TemplateData, FragmentType, InFragmentPtr);
     P_NATIVE_END
+}
+
+// REMOVE CONST SHARED FRAGMENT IN TEMPLATE
+void UMassAPIBPFnLib::RemoveConstSharedFragmentInTemplate(const UObject* WorldContextObject, FEntityTemplateData& TemplateData, UScriptStruct* FragmentType)
+{
+    Generic_RemoveConstSharedFragmentInTemplate(WorldContextObject, TemplateData, FragmentType);
+}
+
+void UMassAPIBPFnLib::Generic_RemoveConstSharedFragmentInTemplate(const UObject* WorldContextObject, FEntityTemplateData& TemplateData, UScriptStruct* FragmentType)
+{
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    if (!MassAPI || !FragmentType || !FragmentType->IsChildOf(FMassConstSharedFragment::StaticStruct()))
+    {
+        return;
+    }
+
+    const FMassEntityTemplateData* OldData = TemplateData.Get();
+    TSharedPtr<FMassEntityTemplateData> NewData = MakeShared<FMassEntityTemplateData>();
+
+    if (OldData)
+    {
+        // 1. Copy everything from OldData to NewData
+        NewData->SetTemplateName(OldData->GetTemplateName());
+
+        // Copy Fragments and Tags (no change)
+        OldData->GetCompositionDescriptor().Fragments.ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
+        for (const FInstancedStruct& Fragment : OldData->GetInitialFragmentValues()) { NewData->AddFragment(FConstStructView(Fragment)); }
+        OldData->GetTags().ExportTypes([&](const UScriptStruct* TagType) { NewData->AddTag(*TagType); return true; });
+        OldData->GetCompositionDescriptor().ChunkFragments.ExportTypes([&](const UScriptStruct* Type) { return true; }); // Placeholder
+
+        const FMassArchetypeSharedFragmentValues& SharedValues = OldData->GetSharedFragmentValues();
+        // Copy ALL Shared Fragments (no change)
+        for (const FSharedStruct& SharedFragment : SharedValues.GetSharedFragments()) { NewData->AddSharedFragment(SharedFragment); }
+        // Copy existing Const Shared Fragments, SKIPPING the one with the same type as the one we are removing
+        for (const FConstSharedStruct& ConstSharedFragment : SharedValues.GetConstSharedFragments())
+        {
+            if (ConstSharedFragment.GetScriptStruct() != FragmentType)
+            {
+                NewData->AddConstSharedFragment(ConstSharedFragment);
+            }
+        }
+    }
+
+    // 2. Replace the TSharedPtr in the handle.
+    TemplateData = FEntityTemplateData(NewData);
 }
 
 
@@ -1014,32 +1220,12 @@ int64 UMassAPIBPFnLib::GetEntityFlags(const UObject* WorldContextObject, const F
         return 0;
     }
 
-    // FMassEntityManager& EntityManager = *MassAPI->GetEntityManager();
-    // if (!EntityManager.IsEntityValid(EntityHandle))
-    // {
-    //     return 0;
-    // }
-    // 
-    // if (const FEntityFlagFragment* FlagFragment = EntityManager.GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
-    // {
-    //     return FlagFragment->Flags;
-    // }
-    // 
-    // return 0;
-
     // FEntityHandle implicitly converts to FMassEntityHandle
     return MassAPI->GetEntityFlags(EntityHandle);
 }
 
 bool UMassAPIBPFnLib::HasEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToTest)
 {
-    // if (FlagToTest >= EEntityFlags::EEntityFlags_MAX)
-    // {
-    //     return false;
-    // }
-    // 
-    // const int64 EntityFlags = GetEntityFlags(WorldContextObject, EntityHandle);
-    // return (EntityFlags & (1LL << static_cast<uint8>(FlagToTest))) != 0;
     if (UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject))
     {
         return MassAPI->HasEntityFlag(EntityHandle, FlagToTest);
@@ -1050,31 +1236,6 @@ bool UMassAPIBPFnLib::HasEntityFlag(const UObject* WorldContextObject, const FEn
 bool UMassAPIBPFnLib::SetEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToSet)
 {
     UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
-    // if (!MassAPI || FlagToSet >= EEntityFlags::EEntityFlags_MAX)
-    // {
-    //     return false;
-    // }
-    // 
-    // FMassEntityManager& EntityManager = *MassAPI->GetEntityManager();
-    // if (!EntityManager.IsEntityValid(EntityHandle))
-    // {
-    //     return false;
-    // }
-    // 
-    // // 如果实体没有该 Fragment，则为其添加
-    // if (!MassAPI->HasFragment(EntityHandle, FEntityFlagFragment::StaticStruct()))
-    // {
-    //     EntityManager.AddFragmentToEntity(EntityHandle, FEntityFlagFragment::StaticStruct());
-    // }
-    // 
-    // // 获取可变指针
-    // if (FEntityFlagFragment* FlagFragment = EntityManager.GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
-    // {
-    //     FlagFragment->Flags |= (1LL << static_cast<uint8>(FlagToSet));
-    //     return true;
-    // }
-    // 
-    // return false;
     if (MassAPI)
     {
         return MassAPI->SetEntityFlag(EntityHandle, FlagToSet);
@@ -1085,25 +1246,6 @@ bool UMassAPIBPFnLib::SetEntityFlag(const UObject* WorldContextObject, const FEn
 bool UMassAPIBPFnLib::ClearEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToClear)
 {
     UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
-    // if (!MassAPI || FlagToClear >= EEntityFlags::EEntityFlags_MAX)
-    // {
-    //     return false;
-    // }
-    // 
-    // FMassEntityManager& EntityManager = *MassAPI->GetEntityManager();
-    // if (!EntityManager.IsEntityValid(EntityHandle))
-    // {
-    //     return false;
-    // }
-    // 
-    // // 如果实体没有该 Fragment，则无需执行任何操作
-    // if (FEntityFlagFragment* FlagFragment = EntityManager.GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
-    // {
-    //     FlagFragment->Flags &= ~(1LL << static_cast<uint8>(FlagToClear));
-    //     return true;
-    // }
-    // 
-    // return false;
     if (MassAPI)
     {
         return MassAPI->ClearEntityFlag(EntityHandle, FlagToClear);
@@ -1123,4 +1265,3 @@ int64 UMassAPIBPFnLib::ConvertFlagsArrayToBitmask(const TArray<EEntityFlags>& Fl
     }
     return Bitmask;
 }
-
