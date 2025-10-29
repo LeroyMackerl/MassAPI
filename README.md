@@ -552,41 +552,16 @@ TArray<FMassEntityHandle> GetMatchingEntities(const FEntityQuery& Query);
 
 // Check if entity matches a query
 bool MatchQuery(FMassEntityHandle EntityHandle, const FEntityQuery& Query);
-
-// Get archetype composition for an entity
-FMassArchetypeCompositionDescriptor GetEntityComposition(FMassEntityHandle EntityHandle);
-
-// Get all entities (use with caution)
-TArray<FMassEntityHandle> GetAllEntities();
-
-// Count entities matching a query
-int32 CountMatchingEntities(const FEntityQuery& Query);
 ```
 
 #### Template Operations
 
 ```cpp
-// Create a template from entities
-FMassEntityTemplateData CreateTemplate(const TArray<FMassEntityHandle>& SampleEntities);
-
-// Create an empty template
-FMassEntityTemplateData CreateEmptyTemplate();
-
-// Add fragment to template
-template<typename T>
-void AddFragmentToTemplate(FMassEntityTemplateData& Template, const T& Fragment);
-
-// Add tag to template
-template<typename T>
-void AddTagToTemplate(FMassEntityTemplateData& Template);
-
-// Build entities from template
-TArray<FMassEntityHandle> BuildEntitiesFromTemplate(int32 Quantity, const FMassEntityTemplateData& Template);
+// Build entitiy from template
+FEntityHandle BuildEntityFromTemplateData(const UObject* WorldContextObject, const FEntityTemplateData& TemplateData);
 
 // Build entities from template (deferred)
-void BuildEntitiesFromTemplateDefer(FMassExecutionContext& Context, int32 Quantity, const FMassEntityTemplateData& Template, TArray<FMassEntityHandle>& OutHandles);
-
-void BuildEntitiesFromTemplateDefer(FMassCommandBuffer& CommandBuffer, int32 Quantity, const FMassEntityTemplateData& Template, TArray<FMassEntityHandle>& OutHandles);
+TArray<FEntityHandle> BuildEntitiesFromTemplateData(const UObject* WorldContextObject, int32 Quantity, const FEntityTemplateData& TemplateData);
 ```
 
 ---
