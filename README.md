@@ -1,4 +1,3 @@
-````markdown
 # Mass API Plugin Documentation
 
 ## Table of Contents
