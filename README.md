@@ -52,7 +52,7 @@ The Mass Entity framework in Unreal Engine 5 provides exceptional performance fo
 * **Template System**: Reusable entity templates for efficient batch creation
 * **Flag Fragment**: Dynamic 64-bit flags that don't cause archetype migrations
 * **Thread-Safe Deferred Operations**: Explicit command buffer parameters for safe multi-threaded execution
-* **Full Fragment Support**: Works with all Mass fragment types (regular, shared, const shared, chunk, and tags)
+* **Full Fragment Support**: Works with most Mass fragment types (regular, shared, const shared, and tags)
 
 ---
 
