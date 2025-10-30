@@ -134,9 +134,9 @@ MassAPI.Defer()
 ### Creating Entities in Blueprints
 
 1.  **Get the Mass API**: Use the "Get Mass API Subsystem" node
-2.  **Create Template**: Use "Create Entity Template" to define the entity composition
+2.  **Create Template**: define the entity composition with a EntityTemplate struct variable
 3.  **Add Components**: Use "Set Fragment in Template" nodes to add data
-4.  **Build Entities**: Use "Build Entities from Template" to create multiple entities
+4.  **Build Entities**: Use "Build Entities from Template" to create multiple entities(with the subsystem in step1)
 5.  **Modify Entities**: Use "Set Mass Fragment" nodes to change entity data
 
 ### Working Inside Mass Processors
