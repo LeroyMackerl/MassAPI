@@ -1,3 +1,9 @@
+/*
+* MassAPI
+* Created: 2025
+* Author: Leroy Works, All Rights Reserved.
+*/
+
 #pragma once
 
 #include "CoreMinimal.h"

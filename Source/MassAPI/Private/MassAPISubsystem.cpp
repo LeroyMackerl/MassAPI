@@ -1,4 +1,9 @@
-// MassAPISubsystem.cpp
+/*
+* MassAPI
+* Created: 2025
+* Author: Leroy Works, All Rights Reserved.
+*/
+
 #include "MassAPISubsystem.h"
 #include "Engine/World.h"
 #include "MassCommands.h"

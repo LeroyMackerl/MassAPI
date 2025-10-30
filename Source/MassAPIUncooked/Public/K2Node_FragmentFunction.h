@@ -1,4 +1,10 @@
-﻿#pragma once
+﻿/*
+* MassAPI
+* Created: 2025
+* Author: Leroy Works, All Rights Reserved.
+*/
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "K2Node_CallFunction.h"

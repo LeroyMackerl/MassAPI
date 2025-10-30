@@ -1,4 +1,10 @@
-﻿#include "MassAPIBPFnLib.h"
+﻿/*
+* MassAPI
+* Created: 2025
+* Author: Leroy Works, All Rights Reserved.
+*/
+
+#include "MassAPIBPFnLib.h"
 #include "MassAPISubsystem.h"
 #include "MassAPIEnums.h" // (新) 包含新的枚举头文件
 #include "MassEntityView.h"

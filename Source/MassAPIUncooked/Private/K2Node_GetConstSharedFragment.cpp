@@ -1,4 +1,10 @@
-﻿#include "K2Node_GetConstSharedFragment.h"
+﻿/*
+* MassAPI
+* Created: 2025
+* Author: Leroy Works, All Rights Reserved.
+*/
+
+#include "K2Node_GetConstSharedFragment.h"
 #include "MassAPIBPFnLib.h"
 #include "MassEntityTypes.h"
 #include "EdGraphSchema_K2.h"

@@ -1,3 +1,9 @@
+/*
+* MassAPI
+* Created: 2025
+* Author: Leroy Works, All Rights Reserved.
+*/
+
 #include "MassAPIStructs.h"
 
 void FEntityTemplate::GetTemplateData(FMassEntityTemplateData& OutTemplateData, FMassEntityManager& EntityManager) const

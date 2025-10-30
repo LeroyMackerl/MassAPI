@@ -1,4 +1,10 @@
-﻿#include "K2Node_FragmentFunction.h"
+﻿/*
+* MassAPI
+* Created: 2025
+* Author: Leroy Works, All Rights Reserved.
+*/
+
+#include "K2Node_FragmentFunction.h"
 #include "MassEntityTypes.h"
 #include "EdGraphSchema_K2.h"
 #include "K2Node_CallFunction.h"

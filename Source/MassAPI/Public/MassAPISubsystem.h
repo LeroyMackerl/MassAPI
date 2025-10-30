@@ -1,3 +1,9 @@
+/*
+* MassAPI
+* Created: 2025
+* Author: Leroy Works, All Rights Reserved.
+*/
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -131,7 +137,68 @@ public:
 		return AllResult && AnyResult && NoneResult;
 	}
 
-	// Check if Entity matches filter
+	/** * 检查实体的 Composition (Tags / Fragments) 是否匹配查询
+	 * @param Manager 实体管理器实例
+	 * @param ArchetypeHandle 要检查的实体的原型句柄
+	 * @param Query 要匹配的查询
+	 * @return 如果 Composition 匹配则返回 true, 否则返回 false
+	 */
+	FORCEINLINE bool MatchQueryComposition(const FMassArchetypeHandle ArchetypeHandle, const FEntityQuery& Query) const
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available"));
+
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(ArchetypeHandle);
+
+		const bool AllResult = Query.AllList.IsEmpty() || HasAll(Composition, Query.GetAllComposition());
+		const bool AnyResult = Query.AnyList.IsEmpty() || HasAny(Composition, Query.GetAnyComposition());
+		const bool NoneResult = Query.NoneList.IsEmpty() || !HasAny(Composition, Query.GetNoneComposition());
+
+		return (AllResult && AnyResult && NoneResult);
+	}
+
+	/** * 检查实体的 Flags 是否匹配查询
+	 * @param Manager 实体管理器实例
+	 * @param EntityHandle 要检查的实体的句柄
+	 * @param Query 要匹配的查询
+	 * @return 如果 Flags 匹配则返回 true, 否则返回 false
+	 */
+	FORCEINLINE bool MatchQueryFlag(const FEntityHandle EntityHandle, const FEntityQuery& Query) const
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available"));
+
+		// 从查询中获取缓存的位掩码
+		const int64 AllFlagsQuery = Query.GetAllFlagsBitmask();
+		const int64 AnyFlagsQuery = Query.GetAnyFlagsBitmask();
+		const int64 NoneFlagsQuery = Query.GetNoneFlagsBitmask();
+
+		// 只有在有标志位查询时才执行检查
+		if (AllFlagsQuery == 0 && AnyFlagsQuery == 0 && NoneFlagsQuery == 0)
+		{
+			return true; // 没有标志位查询，总是通过
+		}
+
+		// 尝试获取实体的 Flag Fragment
+		const FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle);
+
+		// 如果实体没有 Flag Fragment，则认为它的标志位为 0
+		const int64 EntityFlags = FlagFragment ? FlagFragment->Flags : 0;
+
+		// 执行标志位检查
+		const bool bAllFlags = (AllFlagsQuery == 0) || ((EntityFlags & AllFlagsQuery) == AllFlagsQuery);
+		const bool bAnyFlags = (AnyFlagsQuery == 0) || ((EntityFlags & AnyFlagsQuery) != 0);
+		const bool bNoneFlags = (NoneFlagsQuery == 0) || ((EntityFlags & NoneFlagsQuery) == 0);
+
+		return (bAllFlags && bAnyFlags && bNoneFlags);
+	}
+
+	/**
+	 * 检查实体是否完整匹配查询（包括 Composition 和 Flags）
+	 * @param EntityHandle 要检查的实体的句柄
+	 * @param Query 要匹配的查询
+	 * @return 如果实体完整匹配查询则返回 true, 否则返回 false
+	 */
 	FORCEINLINE bool MatchQuery(const FEntityHandle EntityHandle, const FEntityQuery& Query) const
 	{
 		FMassEntityManager* Manager = GetEntityManager();
@@ -142,44 +209,16 @@ public:
 		const FMassArchetypeHandle ArchetypeHandle = Manager->GetArchetypeForEntity(EntityHandle);
 		if (UNLIKELY(!ArchetypeHandle.IsValid())) return false;
 
-		// --- 1. 检查 Composition (Tag / Fragment 存在性) ---
-		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(ArchetypeHandle);
-		const bool AllResult = Query.AllList.IsEmpty() || HasAll(Composition, Query.GetAllComposition());
-		const bool AnyResult = Query.AnyList.IsEmpty() || HasAny(Composition, Query.GetAnyComposition());
-		const bool NoneResult = Query.NoneList.IsEmpty() || !HasAny(Composition, Query.GetNoneComposition());
-
-		// 如果 Composition (Tag/Fragment) 不匹配，立即失败
-		if (!(AllResult && AnyResult && NoneResult))
+		// --- 1. 检查 Composition ---
+		if (!MatchQueryComposition(ArchetypeHandle, Query))
 		{
 			return false;
 		}
 
-		// --- 2. 检查 Flags (如果 Composition 匹配) ---
-
-		// 从查询中获取缓存的位掩码
-		const int64 AllFlagsQuery = Query.GetAllFlagsBitmask();
-		const int64 AnyFlagsQuery = Query.GetAnyFlagsBitmask();
-		const int64 NoneFlagsQuery = Query.GetNoneFlagsBitmask();
-
-		// 只有在有标志位查询时才执行检查
-		if (AllFlagsQuery != 0 || AnyFlagsQuery != 0 || NoneFlagsQuery != 0)
+		// --- 2. 检查 Flags ---
+		if (!MatchQueryFlag(EntityHandle, Query))
 		{
-			// 尝试获取实体的 Flag Fragment
-			const FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle);
-
-			// 如果实体没有 Flag Fragment，则认为它的标志位为 0
-			// (注意: BuildEntities 现已修改为始终添加此 Fragment, 所以 'FlagFragment' 理论上不应为 null)
-			const int64 EntityFlags = FlagFragment ? FlagFragment->Flags : 0;
-
-			// 执行标志位检查
-			const bool bAllFlags = (AllFlagsQuery == 0) || ((EntityFlags & AllFlagsQuery) == AllFlagsQuery);
-			const bool bAnyFlags = (AnyFlagsQuery == 0) || ((EntityFlags & AnyFlagsQuery) != 0);
-			const bool bNoneFlags = (NoneFlagsQuery == 0) || ((EntityFlags & NoneFlagsQuery) == 0);
-
-			if (!(bAllFlags && bAnyFlags && bNoneFlags))
-			{
-				return false;
-			}
+			return false;
 		}
 
 		// 所有检查都通过

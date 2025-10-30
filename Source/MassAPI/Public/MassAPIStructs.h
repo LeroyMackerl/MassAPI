@@ -1,3 +1,9 @@
+/*
+* MassAPI
+* Created: 2025
+* Author: Leroy Works, All Rights Reserved.
+*/
+
 #pragma once
 
 #include "MassEntityTypes.h"
@@ -34,11 +40,11 @@ public:
 	}
 
 	// Blueprint-accessible entity index
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere)
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "MassAPI|EntityHandle")
 	int32 Index = 0;
 
 	// Blueprint-accessible serial number
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere)
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "MassAPI|EntityHandle")
 	int32 Serial = 0;
 
 	// Comparison operator (used by EqualEqual_EntityHandle in Blueprints)
@@ -65,7 +71,7 @@ struct MASSAPI_API FEntityFlagFragment : public FMassFragment
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Flags")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags")
 	int64 Flags = 0;
 
 	/**
@@ -264,27 +270,27 @@ public:
 
 	// ----------- 核心数据 UPROPERTY -----------
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Query|Composition", meta = (Tooltip = "Entity traits: AND, the entity's Mass components must match this list completely.", DisplayName = "AllComposition"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Query", meta = (Tooltip = "Entity traits: AND, the entity's Mass components must match this list completely.", DisplayName = "AllComposition"))
 	TArray<TObjectPtr<UScriptStruct>> AllList;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Query|Composition", meta = (Tooltip = "Entity traits: OR, the entity's Mass components must have at least one from this list.", DisplayName = "AnyComposition"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Query", meta = (Tooltip = "Entity traits: OR, the entity's Mass components must have at least one from this list.", DisplayName = "AnyComposition"))
 	TArray<TObjectPtr<UScriptStruct>> AnyList;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Query|Composition", meta = (Tooltip = "Entity traits: NOT, the entity's Mass components must not match this list at all.", DisplayName = "NoneComposition"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Query", meta = (Tooltip = "Entity traits: NOT, the entity's Mass components must not match this list at all.", DisplayName = "NoneComposition"))
 	TArray<TObjectPtr<UScriptStruct>> NoneList;
 
 	// ----------- (新) 动态标志查询 (面向用户) -----------
 
 	/** (新) 标志位查询：AND，实体的标志位必须包含所有这些标志。 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Query|Flags", meta = (Tooltip = "AND: 实体必须拥有所有这些标志。", DisplayName = "AllFlags", EditCondition = "bShowBaseFlagsInEditor"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags", meta = (Tooltip = "AND: 实体必须拥有所有这些标志。", DisplayName = "AllFlags", EditCondition = "bShowBaseFlagsInEditor"))
 	TArray<EEntityFlags> AllFlagsList;
 
 	/** (新) 标志位查询：OR，实体的标志位必须包含至少一个标志。 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Query|Flags", meta = (Tooltip = "OR: 实体必须拥有至少一个标志。", DisplayName = "AnyFlags", EditCondition = "bShowBaseFlagsInEditor"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags", meta = (Tooltip = "OR: 实体必须拥有至少一个标志。", DisplayName = "AnyFlags", EditCondition = "bShowBaseFlagsInEditor"))
 	TArray<EEntityFlags> AnyFlagsList;
 
 	/** (新) 标志位查询：NOT，实体的标志位必须不包含任何这些标志。 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Query|Flags", meta = (Tooltip = "NOT: 实体必须没有任何这些标志。", DisplayName = "NoneFlags", EditCondition = "bShowBaseFlagsInEditor"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags", meta = (Tooltip = "NOT: 实体必须没有任何这些标志。", DisplayName = "NoneFlags", EditCondition = "bShowBaseFlagsInEditor"))
 	TArray<EEntityFlags> NoneFlagsList;
 
 
@@ -501,19 +507,19 @@ struct MASSAPI_API FEntityTemplate
 public:
 
 	/** List of tags to add to the entity. Since tags have no data, you just need to add an entry of the desired tag type. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mass|Template", meta = (BaseStruct = "MassTag", Tooltip = "List of tags to add to the entity. Since tags have no data, you just need to add an entry of the desired tag type."))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "MassTag", Tooltip = "List of tags to add to the entity. Since tags have no data, you just need to add an entry of the desired tag type."))
 	TArray<FInstancedStruct> Tags;
 
 	/** List of fragments with their initial values. Only structs derived from FMassFragment are allowed. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mass|Template", meta = (BaseStruct = "MassFragment", Tooltip = "List of fragments with their initial values. Only structs derived from FMassFragment are allowed."))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "MassFragment", Tooltip = "List of fragments with their initial values. Only structs derived from FMassFragment are allowed."))
 	TArray<FInstancedStruct> Fragments;
 
 	/** List of mutable shared fragments with their initial values. Only structs derived from FMassSharedFragment are allowed. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mass|Template", meta = (BaseStruct = "MassSharedFragment", Tooltip = "List of mutable shared fragments with their initial values. Only structs derived from FMassSharedFragment are allowed."))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "MassSharedFragment", Tooltip = "List of mutable shared fragments with their initial values. Only structs derived from FMassSharedFragment are allowed."))
 	TArray<FInstancedStruct> MutableSharedFragments;
 
 	/** List of constant shared fragments with their initial values. Only structs derived from FMassConstSharedFragment are allowed. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mass|Template", meta = (BaseStruct = "MassConstSharedFragment", Tooltip = "List of constant shared fragments with their initial values. Only structs derived from FMassConstSharedFragment are allowed."))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "MassConstSharedFragment", Tooltip = "List of constant shared fragments with their initial values. Only structs derived from FMassConstSharedFragment are allowed."))
 	TArray<FInstancedStruct> ConstSharedFragments;
 
 	/**
