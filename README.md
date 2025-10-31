@@ -134,9 +134,9 @@ MassAPI.Defer()
 ### Creating Entities in Blueprints
 
 1.  **Get the Mass API**: Use the "Get Mass API Subsystem" node
-2.  **Create Template**: Use "Create Entity Template" to define the entity composition
+2.  **Create Template**: define the entity composition with a EntityTemplate struct variable
 3.  **Add Components**: Use "Set Fragment in Template" nodes to add data
-4.  **Build Entities**: Use "Build Entities from Template" to create multiple entities
+4.  **Build Entities**: Use "Build Entities from Template" to create multiple entities(with the subsystem in step1)
 5.  **Modify Entities**: Use "Set Mass Fragment" nodes to change entity data
 
 ### Working Inside Mass Processors
@@ -247,13 +247,12 @@ Entity handles are lightweight references that can be safely passed around and s
 
 ### Fragment Types
 
-Mass API supports all Mass Entity fragment types:
+Mass API supports following Mass Entity fragment types:
 
   * **Regular Fragments** (`FMassFragment`): Per-entity data, most common type
   * **Tags** (`FMassTag`): Marker components with no data
   * **Shared Fragments** (`FMassSharedFragment`): Mutable data shared between entities
   * **Const Shared Fragments** (`FMassConstSharedFragment`): Immutable shared data
-  * **Chunk Fragments** (`FMassChunkFragment`): Per-chunk data for entity groups
 
 ### Entity Flags System
 
