@@ -158,24 +158,24 @@ FMassEntityHandle UMassAPISubsystem::BuildEntityDefer(FMassExecutionContext& Con
     const TArray<FInstancedStruct> InitialFragments(TemplateData.GetInitialFragmentValues());
 
     // 3. Push deferred creation command
-    Context.Defer().PushCommand<FMassDeferredCreateCommand>([ReservedEntity, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& EntityManager)
+    Context.Defer().PushCommand<FMassDeferredCreateCommand>([ReservedEntity, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& Manager)
         {
             // Get or create archetype (using the modified Composition)
-            const FMassArchetypeHandle ArchetypeHandle = EntityManager.CreateArchetype(Composition, CreationParams);
+            const FMassArchetypeHandle ArchetypeHandle = Manager.CreateArchetype(Composition, CreationParams);
             if (!ArchetypeHandle.IsValid())
             {
                 // If archetype creation fails, release the reserved entity to prevent leaks
-                EntityManager.ReleaseReservedEntity(ReservedEntity);
+                Manager.ReleaseReservedEntity(ReservedEntity);
                 return;
             }
 
             // Build entity with archetype and shared fragments
-            EntityManager.BuildEntity(ReservedEntity, ArchetypeHandle, SharedValues);
+            Manager.BuildEntity(ReservedEntity, ArchetypeHandle, SharedValues);
 
             // Set initial fragment values
             if (InitialFragments.Num() > 0)
             {
-                EntityManager.SetEntityFragmentValues(ReservedEntity, InitialFragments);
+                Manager.SetEntityFragmentValues(ReservedEntity, InitialFragments);
             }
         });
 
@@ -201,24 +201,24 @@ FMassEntityHandle UMassAPISubsystem::BuildEntityDefer(FMassCommandBuffer& Comman
     const TArray<FInstancedStruct> InitialFragments(TemplateData.GetInitialFragmentValues());
 
     // 3. Push deferred creation command
-    CommandBuffer.PushCommand<FMassDeferredCreateCommand>([ReservedEntity, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& EntityManager)
+    CommandBuffer.PushCommand<FMassDeferredCreateCommand>([ReservedEntity, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& Manager)
         {
             // Get or create archetype (using the modified Composition)
-            const FMassArchetypeHandle ArchetypeHandle = EntityManager.CreateArchetype(Composition, CreationParams);
+            const FMassArchetypeHandle ArchetypeHandle = Manager.CreateArchetype(Composition, CreationParams);
             if (!ArchetypeHandle.IsValid())
             {
                 // If archetype creation fails, release the reserved entity to prevent leaks
-                EntityManager.ReleaseReservedEntity(ReservedEntity);
+                Manager.ReleaseReservedEntity(ReservedEntity);
                 return;
             }
 
             // Build entity with archetype and shared fragments
-            EntityManager.BuildEntity(ReservedEntity, ArchetypeHandle, SharedValues);
+            Manager.BuildEntity(ReservedEntity, ArchetypeHandle, SharedValues);
 
             // Set initial fragment values
             if (InitialFragments.Num() > 0)
             {
-                EntityManager.SetEntityFragmentValues(ReservedEntity, InitialFragments);
+                Manager.SetEntityFragmentValues(ReservedEntity, InitialFragments);
             }
         });
 
@@ -249,29 +249,29 @@ void UMassAPISubsystem::BuildEntitiesDefer(FMassExecutionContext& Context, int32
     const TArray<FInstancedStruct> InitialFragments(TemplateData.GetInitialFragmentValues());
 
     // 3. Push deferred creation command
-    Context.Defer().PushCommand<FMassDeferredCreateCommand>([ReservedEntities, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& EntityManager)
+    Context.Defer().PushCommand<FMassDeferredCreateCommand>([ReservedEntities, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& Manager)
         {
             // Get or create archetype (using the modified Composition)
-            const FMassArchetypeHandle ArchetypeHandle = EntityManager.CreateArchetype(Composition, CreationParams);
+            const FMassArchetypeHandle ArchetypeHandle = Manager.CreateArchetype(Composition, CreationParams);
             if (!ArchetypeHandle.IsValid())
             {
                 // If archetype creation fails, release all reserved entities
                 for (const FMassEntityHandle& Entity : ReservedEntities)
                 {
-                    EntityManager.ReleaseReservedEntity(Entity);
+                    Manager.ReleaseReservedEntity(Entity);
                 }
                 return;
             }
 
             // Batch build reserved entities
-            EntityManager.BatchCreateReservedEntities(ArchetypeHandle, SharedValues, ReservedEntities);
+            Manager.BatchCreateReservedEntities(ArchetypeHandle, SharedValues, ReservedEntities);
 
             // Batch set initial fragment values
             if (InitialFragments.Num() > 0)
             {
                 TArray<FMassArchetypeEntityCollection> EntityCollections;
-                UE::Mass::Utils::CreateEntityCollections(EntityManager, ReservedEntities, FMassArchetypeEntityCollection::NoDuplicates, EntityCollections);
-                EntityManager.BatchSetEntityFragmentValues(EntityCollections, InitialFragments);
+                UE::Mass::Utils::CreateEntityCollections(Manager, ReservedEntities, FMassArchetypeEntityCollection::NoDuplicates, EntityCollections);
+                Manager.BatchSetEntityFragmentValues(EntityCollections, InitialFragments);
             }
         });
 }
@@ -300,29 +300,29 @@ void UMassAPISubsystem::BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, in
     const TArray<FInstancedStruct> InitialFragments(TemplateData.GetInitialFragmentValues());
 
     // 3. Push deferred creation command
-    CommandBuffer.PushCommand<FMassDeferredCreateCommand>([ReservedEntities, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& EntityManager)
+    CommandBuffer.PushCommand<FMassDeferredCreateCommand>([ReservedEntities, Composition, CreationParams, SharedValues, InitialFragments](FMassEntityManager& Manager)
         {
             // Get or create archetype (using the modified Composition)
-            const FMassArchetypeHandle ArchetypeHandle = EntityManager.CreateArchetype(Composition, CreationParams);
+            const FMassArchetypeHandle ArchetypeHandle = Manager.CreateArchetype(Composition, CreationParams);
             if (!ArchetypeHandle.IsValid())
             {
                 // If archetype creation fails, release all reserved entities
                 for (const FMassEntityHandle& Entity : ReservedEntities)
                 {
-                    EntityManager.ReleaseReservedEntity(Entity);
+                    Manager.ReleaseReservedEntity(Entity);
                 }
                 return;
             }
 
             // Batch build reserved entities
-            EntityManager.BatchCreateReservedEntities(ArchetypeHandle, SharedValues, ReservedEntities);
+            Manager.BatchCreateReservedEntities(ArchetypeHandle, SharedValues, ReservedEntities);
 
             // Batch set initial fragment values
             if (InitialFragments.Num() > 0)
             {
                 TArray<FMassArchetypeEntityCollection> EntityCollections;
-                UE::Mass::Utils::CreateEntityCollections(EntityManager, ReservedEntities, FMassArchetypeEntityCollection::NoDuplicates, EntityCollections);
-                EntityManager.BatchSetEntityFragmentValues(EntityCollections, InitialFragments);
+                UE::Mass::Utils::CreateEntityCollections(Manager, ReservedEntities, FMassArchetypeEntityCollection::NoDuplicates, EntityCollections);
+                Manager.BatchSetEntityFragmentValues(EntityCollections, InitialFragments);
             }
         });
 }
