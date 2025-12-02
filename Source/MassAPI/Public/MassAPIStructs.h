@@ -507,19 +507,19 @@ struct MASSAPI_API FEntityTemplate
 public:
 
 	/** List of tags to add to the entity. Since tags have no data, you just need to add an entry of the desired tag type. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "MassTag", Tooltip = "List of tags to add to the entity. Since tags have no data, you just need to add an entry of the desired tag type."))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "/Script/MassEntity.MassTag", Tooltip = "List of tags to add to the entity. Since tags have no data, you just need to add an entry of the desired tag type."))
 	TArray<FInstancedStruct> Tags;
 
 	/** List of fragments with their initial values. Only structs derived from FMassFragment are allowed. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "MassFragment", Tooltip = "List of fragments with their initial values. Only structs derived from FMassFragment are allowed."))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "/Script/MassEntity.MassFragment", Tooltip = "List of fragments with their initial values. Only structs derived from FMassFragment are allowed."))
 	TArray<FInstancedStruct> Fragments;
 
 	/** List of mutable shared fragments with their initial values. Only structs derived from FMassSharedFragment are allowed. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "MassSharedFragment", Tooltip = "List of mutable shared fragments with their initial values. Only structs derived from FMassSharedFragment are allowed."))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "/Script/MassEntity.MassSharedFragment", Tooltip = "List of mutable shared fragments with their initial values. Only structs derived from FMassSharedFragment are allowed."))
 	TArray<FInstancedStruct> MutableSharedFragments;
 
 	/** List of constant shared fragments with their initial values. Only structs derived from FMassConstSharedFragment are allowed. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "MassConstSharedFragment", Tooltip = "List of constant shared fragments with their initial values. Only structs derived from FMassConstSharedFragment are allowed."))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Template", meta = (BaseStruct = "/Script/MassEntity.MassConstSharedFragment", Tooltip = "List of constant shared fragments with their initial values. Only structs derived from FMassConstSharedFragment are allowed."))
 	TArray<FInstancedStruct> ConstSharedFragments;
 
 	/**

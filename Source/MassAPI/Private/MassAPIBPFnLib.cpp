@@ -497,6 +497,7 @@ FEntityHandle UMassAPIBPFnLib::BuildEntityFromTemplateData(const UObject* WorldC
     {
         if (FMassEntityTemplateData* Data = TemplateData.Get())
         {
+            Data->Sort();
             TArray<FMassEntityHandle> MassHandles = MassAPI->BuildEntities(1, *Data);
             if (MassHandles.Num() > 0)
             {
@@ -571,7 +572,7 @@ bool UMassAPIBPFnLib::HasFragment_TemplateData(const FEntityTemplateData& Templa
     {
         if (FragmentType && FragmentType->IsChildOf(FMassFragment::StaticStruct()))
         {
-            return Data->GetCompositionDescriptor().Fragments.Contains(*FragmentType);
+            return Data->GetCompositionDescriptor().GetFragments().Contains(*FragmentType);
         }
     }
     return false;
@@ -605,7 +606,7 @@ bool UMassAPIBPFnLib::HasTag_TemplateData(const FEntityTemplateData& TemplateDat
     {
         if (TagType && TagType->IsChildOf(FMassTag::StaticStruct()))
         {
-            return Data->GetCompositionDescriptor().Tags.Contains(*TagType);
+            return Data->GetCompositionDescriptor().GetTags().Contains(*TagType);
         }
     }
     return false;
@@ -683,7 +684,7 @@ void UMassAPIBPFnLib::Generic_SetFragmentInTemplate(FEntityTemplateData& Templat
         NewData->SetTemplateName(OldData->GetTemplateName());
 
         // Copy fragment types
-        OldData->GetCompositionDescriptor().Fragments.ExportTypes([&](const UScriptStruct* Type)
+        OldData->GetCompositionDescriptor().GetFragments().ExportTypes([&](const UScriptStruct* Type)
             {
                 NewData->AddFragment(*Type);
                 return true;
@@ -711,7 +712,7 @@ void UMassAPIBPFnLib::Generic_SetFragmentInTemplate(FEntityTemplateData& Templat
         for (const FConstSharedStruct& ConstSharedFragment : SharedValues.GetConstSharedFragments()) { NewData->AddConstSharedFragment(ConstSharedFragment); }
 
         // Copy Chunk Fragment types (Assuming FMassEntityTemplateData provides a suitable method)
-        OldData->GetCompositionDescriptor().ChunkFragments.ExportTypes([&](const UScriptStruct* Type)
+        OldData->GetCompositionDescriptor().GetChunkFragments().ExportTypes([&](const UScriptStruct* Type)
             {
                 // if (NewData && Type) NewData->AddChunkFragment(*Type); // Need appropriate API in FMassEntityTemplateData
                 return true;
@@ -768,7 +769,7 @@ void UMassAPIBPFnLib::Generic_RemoveFragmentInTemplate(FEntityTemplateData& Temp
         NewData->SetTemplateName(OldData->GetTemplateName());
 
         // Copy fragment types and initial values, SKIPPING the one to be removed.
-        OldData->GetCompositionDescriptor().Fragments.ExportTypes([&](const UScriptStruct* Type)
+        OldData->GetCompositionDescriptor().GetFragments().ExportTypes([&](const UScriptStruct* Type)
             {
                 if (Type != FragmentType)
                 {
@@ -791,7 +792,7 @@ void UMassAPIBPFnLib::Generic_RemoveFragmentInTemplate(FEntityTemplateData& Temp
         const FMassArchetypeSharedFragmentValues& SharedValues = OldData->GetSharedFragmentValues();
         for (const FSharedStruct& SharedFragment : SharedValues.GetSharedFragments()) { NewData->AddSharedFragment(SharedFragment); }
         for (const FConstSharedStruct& ConstSharedFragment : SharedValues.GetConstSharedFragments()) { NewData->AddConstSharedFragment(ConstSharedFragment); }
-        OldData->GetCompositionDescriptor().ChunkFragments.ExportTypes([&](const UScriptStruct* Type) { return true; }); // Placeholder
+        OldData->GetCompositionDescriptor().GetChunkFragments().ExportTypes([&](const UScriptStruct* Type) { return true; }); // Placeholder
     }
 
     // 2. Replace the TSharedPtr in the handle.
@@ -824,7 +825,7 @@ void UMassAPIBPFnLib::Generic_SetSharedFragmentInTemplate(const UObject* WorldCo
         // Copy everything except the specific shared fragment handle we are replacing
         NewData->SetTemplateName(OldData->GetTemplateName());
 
-        OldData->GetCompositionDescriptor().Fragments.ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
+        OldData->GetCompositionDescriptor().GetFragments().ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
         for (const FInstancedStruct& Fragment : OldData->GetInitialFragmentValues()) { NewData->AddFragment(FConstStructView(Fragment)); }
         OldData->GetTags().ExportTypes([&](const UScriptStruct* TagType) { NewData->AddTag(*TagType); return true; });
 
@@ -841,7 +842,7 @@ void UMassAPIBPFnLib::Generic_SetSharedFragmentInTemplate(const UObject* WorldCo
         for (const FConstSharedStruct& ConstSharedFragment : SharedValues.GetConstSharedFragments()) { NewData->AddConstSharedFragment(ConstSharedFragment); }
 
         // Copy Chunk Fragments
-        OldData->GetCompositionDescriptor().ChunkFragments.ExportTypes([&](const UScriptStruct* Type)
+        OldData->GetCompositionDescriptor().GetChunkFragments().ExportTypes([&](const UScriptStruct* Type)
             {
                 // if(NewData && Type) NewData->AddChunkFragment(*Type); // Assuming AddChunkFragment exists
                 return true;
@@ -897,10 +898,10 @@ void UMassAPIBPFnLib::Generic_RemoveSharedFragmentInTemplate(const UObject* Worl
         NewData->SetTemplateName(OldData->GetTemplateName());
 
         // Copy Fragments and Tags (no change)
-        OldData->GetCompositionDescriptor().Fragments.ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
+        OldData->GetCompositionDescriptor().GetFragments().ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
         for (const FInstancedStruct& Fragment : OldData->GetInitialFragmentValues()) { NewData->AddFragment(FConstStructView(Fragment)); }
         OldData->GetTags().ExportTypes([&](const UScriptStruct* TagType) { NewData->AddTag(*TagType); return true; });
-        OldData->GetCompositionDescriptor().ChunkFragments.ExportTypes([&](const UScriptStruct* Type) { return true; }); // Placeholder
+        OldData->GetCompositionDescriptor().GetChunkFragments().ExportTypes([&](const UScriptStruct* Type) { return true; }); // Placeholder
 
         const FMassArchetypeSharedFragmentValues& SharedValues = OldData->GetSharedFragmentValues();
         // Copy existing Shared Fragments, SKIPPING the one with the same type as the one we are removing
@@ -945,7 +946,7 @@ void UMassAPIBPFnLib::Generic_SetConstSharedFragmentInTemplate(const UObject* Wo
         // Copy everything except the specific const shared fragment handle we are replacing
         NewData->SetTemplateName(OldData->GetTemplateName());
 
-        OldData->GetCompositionDescriptor().Fragments.ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
+        OldData->GetCompositionDescriptor().GetFragments().ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
         for (const FInstancedStruct& Fragment : OldData->GetInitialFragmentValues()) { NewData->AddFragment(FConstStructView(Fragment)); }
         OldData->GetTags().ExportTypes([&](const UScriptStruct* TagType) { NewData->AddTag(*TagType); return true; });
 
@@ -961,7 +962,7 @@ void UMassAPIBPFnLib::Generic_SetConstSharedFragmentInTemplate(const UObject* Wo
             }
         }
         // Copy Chunk Fragments
-        OldData->GetCompositionDescriptor().ChunkFragments.ExportTypes([&](const UScriptStruct* Type)
+        OldData->GetCompositionDescriptor().GetChunkFragments().ExportTypes([&](const UScriptStruct* Type)
             {
                 // if(NewData && Type) NewData->AddChunkFragment(*Type); // Assuming AddChunkFragment exists
                 return true;
@@ -1017,10 +1018,10 @@ void UMassAPIBPFnLib::Generic_RemoveConstSharedFragmentInTemplate(const UObject*
         NewData->SetTemplateName(OldData->GetTemplateName());
 
         // Copy Fragments and Tags (no change)
-        OldData->GetCompositionDescriptor().Fragments.ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
+        OldData->GetCompositionDescriptor().GetFragments().ExportTypes([&](const UScriptStruct* Type) { NewData->AddFragment(*Type); return true; });
         for (const FInstancedStruct& Fragment : OldData->GetInitialFragmentValues()) { NewData->AddFragment(FConstStructView(Fragment)); }
         OldData->GetTags().ExportTypes([&](const UScriptStruct* TagType) { NewData->AddTag(*TagType); return true; });
-        OldData->GetCompositionDescriptor().ChunkFragments.ExportTypes([&](const UScriptStruct* Type) { return true; }); // Placeholder
+        OldData->GetCompositionDescriptor().GetChunkFragments().ExportTypes([&](const UScriptStruct* Type) { return true; }); // Placeholder
 
         const FMassArchetypeSharedFragmentValues& SharedValues = OldData->GetSharedFragmentValues();
         // Copy ALL Shared Fragments (no change)
