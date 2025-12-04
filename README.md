@@ -1,3 +1,6 @@
+# Update Log
+20251204 Added ue5.7 compatibility contributed by LainProStudio
+
 # Mass API Plugin Documentation
 This doc is generated with AI. It may contain erros. Use with caution.
 https://discord.gg/8AUMxq3SgV
