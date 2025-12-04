@@ -81,23 +81,41 @@ public:
 	// A contains all of B
 	FORCEINLINE static bool HasAll(const FMassArchetypeCompositionDescriptor& ThisComposition, const FMassArchetypeCompositionDescriptor& OtherComposition)
 	{
+		#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7
+		return
+			ThisComposition.GetFragments().HasAll(OtherComposition.GetFragments()) &&
+			ThisComposition.GetTags().HasAll(OtherComposition.GetTags()) &&
+			ThisComposition.GetChunkFragments().HasAll(OtherComposition.GetChunkFragments()) &&
+			ThisComposition.GetSharedFragments().HasAll(OtherComposition.GetSharedFragments()) &&
+			ThisComposition.GetConstSharedFragments().HasAll(OtherComposition.GetConstSharedFragments());
+		#else
 		return
 			ThisComposition.Fragments.HasAll(OtherComposition.Fragments) &&
 			ThisComposition.Tags.HasAll(OtherComposition.Tags) &&
 			ThisComposition.ChunkFragments.HasAll(OtherComposition.ChunkFragments) &&
 			ThisComposition.SharedFragments.HasAll(OtherComposition.SharedFragments) &&
 			ThisComposition.ConstSharedFragments.HasAll(OtherComposition.ConstSharedFragments);
+		#endif
 	}
 
 	// A contains any of B
 	FORCEINLINE static bool HasAny(const FMassArchetypeCompositionDescriptor& ThisComposition, const FMassArchetypeCompositionDescriptor& OtherComposition)
 	{
+		#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7
 		return
-			ThisComposition.Fragments.HasAny(OtherComposition.Fragments) ||
-			ThisComposition.Tags.HasAny(OtherComposition.Tags) ||
-			ThisComposition.ChunkFragments.HasAny(OtherComposition.ChunkFragments) ||
-			ThisComposition.SharedFragments.HasAny(OtherComposition.SharedFragments) ||
+			ThisComposition.GetFragments().HasAny(OtherComposition.GetFragments()) ||
+			ThisComposition.GetTags().HasAny(OtherComposition.GetTags()) ||
+			ThisComposition.GetChunkFragments().HasAny(OtherComposition.GetChunkFragments()) ||
+			ThisComposition.GetSharedFragments().HasAny(OtherComposition.GetSharedFragments()) ||
+			ThisComposition.GetConstSharedFragments().HasAny(OtherComposition.GetConstSharedFragments());
+		#else
+		return
+			ThisComposition.Fragments.HasAny(OtherComposition.Fragments) &&
+			ThisComposition.Tags.HasAny(OtherComposition.Tags) &&
+			ThisComposition.ChunkFragments.HasAny(OtherComposition.ChunkFragments) &&
+			ThisComposition.SharedFragments.HasAny(OtherComposition.SharedFragments) &&
 			ThisComposition.ConstSharedFragments.HasAny(OtherComposition.ConstSharedFragments);
+		#endif
 	}
 
 	FORCEINLINE static bool MatchQueryAll(const FMassArchetypeCompositionDescriptor& Composition, const FEntityQuery& Query)
