@@ -19,7 +19,7 @@ public class MassAPIUncooked : ModuleRules
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
-                "Core",
+                "Core", "StructViewer", "InputCore"
             }
         );
 
@@ -32,19 +32,27 @@ public class MassAPIUncooked : ModuleRules
                 "SlateCore",
                 "MassEntity",
                 "MassAPI",
+                "AppFramework",
             }
         );
 
-        // Editor-only modules must be placed in this conditional block
-        if (Target.bBuildEditor == true)
+        if (Target.bBuildEditor)
         {
             PrivateDependencyModuleNames.AddRange(
                 new string[]
                 {
                     "UnrealEd",
-                    "ToolMenus",
                     "BlueprintGraph",
-                    "KismetCompiler"
+                    "GraphEditor",
+                    "Kismet",
+                    "KismetWidgets",
+                    "KismetCompiler",
+                    "ToolMenus",
+                    "EditorStyle",
+                    "PropertyEditor",
+                    "MagnusExtension",
+                    "MagnusUtilities",
+                    "MagnusNodes",
                 }
             );
         }

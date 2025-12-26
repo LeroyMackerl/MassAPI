@@ -44,6 +44,18 @@ public class MassAPI : ModuleRules
                     "BlueprintGraph"
                 }
             );
+
+            PrivateDependencyModuleNames.AddRange(
+                new string[]
+                {
+                    "Slate",
+                    "SlateCore",
+                    "PropertyEditor",
+                    "AppFramework",
+                    "UnrealEd",
+                    "EditorStyle"
+                }
+            );
         }
 
         PrivateDependencyModuleNames.AddRange(

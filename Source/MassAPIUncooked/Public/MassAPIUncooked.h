@@ -1,24 +1,22 @@
-﻿/*
-* MassAPI
-* Created: 2025
-* Author: Leroy Works, All Rights Reserved.
-*/
+﻿// Leroy Works & Ember, All Rights Reserved.
 
 #pragma once
 
 #include "Modules/ModuleManager.h"
 
+class FMassAPIPinFactory;
 
-/**
- * The main NeighborGrid editor module.
- */
-class MASSAPIUNCOOKED_API FMassAPIUncookedModule
-  : public IModuleInterface
+class MASSAPIUNCOOKED_API FMassAPIUncookedModule : public IModuleInterface
 {
-  public:
 
-#pragma region IModuleInterface
+public:
+
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
-#pragma endregion IModuleInterface
+
+private:
+
+	// Pin Factory，用于创建自定义的蓝图引脚 Widget
+	TSharedPtr<FMassAPIPinFactory> MassAPIPinFactory;
+
 };

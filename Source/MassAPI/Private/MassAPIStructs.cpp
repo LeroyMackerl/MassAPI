@@ -5,6 +5,7 @@
 */
 
 #include "MassAPIStructs.h"
+#include "MassEntityQuery.h"
 
 void FEntityTemplate::GetTemplateData(FMassEntityTemplateData& OutTemplateData, FMassEntityManager& EntityManager) const
 {
@@ -55,5 +56,24 @@ void FEntityTemplate::GetTemplateData(FMassEntityTemplateData& OutTemplateData, 
             OutTemplateData.AddConstSharedFragment(ConstSharedStruct);
         }
     }
-}
 
+    // 5. Add Entity Flags
+    // If the Flags array has content, we create an FEntityFlagFragment, calculate the bitmask,
+    // and add it to the template data.
+    if (Flags.Num() > 0)
+    {
+        FEntityFlagFragment FlagFragment;
+        FlagFragment.Flags = 0;
+
+        for (const EEntityFlags Flag : Flags)
+        {
+            if (Flag < EEntityFlags::EEntityFlags_MAX)
+            {
+                FlagFragment.Flags |= (1LL << static_cast<uint8>(Flag));
+            }
+        }
+
+        // Add the fragment to the composition and store its initial value (the calculated bitmask)
+        OutTemplateData.AddFragment(FConstStructView::Make(FlagFragment));
+    }
+}

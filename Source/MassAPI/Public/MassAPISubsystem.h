@@ -7,8 +7,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Runtime/Launch/Resources/Version.h" 
 #include "MassSubsystemBase.h"
-#include "MassAPIStructs.h" // 已包含 FEntityFlagFragment 和 FEntityQuery
+#include "MassAPIStructs.h"
 #include "MassAPIEnums.h"
 #include "MassEntitySubsystem.h"
 #include "MassEntityManager.h"
@@ -19,6 +20,28 @@
 #include "MassExecutionContext.h"
 #include "MassAPISubsystem.generated.h"
 
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+// 声明每次迭代的委托
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEntityIterate, FEntityHandle, Element, int32, Index);
+
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION == 7
+// UE 5.7 accessor methods
+#define GET_TAGS GetTags()
+#define GET_FRAGMENTS GetFragments()
+#define GET_CHUNK_FRAGMENTS GetChunkFragments()
+#define GET_SHARED_FRAGMENTS GetSharedFragments()
+#define GET_CONST_SHARED_FRAGMENTS GetConstSharedFragments()
+#else
+// < UE 5.7 accessor methods
+#define GET_TAGS Tags
+#define GET_FRAGMENTS Fragments
+#define GET_CHUNK_FRAGMENTS ChunkFragments
+#define GET_SHARED_FRAGMENTS SharedFragments
+#define GET_CONST_SHARED_FRAGMENTS ConstSharedFragments
+#endif
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 /**
  * UMassAPISubsystem provides convenient API extensions for MassEntity framework
@@ -38,20 +61,11 @@ protected:
 
 
 public:
-	//-------------- Getting MassAPI ---------------
 
-	/**
-	 * Static getter for the subsystem (returns pointer)
-	 * @param WorldContextObject Any UObject that can provide world context
-	 * @return Pointer to MassAPISubsystem, nullptr if not available
-	 */
+	static UMassAPISubsystem* GetPtr();
 	static UMassAPISubsystem* GetPtr(const UObject* WorldContextObject);
 
-	/**
-	 * Static getter for the subsystem (returns reference, will check validity)
-	 * @param WorldContextObject Any UObject that can provide world context
-	 * @return Reference to MassAPISubsystem
-	 */
+	static UMassAPISubsystem& GetRef();
 	static UMassAPISubsystem& GetRef(const UObject* WorldContextObject);
 
 	/**
@@ -81,41 +95,23 @@ public:
 	// A contains all of B
 	FORCEINLINE static bool HasAll(const FMassArchetypeCompositionDescriptor& ThisComposition, const FMassArchetypeCompositionDescriptor& OtherComposition)
 	{
-		#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7
 		return
-			ThisComposition.GetFragments().HasAll(OtherComposition.GetFragments()) &&
-			ThisComposition.GetTags().HasAll(OtherComposition.GetTags()) &&
-			ThisComposition.GetChunkFragments().HasAll(OtherComposition.GetChunkFragments()) &&
-			ThisComposition.GetSharedFragments().HasAll(OtherComposition.GetSharedFragments()) &&
-			ThisComposition.GetConstSharedFragments().HasAll(OtherComposition.GetConstSharedFragments());
-		#else
-		return
-			ThisComposition.Fragments.HasAll(OtherComposition.Fragments) &&
-			ThisComposition.Tags.HasAll(OtherComposition.Tags) &&
-			ThisComposition.ChunkFragments.HasAll(OtherComposition.ChunkFragments) &&
-			ThisComposition.SharedFragments.HasAll(OtherComposition.SharedFragments) &&
-			ThisComposition.ConstSharedFragments.HasAll(OtherComposition.ConstSharedFragments);
-		#endif
+			ThisComposition.GET_FRAGMENTS.HasAll(OtherComposition.GET_FRAGMENTS) &&
+			ThisComposition.GET_TAGS.HasAll(OtherComposition.GET_TAGS) &&
+			ThisComposition.GET_CHUNK_FRAGMENTS.HasAll(OtherComposition.GET_CHUNK_FRAGMENTS) &&
+			ThisComposition.GET_SHARED_FRAGMENTS.HasAll(OtherComposition.GET_SHARED_FRAGMENTS) &&
+			ThisComposition.GET_CONST_SHARED_FRAGMENTS.HasAll(OtherComposition.GET_CONST_SHARED_FRAGMENTS);
 	}
 
 	// A contains any of B
 	FORCEINLINE static bool HasAny(const FMassArchetypeCompositionDescriptor& ThisComposition, const FMassArchetypeCompositionDescriptor& OtherComposition)
 	{
-		#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7
 		return
-			ThisComposition.GetFragments().HasAny(OtherComposition.GetFragments()) ||
-			ThisComposition.GetTags().HasAny(OtherComposition.GetTags()) ||
-			ThisComposition.GetChunkFragments().HasAny(OtherComposition.GetChunkFragments()) ||
-			ThisComposition.GetSharedFragments().HasAny(OtherComposition.GetSharedFragments()) ||
-			ThisComposition.GetConstSharedFragments().HasAny(OtherComposition.GetConstSharedFragments());
-		#else
-		return
-			ThisComposition.Fragments.HasAny(OtherComposition.Fragments) &&
-			ThisComposition.Tags.HasAny(OtherComposition.Tags) &&
-			ThisComposition.ChunkFragments.HasAny(OtherComposition.ChunkFragments) &&
-			ThisComposition.SharedFragments.HasAny(OtherComposition.SharedFragments) &&
-			ThisComposition.ConstSharedFragments.HasAny(OtherComposition.ConstSharedFragments);
-		#endif
+			ThisComposition.GET_FRAGMENTS.HasAny(OtherComposition.GET_FRAGMENTS) ||
+			ThisComposition.GET_TAGS.HasAny(OtherComposition.GET_TAGS) ||
+			ThisComposition.GET_CHUNK_FRAGMENTS.HasAny(OtherComposition.GET_CHUNK_FRAGMENTS) ||
+			ThisComposition.GET_SHARED_FRAGMENTS.HasAny(OtherComposition.GET_SHARED_FRAGMENTS) ||
+			ThisComposition.GET_CONST_SHARED_FRAGMENTS.HasAny(OtherComposition.GET_CONST_SHARED_FRAGMENTS);
 	}
 
 	FORCEINLINE static bool MatchQueryAll(const FMassArchetypeCompositionDescriptor& Composition, const FEntityQuery& Query)
@@ -394,6 +390,9 @@ public:
 		return SpawnedEntities;
 	}
 
+	// Build an entity using a template
+	FMassEntityHandle BuildEntity(FMassEntityTemplateData& TemplateData) const;
+
 	// Overload for spawning a single entity
 	template<typename... TArgs>
 	FORCEINLINE FMassEntityHandle BuildEntity(TArgs&&... Args) const
@@ -401,6 +400,18 @@ public:
 		TArray<FMassEntityHandle> Entities = BuildEntities(1, Forward<TArgs>(Args)...);
 		return Entities.Num() > 0 ? Entities[0] : FMassEntityHandle();
 	}
+
+	/**
+	 * Defers the creation of multiple entities using a template.
+	 * The entities are reserved immediately, and a command is pushed to the command buffer to build them based on the template.
+	 * @param Context The processor's execution context, used to get the command buffer.
+	 * @param Quantity The number of entities to create.
+	 * @param TemplateData The template defining the entities' archetype and initial values.
+	 * @param OutEntities An array to be populated with the reserved entity handles.
+	 */
+	void BuildEntitiesDefer(FMassExecutionContext& Context, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
+
+	void BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
 
 	/**
 	 * Spawns an entity deferentially using a raw command buffer.
@@ -427,7 +438,6 @@ public:
 	/**
 	 * Spawns an entity deferentially using the execution context from a processor.
 	 * The entity is reserved immediately, and a command is pushed to build it with the specified fragments and tags.
-	 * (!!! MODIFIED: Automatically adds FEntityFlagFragment via the base overload !!!)
 	 *
 	 * @param Context The processor's execution context, used to get the command buffer.
 	 * @param Args A variadic list of fragment instances and/or tag types to build the entity with.
@@ -451,18 +461,6 @@ public:
 	FMassEntityHandle BuildEntityDefer(FMassExecutionContext& Context, FMassEntityTemplateData& TemplateData) const;
 
 	FMassEntityHandle BuildEntityDefer(FMassCommandBuffer& CommandBuffer, FMassEntityTemplateData& TemplateData) const;
-
-	/**
-	 * Defers the creation of multiple entities using a template.
-	 * The entities are reserved immediately, and a command is pushed to the command buffer to build them based on the template.
-	 * @param Context The processor's execution context, used to get the command buffer.
-	 * @param Quantity The number of entities to create.
-	 * @param TemplateData The template defining the entities' archetype and initial values.
-	 * @param OutEntities An array to be populated with the reserved entity handles.
-	 */
-	void BuildEntitiesDefer(FMassExecutionContext& Context, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
-
-	void BuildEntitiesDefer(FMassCommandBuffer& CommandBuffer, int32 Quantity, FMassEntityTemplateData& TemplateData, TArray<FMassEntityHandle>& OutEntities) const;
 
 	/**
 	 * Destroys an entity immediately.
@@ -499,41 +497,8 @@ public:
 		CommandBuffer.DestroyEntity(EntityHandle);
 	}
 
-	//---------------- Template Data Operations -----------------
 
-	/**
-	 * @brief Gets a reference to a fragment within a specified FMassEntityTemplateData.
-	 * @tparam TFragment The type of fragment to retrieve, which must inherit from FMassFragment.
-	 * @param TemplateData The entity template data containing the fragment.
-	 * @return A mutable reference to the fragment.
-	 * @note This function will trigger an assertion (checkf) if the fragment type does not exist in the TemplateData,
-	 * as it cannot return a valid reference. Ensure the fragment has been added via AddFragment or AddFragment_GetRef before calling.
-	 */
-	template<typename TFragment>
-	FORCEINLINE TFragment& GetFragmentRef(FMassEntityTemplateData& TemplateData) const
-	{
-		TFragment* FragmentPtr = TemplateData.GetMutableFragment<TFragment>();
-		checkf(FragmentPtr, TEXT("Attempted to get a reference to fragment '%s' which does not exist in the provided TemplateData. Please add the fragment first."), *TFragment::StaticStruct()->GetName());
-		return *FragmentPtr;
-	}
-
-	//-------------- Entity Data Operations - Synchronous ---------------
-
-	/**
-	 * Check if entity has a specific fragment type using its UScriptStruct.
-	 * This is the non-templated version for use when the type is a variable (e.g., from Blueprints).
-	 * @param EntityHandle The entity to check.
-	 * @param FragmentType The type of the fragment to check for. Can be null.
-	 * @return True if the entity has the fragment, false otherwise.
-	 */
-	FORCEINLINE bool HasFragment(FMassEntityHandle EntityHandle, const UScriptStruct* FragmentType) const
-	{
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for HasFragment"));
-
-		// Correct Implementation: Get the fragment struct view and check if it's valid.
-		return Manager->GetFragmentDataStruct(EntityHandle, FragmentType).IsValid();
-	}
+	//-------------- Entity Data Operations ---------------
 
 	/**
 	 * Check if entity has a specific tag type using its UScriptStruct.
@@ -547,26 +512,14 @@ public:
 		FMassEntityManager* Manager = GetEntityManager();
 		checkf(Manager, TEXT("EntityManager is not available for HasTag"));
 
-		// Correct Implementation: Construct an FMassEntityView and use its HasTag method.
-		const FMassEntityView EntityView(*Manager, EntityHandle);
-		return EntityView.HasTag(*TagType);
-	}
-
-	/**
-	 * Check if entity has a specific fragment type
-	 * @param EntityHandle The entity to check
-	 * @return true if entity has the fragment
-	 */
-	template<typename T>
-	FORCEINLINE bool HasFragment(FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CFragment<T>,
-			"T must be a valid fragment type inheriting from FMassFragment");
-
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for HasFragment"));
-
-		return Manager->GetFragmentDataPtr<T>(EntityHandle) != nullptr;
+		// Use archetype composition check for performance and consistency
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_TAGS.Contains(*TagType);
 	}
 
 	/**
@@ -583,8 +536,192 @@ public:
 		FMassEntityManager* Manager = GetEntityManager();
 		checkf(Manager, TEXT("EntityManager is not available for HasTag"));
 
-		FMassEntityView EntityView(*Manager, EntityHandle);
-		return EntityView.HasTag<T>();
+		// Use archetype composition check for speed
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_TAGS.Contains<T>();
+	}
+
+	/**
+	 * Check if entity has a specific fragment type using its UScriptStruct.
+	 * This is the non-templated version for use when the type is a variable (e.g., from Blueprints).
+	 * @param EntityHandle The entity to check.
+	 * @param FragmentType The type of the fragment to check for. Can be null.
+	 * @return True if the entity has the fragment, false otherwise.
+	 */
+	FORCEINLINE bool HasFragment(FMassEntityHandle EntityHandle, const UScriptStruct* FragmentType) const
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for HasFragment"));
+
+		// Use archetype composition check for performance and consistency
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_FRAGMENTS.Contains(*FragmentType);
+	}
+
+	/**
+	 * Check if entity has a specific fragment type
+	 * @param EntityHandle The entity to check
+	 * @return true if entity has the fragment
+	 */
+	template<typename T>
+	FORCEINLINE bool HasFragment(FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CFragment<T>,
+			"T must be a valid fragment type inheriting from FMassFragment");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for HasFragment"));
+
+		// Use archetype composition check for speed
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_FRAGMENTS.Contains<T>();
+	}
+
+	/**
+	 * Check if entity has a specific chunk fragment type using its UScriptStruct.
+	 * @param EntityHandle The entity to check.
+	 * @param ChunkFragmentType The type of the chunk fragment to check for.
+	 * @return True if the entity has the chunk fragment, false otherwise.
+	 */
+	FORCEINLINE bool HasChunkFragment(FMassEntityHandle EntityHandle, const UScriptStruct* ChunkFragmentType) const
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for HasChunkFragment"));
+
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_CHUNK_FRAGMENTS.Contains(*ChunkFragmentType);
+	}
+
+	/**
+	 * Check if entity has a specific chunk fragment type
+	 * @param EntityHandle The entity to check
+	 * @return true if entity has the chunk fragment
+	 */
+	template<typename T>
+	FORCEINLINE bool HasChunkFragment(FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CChunkFragment<T>,
+			"T must be a valid chunk fragment type inheriting from FMassChunkFragment");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for HasChunkFragment"));
+
+		// Use archetype composition check for speed
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_CHUNK_FRAGMENTS.Contains<T>();
+	}
+
+	/**
+	 * Check if entity has a specific shared fragment type using its UScriptStruct.
+	 * @param EntityHandle The entity to check.
+	 * @param SharedFragmentType The type of the shared fragment to check for.
+	 * @return True if the entity has the shared fragment, false otherwise.
+	 */
+	FORCEINLINE bool HasSharedFragment(FMassEntityHandle EntityHandle, const UScriptStruct* SharedFragmentType) const
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for HasSharedFragment"));
+
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_SHARED_FRAGMENTS.Contains(*SharedFragmentType);
+	}
+
+	/**
+	 * Check if entity has a specific shared fragment type
+	 * @param EntityHandle The entity to check
+	 * @return true if entity has the shared fragment
+	 */
+	template<typename T>
+	FORCEINLINE bool HasSharedFragment(FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CSharedFragment<T>,
+			"T must be a valid shared fragment type inheriting from FMassSharedFragment");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for HasSharedFragment"));
+
+		// Use archetype composition check for speed
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_SHARED_FRAGMENTS.Contains<T>();
+	}
+
+	/**
+	 * Check if entity has a specific const shared fragment type using its UScriptStruct.
+	 * @param EntityHandle The entity to check.
+	 * @param ConstSharedFragmentType The type of the const shared fragment to check for.
+	 * @return True if the entity has the const shared fragment, false otherwise.
+	 */
+	FORCEINLINE bool HasConstSharedFragment(FMassEntityHandle EntityHandle, const UScriptStruct* ConstSharedFragmentType) const
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for HasConstSharedFragment"));
+
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_CONST_SHARED_FRAGMENTS.Contains(*ConstSharedFragmentType);
+	}
+
+	/**
+	 * Check if entity has a specific const shared fragment type
+	 * @param EntityHandle The entity to check
+	 * @return true if entity has the const shared fragment
+	 */
+	template<typename T>
+	FORCEINLINE bool HasConstSharedFragment(FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CConstSharedFragment<T>,
+			"T must be a valid const shared fragment type inheriting from FMassConstSharedFragment");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for HasConstSharedFragment"));
+
+		// Use archetype composition check for speed
+		const FMassArchetypeHandle Archetype = Manager->GetArchetypeForEntity(EntityHandle);
+		if (!Archetype.IsValid())
+		{
+			return false;
+		}
+		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
+		return Composition.GET_CONST_SHARED_FRAGMENTS.Contains<T>();
 	}
 
 	/**
@@ -645,140 +782,6 @@ public:
 	}
 
 	/**
-	 * Add a fragment to an entity immediately.
-	 * NOTE: If the entity already has this fragment, a warning will be logged and the operation will be ignored.
-	 * The existing fragment's value will NOT be changed.
-	 * @param EntityHandle The entity to add the fragment to
-	 * @param FragmentValue The initial value for the new fragment
-	 */
-	template<typename T>
-	FORCEINLINE void AddFragment(FMassEntityHandle EntityHandle, const T& FragmentValue) const
-	{
-		static_assert(UE::Mass::CFragment<T>,
-			"T must be a valid fragment type inheriting from FMassFragment");
-
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for AddFragment"));
-		FInstancedStruct FragmentInstance = FInstancedStruct::Make(FragmentValue);
-		Manager->AddFragmentInstanceListToEntity(EntityHandle, MakeArrayView(&FragmentInstance, 1));
-	}
-
-	/**
-	 * Add a fragment to an entity immediately using an FInstancedStruct.
-	 * NOTE: If the entity already has this fragment, a warning will be logged and the operation will be ignored.
-	 * The existing fragment's value will NOT be changed.
-	 * @param EntityHandle The entity to add the fragment to
-	 * @param FragmentStruct The instanced struct containing the fragment type and its initial value
-	 */
-	FORCEINLINE void AddFragment(FMassEntityHandle EntityHandle, const FInstancedStruct& FragmentStruct) const
-	{
-		checkf(FragmentStruct.IsValid(), TEXT("The provided FInstancedStruct is not valid."));
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for AddFragment"));
-		Manager->AddFragmentInstanceListToEntity(EntityHandle, MakeArrayView(&FragmentStruct, 1));
-	}
-
-	/**
-	 * Remove a fragment from the entity
-	 * @param EntityHandle The entity to remove fragment from
-	 * @return true if fragment was removed, false if entity didn't have the fragment
-	 */
-	template<typename T>
-	FORCEINLINE void RemoveFragment(FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CFragment<T>,
-			"T must be a valid fragment type inheriting from FMassFragment");
-
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for RemoveFragment"));
-		const UScriptStruct* FragmentType = T::StaticStruct();
-		Manager->RemoveFragmentFromEntity(EntityHandle, FragmentType);
-	}
-
-	/**
-	 * Remove a fragment from the entity
-	 * (Non-templated version for BP use)
-	 * @param EntityHandle The entity to remove fragment from
-	 * @param FragmentType The fragment type to remove.
-	 * @return True if fragment was removed, false if entity didn't have the fragment or was invalid.
-	 */
-	FORCEINLINE bool RemoveFragment(FMassEntityHandle EntityHandle, UScriptStruct* FragmentType)
-	{
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for RemoveFragment"));
-		if (UNLIKELY(!FragmentType) || !FragmentType->IsChildOf(FMassFragment::StaticStruct())) return false;
-		Manager->RemoveFragmentFromEntity(EntityHandle, FragmentType);  // This function takes pointer and returns void
-		return true;  // Successfully called remove
-	}
-
-	/**
-	 * Add a tag to the entity
-	 * @param EntityHandle The entity to add tag to
-	 */
-	template<typename T>
-	FORCEINLINE void AddTag(FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CTag<T>,
-			"T must be a valid tag type inheriting from FMassTag");
-
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for AddTag"));
-		const UScriptStruct* TagType = T::StaticStruct();
-		Manager->AddTagToEntity(EntityHandle, TagType);
-	}
-
-	/**
-	 * Remove a tag from the entity
-	 * @param EntityHandle The entity to remove tag from
-	 * @return true if tag was removed, false if entity didn't have the tag
-	 */
-	template<typename T>
-	FORCEINLINE void RemoveTag(FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CTag<T>,
-			"T must be a valid tag type inheriting from FMassTag");
-
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for RemoveTag"));
-		const UScriptStruct* TagType = T::StaticStruct();
-		Manager->RemoveTagFromEntity(EntityHandle, TagType);
-	}
-
-	/**
-	 * Check if entity has a specific shared fragment type
-	 * @param EntityHandle The entity to check
-	 * @return true if entity has the shared fragment
-	 */
-	template<typename T>
-	FORCEINLINE void HasSharedFragment(FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CSharedFragment<T>,
-			"T must be a valid shared fragment type inheriting from FMassSharedFragment");
-
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for HasSharedFragment"));
-
-		return Manager->GetSharedFragmentDataPtr<T>(EntityHandle) != nullptr;
-	}
-
-	/**
-	 * Check if entity has a specific const shared fragment type
-	 * @param EntityHandle The entity to check
-	 * @return true if entity has the const shared fragment
-	 */
-	template<typename T>
-	FORCEINLINE void HasConstSharedFragment(FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CConstSharedFragment<T>,
-			"T must be a valid const shared fragment type inheriting from FMassConstSharedFragment");
-
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for HasConstSharedFragment"));
-
-		return Manager->GetConstSharedFragmentDataPtr<T>(EntityHandle) != nullptr;
-	}
-
-	/**
 	 * Get shared fragment data by value (copy)
 	 * @param EntityHandle The entity to get shared fragment from
 	 * @return Copy of the shared fragment data
@@ -791,6 +794,43 @@ public:
 
 		FMassEntityManager* Manager = GetEntityManager();
 		checkf(Manager, TEXT("EntityManager is not available for GetSharedFragment"));
+
+		T* SharedFragmentPtr = Manager->GetSharedFragmentDataPtr<T>(EntityHandle);
+		checkf(SharedFragmentPtr, TEXT("Entity does not have shared fragment of type %s"), *T::StaticStruct()->GetName());
+
+		return *SharedFragmentPtr;
+	}
+
+	/**
+	 * Get shared fragment data pointer
+	 * @param EntityHandle The entity to get shared fragment from
+	 * @return Pointer to shared fragment data, nullptr if not found
+	 */
+	template<typename T>
+	FORCEINLINE T* GetSharedFragmentPtr(FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CSharedFragment<T>,
+			"T must be a valid shared fragment type inheriting from FMassSharedFragment");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for GetSharedFragmentPtr"));
+
+		return Manager->GetSharedFragmentDataPtr<T>(EntityHandle);
+	}
+
+	/**
+	 * Get shared fragment data reference
+	 * @param EntityHandle The entity to get shared fragment from
+	 * @return Reference to shared fragment data
+	 */
+	template<typename T>
+	FORCEINLINE T& GetSharedFragmentRef(FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CSharedFragment<T>,
+			"T must be a valid shared fragment type inheriting from FMassSharedFragment");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for GetSharedFragmentRef"));
 
 		T* SharedFragmentPtr = Manager->GetSharedFragmentDataPtr<T>(EntityHandle);
 		checkf(SharedFragmentPtr, TEXT("Entity does not have shared fragment of type %s"), *T::StaticStruct()->GetName());
@@ -819,23 +859,6 @@ public:
 	}
 
 	/**
-	 * Get shared fragment data pointer
-	 * @param EntityHandle The entity to get shared fragment from
-	 * @return Pointer to shared fragment data, nullptr if not found
-	 */
-	template<typename T>
-	FORCEINLINE T* GetSharedFragmentPtr(FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CSharedFragment<T>,
-			"T must be a valid shared fragment type inheriting from FMassSharedFragment");
-
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for GetSharedFragmentPtr"));
-
-		return Manager->GetSharedFragmentDataPtr<T>(EntityHandle);
-	}
-
-	/**
 	 * Get const shared fragment data pointer
 	 * @param EntityHandle The entity to get const shared fragment from
 	 * @return Pointer to const shared fragment data, nullptr if not found
@@ -850,26 +873,6 @@ public:
 		checkf(Manager, TEXT("EntityManager is not available for GetConstSharedFragmentPtr"));
 
 		return Manager->GetConstSharedFragmentDataPtr<T>(EntityHandle);
-	}
-
-	/**
-	 * Get shared fragment data reference
-	 * @param EntityHandle The entity to get shared fragment from
-	 * @return Reference to shared fragment data
-	 */
-	template<typename T>
-	FORCEINLINE T& GetSharedFragmentRef(FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CSharedFragment<T>,
-			"T must be a valid shared fragment type inheriting from FMassSharedFragment");
-
-		FMassEntityManager* Manager = GetEntityManager();
-		checkf(Manager, TEXT("EntityManager is not available for GetSharedFragmentRef"));
-
-		T* SharedFragmentPtr = Manager->GetSharedFragmentDataPtr<T>(EntityHandle);
-		checkf(SharedFragmentPtr, TEXT("Entity does not have shared fragment of type %s"), *T::StaticStruct()->GetName());
-
-		return *SharedFragmentPtr;
 	}
 
 	/**
@@ -890,6 +893,134 @@ public:
 		checkf(ConstSharedFragmentPtr, TEXT("Entity does not have const shared fragment of type %s"), *T::StaticStruct()->GetName());
 
 		return *ConstSharedFragmentPtr;
+	}
+
+	/**
+	 * Add a tag to the entity
+	 * @param EntityHandle The entity to add tag to
+	 */
+	template<typename T>
+	FORCEINLINE void AddTag(FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>,
+			"T must be a valid tag type inheriting from FMassTag");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for AddTag"));
+		const UScriptStruct* TagType = T::StaticStruct();
+		Manager->AddTagToEntity(EntityHandle, TagType);
+	}
+
+	/**
+	 * Deferred add tag using execution context
+	 * Safe for use in Mass processors
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to add tag to
+	 */
+	template<typename T>
+	FORCEINLINE void AddTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		Context.Defer().AddTag<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred add tag using command buffer
+	 * Use this when you have direct access to a command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to add tag to
+	 */
+	template<typename T>
+	FORCEINLINE void AddTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		CommandBuffer.AddTag<T>(EntityHandle);
+	}
+
+	/**
+	 * Add a fragment to an entity immediately using an FInstancedStruct.
+	 * NOTE: If the entity already has this fragment, a warning will be logged and the operation will be ignored.
+	 * The existing fragment's value will NOT be changed.
+	 * @param EntityHandle The entity to add the fragment to
+	 * @param FragmentStruct The instanced struct containing the fragment type and its initial value
+	 */
+	FORCEINLINE void AddFragment(FMassEntityHandle EntityHandle, const FInstancedStruct& FragmentStruct) const
+	{
+		checkf(FragmentStruct.IsValid(), TEXT("The provided FInstancedStruct is not valid."));
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for AddFragment"));
+		Manager->AddFragmentInstanceListToEntity(EntityHandle, MakeArrayView(&FragmentStruct, 1));
+	}
+
+	/**
+	 * Add a fragment to an entity immediately.
+	 * NOTE: If the entity already has this fragment, a warning will be logged and the operation will be ignored.
+	 * The existing fragment's value will NOT be changed.
+	 * @param EntityHandle The entity to add the fragment to
+	 * @param FragmentValue The initial value for the new fragment
+	 */
+	template<typename T>
+	FORCEINLINE void AddFragment(FMassEntityHandle EntityHandle, const T& FragmentValue) const
+	{
+		static_assert(UE::Mass::CFragment<T>,
+			"T must be a valid fragment type inheriting from FMassFragment");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for AddFragment"));
+		FInstancedStruct FragmentInstance = FInstancedStruct::Make(FragmentValue);
+		Manager->AddFragmentInstanceListToEntity(EntityHandle, MakeArrayView(&FragmentInstance, 1));
+	}
+
+	/**
+	* Deferred add fragment with default value using execution context
+	* Safe for use in Mass processors
+	* @param Context The execution context from the processor
+	* @param EntityHandle The entity to add the fragment to
+	*/
+	template<typename T>
+	FORCEINLINE void AddFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		Context.Defer().AddFragment<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred add fragment with specific value using execution context
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to add the fragment to
+	 * @param FragmentValue The initial value for the new fragment
+	 */
+	template<typename T>
+	FORCEINLINE void AddFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, const T& FragmentValue) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		Context.Defer().PushCommand<FMassCommandAddFragmentInstances>(EntityHandle, FragmentValue);
+	}
+
+	/**
+	 * Deferred add fragment with default value using command buffer
+	 * Use this when you have direct access to a command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to add the fragment to
+	 */
+	template<typename T>
+	FORCEINLINE void AddFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		CommandBuffer.AddFragment<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred add fragment with specific value using command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to add the fragment to
+	 * @param FragmentValue The initial value for the new fragment
+	 */
+	template<typename T>
+	FORCEINLINE void AddFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, const T& FragmentValue) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		CommandBuffer.PushCommand<FMassCommandAddFragmentInstances>(EntityHandle, FragmentValue);
 	}
 
 	/**
@@ -928,6 +1059,104 @@ public:
 
 		const FConstSharedStruct& ConstSharedStruct = Manager->GetOrCreateConstSharedFragment(ConstSharedFragmentValue);
 		return Manager->AddConstSharedFragmentToEntity(EntityHandle, ConstSharedStruct);
+	}
+
+	/**
+	 * Remove a tag from the entity
+	 * @param EntityHandle The entity to remove tag from
+	 * @return true if tag was removed, false if entity didn't have the tag
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveTag(FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>,
+			"T must be a valid tag type inheriting from FMassTag");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for RemoveTag"));
+		const UScriptStruct* TagType = T::StaticStruct();
+		Manager->RemoveTagFromEntity(EntityHandle, TagType);
+	}
+
+	/**
+	 * Deferred remove tag using execution context
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to remove tag from
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		Context.Defer().RemoveTag<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred remove tag using command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to remove tag from
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		CommandBuffer.RemoveTag<T>(EntityHandle);
+	}
+
+	/**
+	 * Remove a fragment from the entity
+	 * @param EntityHandle The entity to remove fragment from
+	 * @return true if fragment was removed, false if entity didn't have the fragment
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveFragment(FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CFragment<T>,
+			"T must be a valid fragment type inheriting from FMassFragment");
+
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for RemoveFragment"));
+		const UScriptStruct* FragmentType = T::StaticStruct();
+		Manager->RemoveFragmentFromEntity(EntityHandle, FragmentType);
+	}
+
+	/**
+	 * Remove a fragment from the entity
+	 * (Non-templated version for BP use)
+	 * @param EntityHandle The entity to remove fragment from
+	 * @param FragmentType The fragment type to remove.
+	 * @return True if fragment was removed, false if entity didn't have the fragment or was invalid.
+	 */
+	FORCEINLINE bool RemoveFragment(FMassEntityHandle EntityHandle, UScriptStruct* FragmentType)
+	{
+		FMassEntityManager* Manager = GetEntityManager();
+		checkf(Manager, TEXT("EntityManager is not available for RemoveFragment"));
+		if (UNLIKELY(!FragmentType) || !FragmentType->IsChildOf(FMassFragment::StaticStruct())) return false;
+		Manager->RemoveFragmentFromEntity(EntityHandle, FragmentType);  // This function takes pointer and returns void
+		return true;  // Successfully called remove
+	}
+
+	/**
+	 * Deferred remove fragment using execution context
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to remove fragment from
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		Context.Defer().RemoveFragment<T>(EntityHandle);
+	}
+
+	/**
+	 * Deferred remove fragment using command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to remove fragment from
+	 */
+	template<typename T>
+	FORCEINLINE void RemoveFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		CommandBuffer.RemoveFragment<T>(EntityHandle);
 	}
 
 	/**
@@ -994,8 +1223,51 @@ public:
 		return Manager->RemoveConstSharedFragmentFromEntity(EntityHandle, *ConstSharedFragmentType);  // Dereference pointer!
 	}
 
+	/**
+	 * Deferred swap tags using execution context
+	 * @param Context The execution context from the processor
+	 * @param EntityHandle The entity to swap tags on
+	 */
+	template<typename TOld, typename TNew>
+	FORCEINLINE void SwapTags(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<TOld>, "TOld must be a valid tag type inheriting from FMassTag");
+		static_assert(UE::Mass::CTag<TNew>, "TNew must be a valid tag type inheriting from FMassTag");
+		Context.Defer().SwapTags<TOld, TNew>(EntityHandle);
+	}
 
-	//--------------- (新) Flag Operations ---------------
+	/**
+	 * Deferred swap tags using command buffer
+	 * @param CommandBuffer The command buffer to use
+	 * @param EntityHandle The entity to swap tags on
+	 */
+	template<typename TOld, typename TNew>
+	FORCEINLINE void SwapTags(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
+	{
+		static_assert(UE::Mass::CTag<TOld>, "TOld must be a valid tag type inheriting from FMassTag");
+		static_assert(UE::Mass::CTag<TNew>, "TNew must be a valid tag type inheriting from FMassTag");
+		CommandBuffer.SwapTags<TOld, TNew>(EntityHandle);
+	}
+
+	//---------------- Template Data Operations -----------------
+
+	/**
+	 * @brief Gets a reference to a fragment within a specified FMassEntityTemplateData.
+	 * @tparam TFragment The type of fragment to retrieve, which must inherit from FMassFragment.
+	 * @param TemplateData The entity template data containing the fragment.
+	 * @return A mutable reference to the fragment.
+	 * @note This function will trigger an assertion (checkf) if the fragment type does not exist in the TemplateData,
+	 * as it cannot return a valid reference. Ensure the fragment has been added via AddFragment or AddFragment_GetRef before calling.
+	 */
+	template<typename TFragment>
+	FORCEINLINE TFragment& GetFragmentRef(FMassEntityTemplateData& TemplateData) const
+	{
+		TFragment* FragmentPtr = TemplateData.GetMutableFragment<TFragment>();
+		checkf(FragmentPtr, TEXT("Attempted to get a reference to fragment '%s' which does not exist in the provided TemplateData. Please add the fragment first."), *TFragment::StaticStruct()->GetName());
+		return *FragmentPtr;
+	}
+
+	//--------------- Flag Operations ---------------
 
 	/**
 	 * 获取实体当前的 64 位标志位掩码。
@@ -1031,162 +1303,23 @@ public:
 	bool ClearEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToClear) const;
 
 
-	//--------------- Entity Data Operations - Deferred with Execution Context ---------------
+	//--------------- Entity Query Iteration ---------------
 
 	/**
-	* Deferred add fragment with default value using execution context
-	* Safe for use in Mass processors
-	* @param Context The execution context from the processor
-	* @param EntityHandle The entity to add the fragment to
-	*/
-	template<typename T>
-	FORCEINLINE void AddFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
-		Context.Defer().AddFragment<T>(EntityHandle);
-	}
-
-	/**
-	 * Deferred add fragment with specific value using execution context
-	 * @param Context The execution context from the processor
-	 * @param EntityHandle The entity to add the fragment to
-	 * @param FragmentValue The initial value for the new fragment
+	 * 每次迭代时触发的委托
+	 * 用于 ForEachMatchingEntities 蓝图节点
 	 */
-	template<typename T>
-	FORCEINLINE void AddFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, const T& FragmentValue) const
-	{
-		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
-		Context.Defer().PushCommand<FMassCommandAddFragmentInstances>(EntityHandle, FragmentValue);
-	}
+	UPROPERTY(BlueprintAssignable)
+	FOnEntityIterate OnEntityIterate;
 
 	/**
-	 * Deferred remove fragment using execution context
-	 * @param Context The execution context from the processor
-	 * @param EntityHandle The entity to remove fragment from
+	 * 执行遍历匹配的实体，对每个实体触发委托
+	 * 这是一个同步的遍历过程，使用委托机制来实现蓝图节点的多执行引脚输出
+	 * @param WorldContextObject 世界上下文对象
+	 * @param Query 查询条件
 	 */
-	template<typename T>
-	FORCEINLINE void RemoveFragment(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
-		Context.Defer().RemoveFragment<T>(EntityHandle);
-	}
-
-	/**
-	 * Deferred add tag using execution context
-	 * Safe for use in Mass processors
-	 * @param Context The execution context from the processor
-	 * @param EntityHandle The entity to add tag to
-	 */
-	template<typename T>
-	FORCEINLINE void AddTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
-		Context.Defer().AddTag<T>(EntityHandle);
-	}
-
-	/**
-	 * Deferred remove tag using execution context
-	 * @param Context The execution context from the processor
-	 * @param EntityHandle The entity to remove tag from
-	 */
-	template<typename T>
-	FORCEINLINE void RemoveTag(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
-		Context.Defer().RemoveTag<T>(EntityHandle);
-	}
-
-	/**
-	 * Deferred swap tags using execution context
-	 * @param Context The execution context from the processor
-	 * @param EntityHandle The entity to swap tags on
-	 */
-	template<typename TOld, typename TNew>
-	FORCEINLINE void SwapTags(FMassExecutionContext& Context, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CTag<TOld>, "TOld must be a valid tag type inheriting from FMassTag");
-		static_assert(UE::Mass::CTag<TNew>, "TNew must be a valid tag type inheriting from FMassTag");
-		Context.Defer().SwapTags<TOld, TNew>(EntityHandle);
-	}
-
-
-	//--------------- Entity Data Operations - Deferred with Command Buffer ---------------
-
-	/**
-	 * Deferred add fragment with default value using command buffer
-	 * Use this when you have direct access to a command buffer
-	 * @param CommandBuffer The command buffer to use
-	 * @param EntityHandle The entity to add the fragment to
-	 */
-	template<typename T>
-	FORCEINLINE void AddFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
-		CommandBuffer.AddFragment<T>(EntityHandle);
-	}
-
-	/**
-	 * Deferred add fragment with specific value using command buffer
-	 * @param CommandBuffer The command buffer to use
-	 * @param EntityHandle The entity to add the fragment to
-	 * @param FragmentValue The initial value for the new fragment
-	 */
-	template<typename T>
-	FORCEINLINE void AddFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, const T& FragmentValue) const
-	{
-		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
-		CommandBuffer.PushCommand<FMassCommandAddFragmentInstances>(EntityHandle, FragmentValue);
-	}
-
-	/**
-	 * Deferred remove fragment using command buffer
-	 * @param CommandBuffer The command buffer to use
-	 * @param EntityHandle The entity to remove fragment from
-	 */
-	template<typename T>
-	FORCEINLINE void RemoveFragment(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
-		CommandBuffer.RemoveFragment<T>(EntityHandle);
-	}
-
-	/**
-	 * Deferred add tag using command buffer
-	 * Use this when you have direct access to a command buffer
-	 * @param CommandBuffer The command buffer to use
-	 * @param EntityHandle The entity to add tag to
-	 */
-	template<typename T>
-	FORCEINLINE void AddTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
-		CommandBuffer.AddTag<T>(EntityHandle);
-	}
-
-	/**
-	 * Deferred remove tag using command buffer
-	 * @param CommandBuffer The command buffer to use
-	 * @param EntityHandle The entity to remove tag from
-	 */
-	template<typename T>
-	FORCEINLINE void RemoveTag(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
-		CommandBuffer.RemoveTag<T>(EntityHandle);
-	}
-
-	/**
-	 * Deferred swap tags using command buffer
-	 * @param CommandBuffer The command buffer to use
-	 * @param EntityHandle The entity to swap tags on
-	 */
-	template<typename TOld, typename TNew>
-	FORCEINLINE void SwapTags(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle) const
-	{
-		static_assert(UE::Mass::CTag<TOld>, "TOld must be a valid tag type inheriting from FMassTag");
-		static_assert(UE::Mass::CTag<TNew>, "TNew must be a valid tag type inheriting from FMassTag");
-		CommandBuffer.SwapTags<TOld, TNew>(EntityHandle);
-	}
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject"))
+	void ExecuteForEach(const UObject* WorldContextObject, UPARAM(ref) const FEntityQuery& Query);
 
 
 private:
