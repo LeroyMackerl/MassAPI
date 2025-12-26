@@ -1,4 +1,5 @@
 # Update Log
+20251226 Updated to v1.1 with smart bp nodes contributed by Ember
 20251204 Added ue5.7 compatibility contributed by LainProStudio
 
 # Mass API Plugin Documentation
