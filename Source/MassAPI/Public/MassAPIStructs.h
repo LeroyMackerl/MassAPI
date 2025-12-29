@@ -9,8 +9,9 @@
 #include "MassEntityTypes.h"
 #include "MassEntityManager.h"
 #include "MassEntityTemplate.h"
-#include "MassAPIEnums.h" // 包含新的枚举头文件
+#include "MassAPIEnums.h"
 #include "MassEntityQuery.h"
+#include <atomic>
 #include "MassAPIStructs.generated.h" 
 
 /**
@@ -69,68 +70,116 @@ public:
 };
 
 /**
- * (新) 存储不导致 Archetype 迁移的动态标志。
- * 使用 int64 作为位掩码，用于高性能的内部存储和查询。
- * 蓝图将使用 MassAPIFuncLib 中的辅助函数来操作这个位掩码。
- * (已重命名: FMassEntityFlagFragment -> FEntityFlagFragment)
+ * (New) Stores dynamic flags without causing Archetype migration.
+ * Uses int64 as a bitmask for high-performance internal storage and query.
+ * Thread-safe implementation using atomic spinlock.
  */
 USTRUCT(BlueprintType)
 struct MASSAPI_API FEntityFlagFragment : public FMassFragment
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags")
-	int64 Flags = 0;
+private:
+    // The spinlock flag, copied from FStatistics implementation
+    mutable std::atomic<bool> LockFlag{ false };
 
-	/**
-	 * (新) 检查此Fragment是否设置了某个特定标志。
-	 * @param Flag The flag to check.
-	 * @return True if the flag is set, false otherwise.
-	 */
-	FORCEINLINE bool HasFlag(const EEntityFlags Flag) const
-	{
-		if (Flag >= EEntityFlags::EEntityFlags_MAX) return false;
-		return (Flags & (1LL << static_cast<uint8>(Flag))) != 0;
-	}
+public:
+    UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags")
+    int64 Flags = 0;
 
-	/**
-	 * (新) 在此Fragment上设置一个特定标志。
-	 * @param Flag The flag to set (turn on).
-	 */
-	FORCEINLINE void SetFlag(const EEntityFlags Flag)
-	{
-		if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
-		Flags |= (1LL << static_cast<uint8>(Flag));
-	}
+    // --- Constructors & Operators (Required for std::atomic) ---
 
-	/**
-	 * (新) 在此Fragment上清除一个特定标志。
-	 * @param Flag The flag to clear (turn off).
-	 */
-	FORCEINLINE void ClearFlag(const EEntityFlags Flag)
-	{
-		if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
-		Flags &= ~(1LL << static_cast<uint8>(Flag));
-	}
+    FEntityFlagFragment() {};
 
-	/**
-	 * (新) 根据布尔值在此Fragment上设置或清除一个特定标志。
-	 * @param Flag The flag to change.
-	 * @param bValue True to set the flag, false to clear it.
-	 */
-	FORCEINLINE void SetFlagValue(const EEntityFlags Flag, const bool bValue)
-	{
-		if (bValue)
-		{
-			SetFlag(Flag);
-		}
-		else
-		{
-			ClearFlag(Flag);
-		}
-	}
+    FEntityFlagFragment(const FEntityFlagFragment& Other)
+    {
+        // We usually initialize the new lock to false (unlocked), 
+        // but here we copy the state to match your FStatistics reference.
+        LockFlag.store(Other.LockFlag.load());
+        Flags = Other.Flags;
+    }
+
+    FEntityFlagFragment& operator=(const FEntityFlagFragment& Other)
+    {
+        if (this != &Other)
+        {
+            LockFlag.store(Other.LockFlag.load());
+            Flags = Other.Flags;
+        }
+        return *this;
+    }
+
+    // --- Locking Mechanics ---
+
+    void Lock() const
+    {
+        while (LockFlag.exchange(true, std::memory_order_acquire));
+    }
+
+    void Unlock() const
+    {
+        LockFlag.store(false, std::memory_order_release);
+    }
+
+    // --- Flag Operations ---
+
+    /**
+     * (New) Checks if this Fragment has a specific flag set.
+     * Note: This is a read operation and currently technically lock-free.
+     * If strict consistency is needed during high-frequency writes, consider locking here too.
+     */
+    FORCEINLINE bool HasFlag(const EEntityFlags Flag) const
+    {
+        if (Flag >= EEntityFlags::EEntityFlags_MAX) return false;
+        return (Flags & (1LL << static_cast<uint8>(Flag))) != 0;
+    }
+
+    /**
+     * (New) Sets a specific flag on this Fragment.
+     * Thread-safe: Uses Lock/Unlock.
+     */
+    FORCEINLINE void SetFlag(const EEntityFlags Flag)
+    {
+        if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
+
+        Lock(); // Enter Critical Section
+        Flags |= (1LL << static_cast<uint8>(Flag));
+        Unlock(); // Exit Critical Section
+    }
+
+    /**
+     * (New) Clears a specific flag on this Fragment.
+     * Thread-safe: Uses Lock/Unlock.
+     */
+    FORCEINLINE void ClearFlag(const EEntityFlags Flag)
+    {
+        if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
+
+        Lock(); // Enter Critical Section
+        Flags &= ~(1LL << static_cast<uint8>(Flag));
+        Unlock(); // Exit Critical Section
+    }
+
+    /**
+     * (New) Sets or Clears a specific flag based on a boolean value.
+     * Thread-safe: Uses Lock/Unlock.
+     */
+    FORCEINLINE void SetFlagValue(const EEntityFlags Flag, const bool bValue)
+    {
+        if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
+
+        Lock(); // Enter Critical Section
+        if (bValue)
+        {
+            Flags |= (1LL << static_cast<uint8>(Flag));
+        }
+        else
+        {
+            Flags &= ~(1LL << static_cast<uint8>(Flag));
+        }
+        Unlock(); // Exit Critical Section
+    }
 };
-
 
 /**
  * FEntityQuery allows for individual entity fragment and tag composition matching
@@ -279,7 +328,7 @@ public:
     int64 GetAnyFlagsBitmask() const { if (bIsFlagsCacheDirty) BuildFlagsCache(); return AnyFlagsBitmask_Cache; }
     int64 GetNoneFlagsBitmask() const { if (bIsFlagsCacheDirty) BuildFlagsCache(); return NoneFlagsBitmask_Cache; }
 
-    /** * [NEW] Returns a native FMassEntityQuery bound to the provided EntityManager.
+    /** * Returns a native FMassEntityQuery bound to the provided EntityManager.
      * Note: We cannot cache the bound query itself because the Manager can change,
      * but we reuse the struct lists to populate it efficiently.
      */

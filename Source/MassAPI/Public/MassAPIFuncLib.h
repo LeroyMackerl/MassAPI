@@ -10,6 +10,7 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "MassAPISubsystem.h"
 #include "MassAPIEnums.h"
+#include "MassAPIStructs.h"
 #include "MassAPIFuncLib.generated.h"
 
 // Forward declaration for the generic struct placeholder used in CustomThunks

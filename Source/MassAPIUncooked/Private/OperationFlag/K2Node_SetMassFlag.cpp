@@ -27,17 +27,17 @@ namespace UK2Node_SetMassFlagHelper
 	// 2. Set - Icon Colors
 	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
 	{
-		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 	};
 
 	// 2. Set - Title Colors
 	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 	};
 }
 

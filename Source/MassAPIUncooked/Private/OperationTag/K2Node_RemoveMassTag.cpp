@@ -26,17 +26,17 @@ namespace UK2Node_RemoveMassTagHelper
 	// 3. Clear - Icon Colors
 	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
 	{
-		{ EMassFragmentSourceDataType::None,                FLinearColor(1.0f, 0.15f, 0.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.15f, 0.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(1.0f, 0.15f, 0.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::None,                FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
 	};
 
 	// 3. Clear - Title Colors
 	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.15f, 0.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(1.0f, 0.15f, 0.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
 	};
 }
 
@@ -82,7 +82,7 @@ void UK2Node_RemoveMassTag::AllocateDefaultPins()
 	UEdGraphPin* TagTypePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Struct, UScriptStruct::StaticClass(), TagTypePinName());
 	TagTypePin->PinType.PinSubCategory = UEdGraphSchema_K2::PSC_Self;
 
-	// [NEW] Create Deferred Pin
+	// Create Deferred Pin
 	UEdGraphPin* DeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, TEXT("bDeferred"));
 	DeferredPin->DefaultValue = TEXT("false");
 
@@ -225,7 +225,7 @@ void UK2Node_RemoveMassTag::UpdateDataSourceType()
 	else if (DataSourceStruct == FEntityTemplateData::StaticStruct()) CachedDataSourceType = EMassFragmentSourceDataType::EntityTemplateData;
 	else CachedDataSourceType = EMassFragmentSourceDataType::None;
 
-	// [NEW] Visibility Logic
+	// Visibility Logic
 	UEdGraphPin* DeferredPin = FindPin(TEXT("bDeferred"));
 	if (DeferredPin)
 	{
@@ -326,7 +326,7 @@ virtual void Compile() override
 		RemoveFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, RemoveTag_Entity);
 		FunctionDataSourcePinName = TEXT("EntityHandle");
 
-		// [NEW] Link bDeferred
+		// Link bDeferred
 		Link(ProxyPin(TEXT("bDeferred")), FunctionInputPin(RemoveFunctionNode, TEXT("bDeferred")));
 		break;
 

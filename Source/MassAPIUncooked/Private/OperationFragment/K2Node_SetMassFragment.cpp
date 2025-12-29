@@ -30,17 +30,17 @@ namespace UK2Node_SetMembersInFragmentHelper
 	// 2. Set - Icon Colors
 	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
 	{
-		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 	};
 
 	// 2. Set - Title Colors
 	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 	};
 }
 
@@ -382,7 +382,7 @@ void UK2Node_SetMassFragment::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
 
 void UK2Node_SetMassFragment::UpdateDataSourceType()
 {
-	// ... [Detection Logic] ...
+	// Detection Logic
 	UEdGraphPin* DataSourcePin = FindPin(DataSourcePinName());
 	if (!DataSourcePin) { CachedDataSourceType = EMassFragmentSourceDataType::None; return; }
 
@@ -391,7 +391,7 @@ void UK2Node_SetMassFragment::UpdateDataSourceType()
 	else if (DataSourceStruct == FEntityTemplateData::StaticStruct()) CachedDataSourceType = EMassFragmentSourceDataType::EntityTemplateData;
 	else CachedDataSourceType = EMassFragmentSourceDataType::None;
 
-	// [NEW] Visibility Logic
+	// Visibility Logic
 	UEdGraphPin* DeferredPin = FindPin(TEXT("bDeferred"));
 	if (DeferredPin)
 	{
@@ -499,8 +499,10 @@ void UK2Node_SetMassFragment::OnFragmentTypeChanged()
 		{
 			// FragmentType不为None，显示并更新FragmentIn引脚类型
 
-			// 取消隐藏引脚
-			if (FragmentInPin->bHidden)
+			// [FIX 2] CHECK SPLIT STATUS
+			// Only unhide if it's currently hidden AND it is NOT split (SubPins is empty).
+			// If SubPins > 0, the pin was split by user and should remain hidden.
+			if (FragmentInPin->bHidden && FragmentInPin->SubPins.Num() == 0)
 			{
 				FragmentInPin->bHidden = false;
 				bPinTypeChanged = true;
@@ -615,8 +617,11 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 		StructMemberReference.StructType = FragmentStruct;
 	}
 
-	// --- 1. Preserve Connections ---
+	// --- 1. Preserve Connections AND Values ---
 	// Before deleting pins, save connections for both Member pins AND the Deferred pin.
+	// [FIX 1] We must also preserve the DefaultValue of the DeferredPin, 
+	// because ReallocatePinsDuringReconstruction has already run and restored it, 
+	// but we are about to destroy it again.
 
 	// Map to store connections for Member pins (Key: PinName, Value: Connected Pins)
 	TMap<FName, TArray<UEdGraphPin*>> OldMemberPinConnections;
@@ -624,17 +629,18 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 	// Variables to store bDeferred state
 	TArray<UEdGraphPin*> OldDeferredPinConnections;
 	bool bWasDeferredPinVisible = true;
+	FString SavedDeferredDefaultValue = TEXT("false"); // Default backup
 
 	for (UEdGraphPin* Pin : Pins)
 	{
 		if (Pin->Direction == EGPD_Input)
 		{
 			// Explicitly check for bDeferred pin to save its state.
-			// [FIXED]: Qualified with UK2Node_SetMassFragment:: to resolve scope error.
 			if (Pin->PinName == UK2Node_SetMassFragment::DeferredPinName())
 			{
 				OldDeferredPinConnections = Pin->LinkedTo;
 				bWasDeferredPinVisible = !Pin->bHidden;
+				SavedDeferredDefaultValue = Pin->DefaultValue; // [FIX 1] Capture Value
 			}
 			// Save other dynamic member pins (ignoring static pins like Exec, DataSource, FragmentType)
 			else if (Pin->LinkedTo.Num() > 0 &&
@@ -734,9 +740,8 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 
 	// --- 4. Recreate Deferred Pin ---
 	// We recreate it LAST so it appears at the bottom of the input list, below all members.
-	// [FIXED]: Qualified with UK2Node_SetMassFragment:: to resolve scope error.
 	UEdGraphPin* NewDeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, UK2Node_SetMassFragment::DeferredPinName());
-	NewDeferredPin->DefaultValue = TEXT("false");
+	NewDeferredPin->DefaultValue = SavedDeferredDefaultValue; // [FIX 1] Restore Value
 	NewDeferredPin->bHidden = !bWasDeferredPinVisible; // Restore previous visibility state
 
 	// Restore Deferred Connections
@@ -854,18 +859,18 @@ virtual void Compile() override
 
 		switch (OwnerNode->CachedDataSourceType)
 		{
-			case EMassFragmentSourceDataType::EntityHandle:
-				GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Entity_Unified);
-				GetterFunctionDataSourcePinName = TEXT("EntityHandle");
-				SetterFunctionDataSourcePinName = TEXT("EntityHandle");
-				break;
-			case EMassFragmentSourceDataType::EntityTemplateData:
-				GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Template_Unified);
-				GetterFunctionDataSourcePinName = TEXT("TemplateData");
-				SetterFunctionDataSourcePinName = TEXT("TemplateData");
-				break;
-			default:
-				return;
+		case EMassFragmentSourceDataType::EntityHandle:
+			GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Entity_Unified);
+			GetterFunctionDataSourcePinName = TEXT("EntityHandle");
+			SetterFunctionDataSourcePinName = TEXT("EntityHandle");
+			break;
+		case EMassFragmentSourceDataType::EntityTemplateData:
+			GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Template_Unified);
+			GetterFunctionDataSourcePinName = TEXT("TemplateData");
+			SetterFunctionDataSourcePinName = TEXT("TemplateData");
+			break;
+		default:
+			return;
 		}
 
 		// 从Knot节点输出连接到GetFragment（先连接FragmentType让OutFragment确定类型）
@@ -927,7 +932,6 @@ virtual void Compile() override
 		{
 		case EMassFragmentSourceDataType::EntityHandle:
 			SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Entity_Unified);
-			// [NEW] Link bDeferred for Entity
 			Link(ProxyPin(TEXT("bDeferred")), FunctionInputPin(SetterFunctionNode, TEXT("bDeferred")));
 			break;
 		case EMassFragmentSourceDataType::EntityTemplateData:
@@ -967,7 +971,6 @@ virtual void Compile() override
 		case EMassFragmentSourceDataType::EntityHandle:
 			SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Entity_Unified);
 			SetterFunctionDataSourcePinName = TEXT("EntityHandle");
-			// [NEW] Link bDeferred for Entity
 			Link(ProxyPin(TEXT("bDeferred")), FunctionInputPin(SetterFunctionNode, TEXT("bDeferred")));
 			break;
 		case EMassFragmentSourceDataType::EntityTemplateData:

@@ -10,6 +10,7 @@
 #include "MassEntityManager.h"
 #include "MassAPIFuncLib.h"
 #include "MassEntityQuery.h"
+#include "MassEntitySubsystem.h"
 
 // Define a log category for MassAPI, or use LogTemp if you prefer.
 DEFINE_LOG_CATEGORY_STATIC(LogMassAPI, Log, All);
@@ -29,6 +30,11 @@ void UMassAPISubsystem::Deinitialize()
     CurrentWorld = nullptr;
     Super::Deinitialize();
     UE_LOG(LogTemp, Log, TEXT("MassAPISubsystem Deinitialized."));
+}
+
+TStatId UMassAPISubsystem::GetStatId() const
+{
+    RETURN_QUICK_DECLARE_CYCLE_STAT(UMassAPISubsystem, STATGROUP_Tickables);
 }
 
 UMassAPISubsystem* UMassAPISubsystem::GetPtr()
@@ -90,6 +96,16 @@ FMassEntityManager* UMassAPISubsystem::GetEntityManager() const
     }
 
     return EntityManager;
+}
+
+void UMassAPISubsystem::Tick(float DeltaTime)
+{
+    TRACE_CPUPROFILER_EVENT_SCOPE_STR("MassAPISubsystemTick");
+
+    if (GetEntityManager())
+    {
+        EntityManager->FlushCommands();
+    }
 }
 
 TArray<FMassEntityHandle> UMassAPISubsystem::BuildEntities(int32 Quantity, FMassEntityTemplateData& TemplateData) const
@@ -355,12 +371,12 @@ int64 UMassAPISubsystem::GetEntityFlags(FMassEntityHandle EntityHandle) const
 
 bool UMassAPISubsystem::HasEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToTest) const
 {
+    // Validation handled inside fragment method, but we check validity here first
     if (FlagToTest >= EEntityFlags::EEntityFlags_MAX)
     {
         return false;
     }
 
-    // Get fragment directly without logging.
     FMassEntityManager* Manager = GetEntityManager();
     if (!Manager || !Manager->IsEntityValid(EntityHandle))
     {
@@ -369,11 +385,10 @@ bool UMassAPISubsystem::HasEntityFlag(FMassEntityHandle EntityHandle, EEntityFla
 
     if (const FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
     {
-        // Perform check directly
-        return (FlagFragment->Flags & (1LL << static_cast<uint8>(FlagToTest))) != 0;
+        return FlagFragment->HasFlag(FlagToTest);
     }
 
-    // No fragment, so it can't have the flag. No log.
+    // No fragment = flag not set
     return false;
 }
 
@@ -390,14 +405,13 @@ bool UMassAPISubsystem::SetEntityFlag(FMassEntityHandle EntityHandle, EEntityFla
         return false;
     }
 
-    // 获取可变指针
+    // Get mutable pointer
     if (FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
     {
-        FlagFragment->Flags |= (1LL << static_cast<uint8>(FlagToSet));
+        FlagFragment->SetFlag(FlagToSet);
         return true;
     }
 
-    // Log a warning if the fragment is missing
     UE_LOG(LogMassAPI, Warning, TEXT("SetEntityFlag: Entity does not have FEntityFlagFragment. Flag not set."));
     return false;
 }
@@ -415,14 +429,13 @@ bool UMassAPISubsystem::ClearEntityFlag(FMassEntityHandle EntityHandle, EEntityF
         return false;
     }
 
-    // 如果实体没有该 Fragment，则无需执行任何操作
+    // Get mutable pointer
     if (FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
     {
-        FlagFragment->Flags &= ~(1LL << static_cast<uint8>(FlagToClear));
+        FlagFragment->ClearFlag(FlagToClear);
         return true;
     }
 
-    // Log a warning if the fragment is missing
     UE_LOG(LogMassAPI, Warning, TEXT("ClearEntityFlag: Entity does not have FEntityFlagFragment. Flag not cleared."));
     return false;
 }

@@ -27,17 +27,17 @@ namespace UK2Node_AddMassTagHelper
 	// 2. Set - Icon Colors
 	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
 	{
-		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 	};
 
 	// 2. Set - Title Colors
 	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.4f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 	};
 }
 
@@ -95,7 +95,7 @@ void UK2Node_AddMassTag::AllocateDefaultPins()
 	UEdGraphPin* TagTypePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Struct, UScriptStruct::StaticClass(), TagTypePinName());
 	TagTypePin->PinType.PinSubCategory = UEdGraphSchema_K2::PSC_Self;
 
-	// [NEW] Create Deferred Pin (default false)
+	// Create Deferred Pin (default false)
 	UEdGraphPin* DeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, TEXT("bDeferred"));
 	DeferredPin->DefaultValue = TEXT("false");
 
@@ -275,7 +275,7 @@ void UK2Node_AddMassTag::UpdateDataSourceType()
 		CachedDataSourceType = EMassFragmentSourceDataType::None;
 	}
 
-	// [NEW] Toggle bDeferred visibility based on source type
+	// Toggle bDeferred visibility based on source type
 	UEdGraphPin* DeferredPin = FindPin(TEXT("bDeferred"));
 	if (DeferredPin)
 	{
@@ -399,7 +399,7 @@ virtual void Compile() override
 		AddFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, AddTag_Entity);
 		FunctionDataSourcePinName = TEXT("EntityHandle");
 
-		// [NEW] Link bDeferred
+		// Link bDeferred
 		Link(ProxyPin(TEXT("bDeferred")), FunctionInputPin(AddFunctionNode, TEXT("bDeferred")));
 		break;
 

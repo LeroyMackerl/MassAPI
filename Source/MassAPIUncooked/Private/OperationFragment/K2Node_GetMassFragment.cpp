@@ -501,8 +501,10 @@ void UK2Node_GetMassFragment::OnFragmentTypeChanged()
 		{
 			// FragmentType不为None，显示并更新FragmentOut引脚类型
 
-			// 取消隐藏引脚
-			if (FragmentOutPin->bHidden)
+			// [FIX] CHECK SPLIT STATUS
+			// Only unhide if it's currently hidden AND it is NOT split (SubPins is empty).
+			// If SubPins > 0, the pin was split by user and should remain hidden.
+			if (FragmentOutPin->bHidden && FragmentOutPin->SubPins.Num() == 0)
 			{
 				FragmentOutPin->bHidden = false;
 				bPinTypeChanged = true;
@@ -662,9 +664,9 @@ void UK2Node_GetMassFragment::OnMemberReferenceChanged()
 
 		// 按偏移索引排序（深度优先）
 		PathsWithOffsets.Sort([](const TPair<FString, TArray<int32>>& A, const TPair<FString, TArray<int32>>& B)
-		{
-			return StructMemberHelper::CompareOffsetIndices(A.Value, B.Value);
-		});
+			{
+				return StructMemberHelper::CompareOffsetIndices(A.Value, B.Value);
+			});
 
 		// 按排序后的顺序创建引脚
 		const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
@@ -759,8 +761,6 @@ void UK2Node_GetMassFragment::GetMenuActions(FBlueprintActionDatabaseRegistrar& 
 	}
 }
 
-
-
 //================ Compiler.Handler																				========
 
 HNCH_StartExpandNode(UK2Node_GetMassFragment)
@@ -790,16 +790,16 @@ virtual void Compile() override
 
 	switch (OwnerNode->CachedDataSourceType)
 	{
-		case EMassFragmentSourceDataType::EntityHandle:
-			GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Entity_Unified);
-			GetterFunctionDataSourcePinName = TEXT("EntityHandle");
-			break;
-		case EMassFragmentSourceDataType::EntityTemplateData:
-			GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Template_Unified);
-			GetterFunctionDataSourcePinName = TEXT("TemplateData");
-			break;
-		default:
-			return;
+	case EMassFragmentSourceDataType::EntityHandle:
+		GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Entity_Unified);
+		GetterFunctionDataSourcePinName = TEXT("EntityHandle");
+		break;
+	case EMassFragmentSourceDataType::EntityTemplateData:
+		GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Template_Unified);
+		GetterFunctionDataSourcePinName = TEXT("TemplateData");
+		break;
+	default:
+		return;
 	}
 
 	// 连接DataSource和FragmentType参数引脚

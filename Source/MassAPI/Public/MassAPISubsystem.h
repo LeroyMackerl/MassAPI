@@ -18,6 +18,9 @@
 #include "MassCommands.h"
 #include "MassCommandBuffer.h"
 #include "MassExecutionContext.h"
+#include "Stats/StatsSystemTypes.h"
+#include "Subsystems/SubsystemCollection.h"
+
 #include "MassAPISubsystem.generated.h"
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -48,7 +51,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEntityIterate, FEntityHandle, El
  * This subsystem wraps common entity operations for easier access
  */
 UCLASS()
-class MASSAPI_API UMassAPISubsystem : public UMassSubsystemBase
+class MASSAPI_API UMassAPISubsystem : public UMassTickableSubsystemBase
 {
 	GENERATED_BODY()
 
@@ -59,6 +62,10 @@ protected:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
+	virtual void Tick(float DeltaTime) override;
+
+	// This function is required by UTickableWorldSubsystem for profiling
+	virtual TStatId GetStatId() const override;
 
 public:
 

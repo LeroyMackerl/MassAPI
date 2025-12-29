@@ -318,6 +318,7 @@ void UMassAPIFuncLib::Generic_SetFragment_Entity_Unified(const UObject* WorldCon
         UE_LOG(LogMassBlueprintAPI, Warning, TEXT("SetFragment_Entity: FragmentType is null."));
         return;
     }
+
     if (!InFragmentPtr)
     {
         UE_LOG(LogMassBlueprintAPI, Warning, TEXT("SetFragment_Entity: InFragmentPtr is null for type '%s'."), *FragmentType->GetName());
@@ -325,6 +326,7 @@ void UMassAPIFuncLib::Generic_SetFragment_Entity_Unified(const UObject* WorldCon
     }
 
     UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+
     if (!MassAPI)
     {
         UE_LOG(LogMassBlueprintAPI, Warning, TEXT("SetFragment_Entity: MassAPISubsystem unavailable."));
@@ -353,6 +355,7 @@ void UMassAPIFuncLib::Generic_SetFragment_Entity_Unified(const UObject* WorldCon
 
         if (bDeferred)
         {
+            //TRACE_CPUPROFILER_EVENT_SCOPE_STR("SetFragment_Entity Deferred");
             // --- Deferred Path ---
             // Use FMassDeferredSetCommand. This is the correct command type for operations that might add OR update fragments.
             // We capture FragmentInstance by value to persist the data.
@@ -1215,15 +1218,18 @@ void UMassAPIFuncLib::SetFlag_Template(const UObject* WorldContextObject, UPARAM
         return;
     }
 
-    // 1. Get current flags
+    // 1. Get current flags state
     const int64 CurrentFlags = GetFlag_Template(TemplateData);
 
-    // 2. Create new fragment with modified flags
-    FEntityFlagFragment NewFlagFragment;
-    NewFlagFragment.Flags = CurrentFlags | (1LL << static_cast<uint8>(FlagToSet));
+    // 2. Create a temporary fragment to utilize its methods
+    FEntityFlagFragment TempFlagFragment;
+    TempFlagFragment.Flags = CurrentFlags;
 
-    // 3. Call the generic "Set Fragment" function to replace the data
-    Generic_SetFragment_Template_Unified(WorldContextObject, TemplateData, FEntityFlagFragment::StaticStruct(), &NewFlagFragment);
+    // 3. Use the fragment's own logic to set the flag
+    TempFlagFragment.SetFlag(FlagToSet);
+
+    // 4. Write the modified fragment back to the template
+    Generic_SetFragment_Template_Unified(WorldContextObject, TemplateData, FEntityFlagFragment::StaticStruct(), &TempFlagFragment);
 }
 
 //———————— Get.Flags																					    		————
@@ -1280,15 +1286,18 @@ void UMassAPIFuncLib::ClearFlag_Template(const UObject* WorldContextObject, UPAR
         return;
     }
 
-    // 1. Get current flags
+    // 1. Get current flags state
     const int64 CurrentFlags = GetFlag_Template(TemplateData);
 
-    // 2. Create new fragment with modified flags
-    FEntityFlagFragment NewFlagFragment;
-    NewFlagFragment.Flags = CurrentFlags & ~(1LL << static_cast<uint8>(FlagToClear));
+    // 2. Create a temporary fragment to utilize its methods
+    FEntityFlagFragment TempFlagFragment;
+    TempFlagFragment.Flags = CurrentFlags;
 
-    // 3. Call the generic "Set Fragment" function to replace the data
-    Generic_SetFragment_Template_Unified(WorldContextObject, TemplateData, FEntityFlagFragment::StaticStruct(), &NewFlagFragment);
+    // 3. Use the fragment's own logic to clear the flag
+    TempFlagFragment.ClearFlag(FlagToClear);
+
+    // 4. Write the modified fragment back to the template
+    Generic_SetFragment_Template_Unified(WorldContextObject, TemplateData, FEntityFlagFragment::StaticStruct(), &TempFlagFragment);
 }
 
 //———————— Has.Flag																					    			————
@@ -1311,10 +1320,26 @@ bool UMassAPIFuncLib::HasFlag_Template(UPARAM(ref) const FEntityTemplateData& Te
         return false;
     }
 
-    const int64 TemplateFlags = GetFlag_Template(TemplateData);
-    return (TemplateFlags & (1LL << static_cast<uint8>(FlagToTest))) != 0;
-}
+    if (const FMassEntityTemplateData* Data = TemplateData.Get())
+    {
+        TConstArrayView<FInstancedStruct> InitialValues = Data->GetInitialFragmentValues();
 
+        // Find the specific fragment manually to cast and call its method
+        for (const FInstancedStruct& Value : InitialValues)
+        {
+            if (Value.GetScriptStruct() == FEntityFlagFragment::StaticStruct())
+            {
+                if (const FEntityFlagFragment* FlagFragment = reinterpret_cast<const FEntityFlagFragment*>(Value.GetMemory()))
+                {
+                    // Delegate to the fragment's check method
+                    return FlagFragment->HasFlag(FlagToTest);
+                }
+            }
+        }
+    }
+
+    return false;
+}
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 // Deprecated Functions
