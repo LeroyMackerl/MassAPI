@@ -5,6 +5,8 @@
 
 *20251204 Updated to v1.0.1 with ue5.7 compatibility contributed by LainProStudio.
 
+*20251027 Initial v1.0 commit.
+
 # Mass API Plugin Documentation
 This doc is generated with AI. It may contain erros. Use with caution.
 https://discord.gg/8AUMxq3SgV
