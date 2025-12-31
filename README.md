@@ -1,4 +1,6 @@
 # Update Log
+*20251231 Updated to v1.2 with Deferred delegate.
+
 *20251229 Updated to v1.1.1 with minor bug fixes.
 
 *20251226 Updated to v1.1 with smart bp nodes contributed by Ember.
