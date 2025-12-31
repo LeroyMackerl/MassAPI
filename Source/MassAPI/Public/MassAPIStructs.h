@@ -14,59 +14,31 @@
 #include <atomic>
 #include "MassAPIStructs.generated.h" 
 
+
 /**
  * FEntityHandle is a blueprintable wrapper of MassEntityHandle
  */
 USTRUCT(BlueprintType)
 struct MASSAPI_API FEntityHandle
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	// Default constructor
-	FEntityHandle() = default;
+    FEntityHandle() = default;
+    FORCEINLINE FEntityHandle(const FMassEntityHandle& MassHandle) : Index(MassHandle.Index), Serial(MassHandle.SerialNumber) {}
 
-	// Construct from an FMassEntityHandle
-	FORCEINLINE FEntityHandle(const FMassEntityHandle& MassHandle) : Index(MassHandle.Index), Serial(MassHandle.SerialNumber) {}
+    FORCEINLINE operator FMassEntityHandle() const { return FMassEntityHandle(Index, Serial); }
+    FORCEINLINE bool IsEmptyHandle() const { return Index != 0 && Serial != 0; }
+    FORCEINLINE void Reset() { Index = 0; Serial = 0; }
 
-	// Conversion to FMassEntityHandle (this is the key to making it work seamlessly)
-	FORCEINLINE operator FMassEntityHandle() const
-	{
-		return FMassEntityHandle(Index, Serial);
-	}
+    UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "MassAPI|EntityHandle")
+    int32 Index = 0;
 
-	// Note: !IsEmptyHandle() does not mean the handle is valid, it could be expired
-	FORCEINLINE bool IsEmptyHandle() const
-	{
-		return Index != 0 && Serial != 0;
-	}
+    UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "MassAPI|EntityHandle")
+    int32 Serial = 0;
 
-	/** Resets the handle to an invalid state (Index 0, Serial 0) */
-	FORCEINLINE void Reset()
-	{
-		Index = 0;
-		Serial = 0;
-	}
-
-	// Blueprint-accessible entity index
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "MassAPI|EntityHandle")
-	int32 Index = 0;
-
-	// Blueprint-accessible serial number
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "MassAPI|EntityHandle")
-	int32 Serial = 0;
-
-	// Comparison operator (used by EqualEqual_EntityHandle in Blueprints)
-	FORCEINLINE bool operator==(const FEntityHandle& Other) const
-	{
-		return Index == Other.Index && Serial == Other.Serial;
-	}
-
-	// Support for Blueprint comparisons (for TMap, TSet, etc.)
-	FORCEINLINE friend uint32 GetTypeHash(const FEntityHandle& Handle)
-	{
-		return HashCombine(GetTypeHash(Handle.Index), GetTypeHash(Handle.Serial));
-	}
+    FORCEINLINE bool operator==(const FEntityHandle& Other) const { return Index == Other.Index && Serial == Other.Serial; }
+    FORCEINLINE friend uint32 GetTypeHash(const FEntityHandle& Handle) { return HashCombine(GetTypeHash(Handle.Index), GetTypeHash(Handle.Serial)); }
 };
 
 /**
@@ -93,8 +65,6 @@ public:
 
     FEntityFlagFragment(const FEntityFlagFragment& Other)
     {
-        // We usually initialize the new lock to false (unlocked), 
-        // but here we copy the state to match your FStatistics reference.
         LockFlag.store(Other.LockFlag.load());
         Flags = Other.Flags;
     }
@@ -126,7 +96,6 @@ public:
     /**
      * (New) Checks if this Fragment has a specific flag set.
      * Note: This is a read operation and currently technically lock-free.
-     * If strict consistency is needed during high-frequency writes, consider locking here too.
      */
     FORCEINLINE bool HasFlag(const EEntityFlags Flag) const
     {
@@ -136,24 +105,39 @@ public:
 
     /**
      * (New) Sets a specific flag on this Fragment.
-     * Thread-safe: Uses Lock/Unlock.
+     * Thread-safe: Uses Lock/Unlock, but checks first to avoid unnecessary locking.
      */
     FORCEINLINE void SetFlag(const EEntityFlags Flag)
     {
         if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
 
+        // OPTIMIZATION: If the flag is already set, do not wait for a lock.
+        if (HasFlag(Flag))
+        {
+            return;
+        }
+
         Lock(); // Enter Critical Section
+
+        // We could check again here, but setting the bit again is harmless (idempotent).
         Flags |= (1LL << static_cast<uint8>(Flag));
+
         Unlock(); // Exit Critical Section
     }
 
     /**
      * (New) Clears a specific flag on this Fragment.
-     * Thread-safe: Uses Lock/Unlock.
+     * Thread-safe: Uses Lock/Unlock, but checks first to avoid unnecessary locking.
      */
     FORCEINLINE void ClearFlag(const EEntityFlags Flag)
     {
         if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
+
+        // OPTIMIZATION: If the flag is already clear, do not wait for a lock.
+        if (!HasFlag(Flag))
+        {
+            return;
+        }
 
         Lock(); // Enter Critical Section
         Flags &= ~(1LL << static_cast<uint8>(Flag));
@@ -162,11 +146,17 @@ public:
 
     /**
      * (New) Sets or Clears a specific flag based on a boolean value.
-     * Thread-safe: Uses Lock/Unlock.
+     * Thread-safe: Uses Lock/Unlock, but checks first to avoid unnecessary locking.
      */
     FORCEINLINE void SetFlagValue(const EEntityFlags Flag, const bool bValue)
     {
         if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
+
+        // OPTIMIZATION: If the current state already matches bValue, do nothing.
+        if (HasFlag(Flag) == bValue)
+        {
+            return;
+        }
 
         Lock(); // Enter Critical Section
         if (bValue)

@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "K2Node.h"
 #include "MassAPIEnums.h"
-
 #include "K2Node_RemoveMassTag.generated.h"
 
 class FBlueprintActionDatabaseRegistrar;
@@ -89,6 +88,8 @@ public:
 
 	static FName DataSourcePinName() { return TEXT("DataSource"); }
 	static FName TagTypePinName() { return TEXT("TagType"); }
+	static FName DeferredPinName() { return TEXT("bDeferred"); }
+	static FName OnFinishedPinName() { return TEXT("OnFinished"); }
 
 };
 

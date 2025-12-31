@@ -28,7 +28,7 @@
 // 声明每次迭代的委托
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEntityIterate, FEntityHandle, Element, int32, Index);
 
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION == 7
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7
 // UE 5.7 accessor methods
 #define GET_TAGS GetTags()
 #define GET_FRAGMENTS GetFragments()

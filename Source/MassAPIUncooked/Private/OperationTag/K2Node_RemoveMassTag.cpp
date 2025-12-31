@@ -44,6 +44,31 @@ using namespace UK2Node_RemoveMassTagHelper;
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
+static void SetDelegatePinType(UEdGraphPin* Pin)
+{
+	if (!Pin) return;
+
+	// Use SetFragment_Entity_Unified from RemoveFragment logic as the reference signature
+	// as it contains the definition for FOnMassDeferredFinished.
+	UFunction* Function = UMassAPIFuncLib::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UMassAPIFuncLib, SetFragment_Entity_Unified));
+
+	if (Function)
+	{
+		// Find the specific property "OnFinished"
+		if (FDelegateProperty* DelegateProp = CastField<FDelegateProperty>(Function->FindPropertyByName(TEXT("OnFinished"))))
+		{
+			Pin->PinType.PinCategory = UEdGraphSchema_K2::PC_Delegate;
+			Pin->PinType.PinSubCategoryObject = DelegateProp->SignatureFunction;
+
+			if (DelegateProp->SignatureFunction)
+			{
+				Pin->PinType.PinSubCategoryMemberReference.MemberParent = DelegateProp->SignatureFunction->GetOuter();
+				Pin->PinType.PinSubCategoryMemberReference.MemberName = DelegateProp->SignatureFunction->GetFName();
+			}
+		}
+	}
+}
+
 FText UK2Node_RemoveMassTag::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	return FText::FromString(DataSourceTypeTitles.FindRef(CachedDataSourceType));
@@ -83,7 +108,7 @@ void UK2Node_RemoveMassTag::AllocateDefaultPins()
 	TagTypePin->PinType.PinSubCategory = UEdGraphSchema_K2::PSC_Self;
 
 	// Create Deferred Pin
-	UEdGraphPin* DeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, TEXT("bDeferred"));
+	UEdGraphPin* DeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, DeferredPinName());
 	DeferredPin->DefaultValue = TEXT("false");
 
 	Super::AllocateDefaultPins();
@@ -104,6 +129,44 @@ void UK2Node_RemoveMassTag::ReallocatePinsDuringReconstruction(TArray<UEdGraphPi
 				NewDataSourcePin->PinType.bIsReference = true;
 			}
 			break;
+		}
+	}
+
+	// Restore Deferred / Delegate Logic
+	// [FIX] Check OLD pins for the deferred value.
+	bool bWasDeferred = false;
+	for (const UEdGraphPin* OldPin : OldPins)
+	{
+		if (OldPin && OldPin->PinName == DeferredPinName())
+		{
+			bWasDeferred = (OldPin->DefaultValue == TEXT("true"));
+			break;
+		}
+	}
+
+	if (bWasDeferred)
+	{
+		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
+		if (!DelegatePin)
+		{
+			DelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
+		}
+
+		SetDelegatePinType(DelegatePin);
+
+		for (UEdGraphPin* OldPin : OldPins)
+		{
+			if (OldPin && OldPin->PinName == OnFinishedPinName())
+			{
+				if (OldPin->LinkedTo.Num() > 0)
+				{
+					for (UEdGraphPin* Linked : OldPin->LinkedTo)
+					{
+						DelegatePin->MakeLinkTo(Linked);
+					}
+				}
+				break;
+			}
 		}
 	}
 
@@ -132,6 +195,35 @@ void UK2Node_RemoveMassTag::PinDefaultValueChanged(UEdGraphPin* Pin)
 	if (Pin && Pin->PinName == TagTypePinName())
 	{
 		OnTagTypeChanged();
+	}
+
+	// Handle Deferred Checkbox Toggle
+	if (Pin && Pin->PinName == DeferredPinName())
+	{
+		const bool bIsChecked = (Pin->DefaultValue == TEXT("true"));
+		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
+
+		bool bChanged = false;
+
+		if (bIsChecked && !DelegatePin)
+		{
+			// User checked 'bDeferred': Create the pin
+			DelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
+			SetDelegatePinType(DelegatePin);
+			bChanged = true;
+		}
+		else if (!bIsChecked && DelegatePin)
+		{
+			// User unchecked 'bDeferred': Destroy the pin
+			DelegatePin->BreakAllPinLinks();
+			RemovePin(DelegatePin);
+			bChanged = true;
+		}
+
+		if (bChanged)
+		{
+			GetGraph()->NotifyNodeChanged(this);
+		}
 	}
 }
 
@@ -226,7 +318,7 @@ void UK2Node_RemoveMassTag::UpdateDataSourceType()
 	else CachedDataSourceType = EMassFragmentSourceDataType::None;
 
 	// Visibility Logic
-	UEdGraphPin* DeferredPin = FindPin(TEXT("bDeferred"));
+	UEdGraphPin* DeferredPin = FindPin(DeferredPinName());
 	if (DeferredPin)
 	{
 		const bool bShow = (CachedDataSourceType == EMassFragmentSourceDataType::EntityHandle);
@@ -234,6 +326,14 @@ void UK2Node_RemoveMassTag::UpdateDataSourceType()
 		{
 			DeferredPin->bHidden = !bShow;
 			if (!bShow) DeferredPin->BreakAllPinLinks();
+		}
+
+		// Also handle OnFinished visibility if we are hiding Deferred (e.g. switching to TemplateData mode)
+		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
+		if (DelegatePin && !bShow)
+		{
+			DelegatePin->BreakAllPinLinks();
+			RemovePin(DelegatePin);
 		}
 	}
 }
@@ -327,7 +427,13 @@ virtual void Compile() override
 		FunctionDataSourcePinName = TEXT("EntityHandle");
 
 		// Link bDeferred
-		Link(ProxyPin(TEXT("bDeferred")), FunctionInputPin(RemoveFunctionNode, TEXT("bDeferred")));
+		Link(ProxyPin(UK2Node_RemoveMassTag::DeferredPinName()), FunctionInputPin(RemoveFunctionNode, TEXT("bDeferred")));
+
+		// Connect OnFinished Delegate
+		if (UEdGraphPin* DelegatePin = ProxyPin(UK2Node_RemoveMassTag::OnFinishedPinName()))
+		{
+			Link(DelegatePin, FunctionInputPin(RemoveFunctionNode, TEXT("OnFinished")));
+		}
 		break;
 
 	case EMassFragmentSourceDataType::EntityTemplateData:

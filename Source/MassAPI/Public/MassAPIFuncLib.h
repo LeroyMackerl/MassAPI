@@ -13,8 +13,12 @@
 #include "MassAPIStructs.h"
 #include "MassAPIFuncLib.generated.h"
 
+
 // Forward declaration for the generic struct placeholder used in CustomThunks
 struct FGenericStruct;
+
+// Delegate to fire when a deferred command finishes
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnMassDeferredFinished, FEntityHandle, EntityHandle);
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -27,6 +31,9 @@ class MASSAPI_API UMassAPIFuncLib : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 
 public:
+
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Misc", meta = (WorldContext = "WorldContextObject", DisplayName = "Flush Mass Commands", Tooltip = "Apply all deferred commands", Keywords = "flush mass commands deferred"))
+	static void FlushMassCommands(const UObject* WorldContextObject);
 
 	//================ Entity Operations																		========
 
@@ -46,18 +53,20 @@ public:
 	 * @param WorldContextObject The context object to retrieve the world.
 	 * @param EntityHandle The handle of the entity to destroy.
 	 * @param bDeferred If true, the destruction is queued via the command buffer; otherwise, it happens immediately.
+	 * @param OnFinished Optional delegate to execute when the operation is complete (immediately or after deferred flush).
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Destroy Entity", Tooltip = "Destroys a specific entity.", Keywords = "destroy delete remove kill mass entity"))
-	static void DestroyEntity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, const bool bDeferred);
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Destroy Entity", Tooltip = "Destroys a specific entity.", Keywords = "destroy delete remove kill mass entity", AutoCreateRefTerm = "OnFinished"))
+	static void DestroyEntity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, const bool bDeferred, const FOnMassDeferredFinished OnFinished);
 
 	/**
 	 * Destroys a batch of entities.
 	 * @param WorldContextObject The context object to retrieve the world.
 	 * @param EntityHandles An array of entity handles to destroy.
 	 * @param bDeferred If true, the destruction is queued via the command buffer; otherwise, it happens immediately.
+	 * @param OnFinished Optional delegate to execute for EACH entity when the operation is complete.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Destroy Entities", Tooltip = "Destroys a batch of entities.", Keywords = "destroy delete remove kill batch mass entity array"))
-	static void DestroyEntities(const UObject* WorldContextObject, const TArray<FEntityHandle>& EntityHandles, const bool bDeferred);
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Destroy Entities", Tooltip = "Destroys a batch of entities.", Keywords = "destroy delete remove kill batch mass entity array", AutoCreateRefTerm = "OnFinished"))
+	static void DestroyEntities(const UObject* WorldContextObject, const TArray<FEntityHandle>& EntityHandles, const bool bDeferred, const FOnMassDeferredFinished OnFinished);
 
 	//================ Entity Building																			========
 
@@ -66,10 +75,11 @@ public:
 	 * @param WorldContextObject The context object to retrieve the world.
 	 * @param TemplateData The template data defining the entity's composition and initial values.
 	 * @param bDeferred If true, creation is queued; otherwise, it happens immediately.
+	 * @param OnFinished Optional delegate to execute when the operation is complete.
 	 * @return The handle to the newly created (or reserved) entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entity From Template Data", Tooltip = "Builds a single entity based on the provided template data.", Keywords = "spawn create make construct build mass entity template"))
-	static FEntityHandle BuildEntityFromTemplateData(const UObject* WorldContextObject, UPARAM(ref) const FEntityTemplateData& TemplateData, const bool bDeferred);
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entity From Template Data", Tooltip = "Builds a single entity based on the provided template data.", Keywords = "spawn create make construct build mass entity template", AutoCreateRefTerm = "OnFinished"))
+	static FEntityHandle BuildEntityFromTemplateData(const UObject* WorldContextObject, UPARAM(ref) const FEntityTemplateData& TemplateData, const bool bDeferred, const FOnMassDeferredFinished OnFinished);
 
 	/**
 	 * Builds multiple entities based on the provided template data.
@@ -77,10 +87,11 @@ public:
 	 * @param Quantity The number of entities to spawn.
 	 * @param TemplateData The template data defining the entities' composition and initial values.
 	 * @param bDeferred If true, creation is queued; otherwise, it happens immediately.
+	 * @param OnFinished Optional delegate to execute for EACH entity when the operation is complete.
 	 * @return An array of handles to the newly created (or reserved) entities.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entities From Template Data", Tooltip = "Builds multiple entities based on the provided template data.", Keywords = "spawn create make construct build batch mass entity template array"))
-	static TArray<FEntityHandle> BuildEntitiesFromTemplateData(const UObject* WorldContextObject, int32 Quantity, UPARAM(ref) const FEntityTemplateData& TemplateData, const bool bDeferred);
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entities From Template Data", Tooltip = "Builds multiple entities based on the provided template data.", Keywords = "spawn create make construct build batch mass entity template array", AutoCreateRefTerm = "OnFinished"))
+	static TArray<FEntityHandle> BuildEntitiesFromTemplateData(const UObject* WorldContextObject, int32 Quantity, UPARAM(ref) const FEntityTemplateData& TemplateData, const bool bDeferred, const FOnMassDeferredFinished OnFinished);
 
 	//================ Entity Querying & BP Processors															========
 
@@ -161,20 +172,17 @@ public:
 	 * @param EntityHandle The entity to modify.
 	 * @param FragmentType The script struct of the fragment.
 	 * @param InFragment The value to set.
+	 * @param bDeferred If true, the operation is queued.
 	 * @param bSuccess Output indicating if the operation succeeded.
+	 * @param OnFinished Optional delegate to execute when the operation is complete.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Composition", CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment", Tooltip = "Unified function to set a Fragment on an entity.", Keywords = "set add update fragment unified mass entity value"))
-	static void SetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const FGenericStruct& InFragment, bool bDeferred, bool& bSuccess);
+	static void SetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const FGenericStruct& InFragment, bool bDeferred, bool& bSuccess, FOnMassDeferredFinished OnFinished);
 
 	/**
 	 * Generic implementation for setting a fragment on an entity.
-	 * @param WorldContextObject The context object.
-	 * @param EntityHandle The entity to modify.
-	 * @param FragmentType The type of the fragment.
-	 * @param InFragmentPtr Pointer to the raw memory of the fragment value.
-	 * @param bSuccess Output indicating success.
 	 */
-	static void Generic_SetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const void* InFragmentPtr, bool bDeferred, bool& bSuccess);
+	static void Generic_SetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const void* InFragmentPtr, bool bDeferred, bool& bSuccess, FOnMassDeferredFinished OnFinished);
 	DECLARE_FUNCTION(execSetFragment_Entity_Unified);
 
 	//———————— Set.Fragment.Template (Unified for Fragment/SharedFragment/ConstSharedFragment)						————
@@ -189,13 +197,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Composition", CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment", Tooltip = "Unified function to set a Fragment, SharedFragment, or ConstSharedFragment in Template Data. Will add a new one or override the the existing one.", Keywords = "set add update fragment shared const unified template mass value"))
 	static void SetFragment_Template_Unified(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, const FGenericStruct& InFragment);
 
-	/**
-	 * Generic implementation for setting a fragment in template data.
-	 * @param WorldContextObject The context object.
-	 * @param TemplateData The template data to modify.
-	 * @param FragmentType The type of the fragment.
-	 * @param InFragmentPtr Pointer to the raw memory of the fragment value.
-	 */
 	static void Generic_SetFragment_Template_Unified(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, const void* InFragmentPtr);
 	DECLARE_FUNCTION(execSetFragment_Template_Unified);
 
@@ -212,14 +213,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Composition", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment", Tooltip = "Unified function to retrieve a Fragment, SharedFragment, or ConstSharedFragment from an entity.", Keywords = "get read retrieve getfragment gf mass entity fragment shared const unified value"))
 	static void GetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 
-	/**
-	 * Generic implementation for getting a fragment from an entity.
-	 * @param WorldContextObject The context object.
-	 * @param EntityHandle The entity to read from.
-	 * @param FragmentType The type of the fragment.
-	 * @param OutFragmentPtr Pointer to the memory where the result should be copied.
-	 * @param bSuccess Output indicating success.
-	 */
 	static void Generic_GetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, void* OutFragmentPtr, bool& bSuccess);
 	DECLARE_FUNCTION(execGetFragment_Entity_Unified);
 
@@ -235,13 +228,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Composition", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment", Tooltip = "Unified function to retrieve a Fragment, SharedFragment, or ConstSharedFragment from Template Data.", Keywords = "get read retrieve fragment shared const unified template mass value"))
 	static void GetFragment_Template_Unified(UPARAM(ref) const FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 
-	/**
-	 * Generic implementation for getting a fragment from template data.
-	 * @param TemplateData The template data to read from.
-	 * @param FragmentType The type of the fragment.
-	 * @param OutFragmentPtr Pointer to the memory where the result should be copied.
-	 * @param bSuccess Output indicating success.
-	 */
 	static void Generic_GetFragment_Template_Unified(UPARAM(ref) const FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, void* OutFragmentPtr, bool& bSuccess);
 	DECLARE_FUNCTION(execGetFragment_Template_Unified);
 
@@ -252,10 +238,12 @@ public:
 	 * @param WorldContextObject The context object.
 	 * @param EntityHandle The entity to modify.
 	 * @param FragmentType The type of fragment to remove.
+	 * @param bDeferred If true, the operation is queued.
+	 * @param OnFinished Optional delegate to execute when the operation is complete.
 	 * @return True if the fragment was successfully removed, false otherwise.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Composition", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Tooltip = "Removes a Fragment from an entity.", Keywords = "remove delete clear fragment mass entity"))
-	static bool RemoveFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, bool bDeferred = false);
+	static bool RemoveFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, bool bDeferred, FOnMassDeferredFinished OnFinished);
 
 	//———————— Remove.Fragment.Template (Unified for Fragment/SharedFragment/ConstSharedFragment)					————
 
@@ -300,9 +288,11 @@ public:
 	 * @param WorldContextObject The context object.
 	 * @param EntityHandle The entity to modify.
 	 * @param TagType The type of tag to add.
+	 * @param bDeferred If true, the operation is queued.
+	 * @param OnFinished Optional delegate to execute when the operation is complete.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Composition", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Tooltip = "Adds a Tag to an entity.", Keywords = "add set tag mass entity"))
-	static void AddTag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType, bool bDeferred = false);
+	static void AddTag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType, bool bDeferred, FOnMassDeferredFinished OnFinished);
 
 	//———————— Add.Tag.Template																						————
 
@@ -321,9 +311,11 @@ public:
 	 * @param WorldContextObject The context object.
 	 * @param EntityHandle The entity to modify.
 	 * @param TagType The type of tag to remove.
+	 * @param bDeferred If true, the operation is queued.
+	 * @param OnFinished Optional delegate to execute when the operation is complete.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Composition", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Tooltip = "Removes a Tag from an entity.", Keywords = "remove delete clear tag mass entity"))
-	static void RemoveTag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType, bool bDeferred = false);
+	static void RemoveTag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType, bool bDeferred, FOnMassDeferredFinished OnFinished);
 
 	//———————— Remove.Tag.Template																					————
 
@@ -447,7 +439,6 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Tooltip = "Requires the entity to have FEntityFlagFragment added via its Template.", Keywords = "clear remove delete flag bitmask template mass"))
 	static void ClearFlag_Template(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, EEntityFlags FlagToClear);
-
 
 
 	//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

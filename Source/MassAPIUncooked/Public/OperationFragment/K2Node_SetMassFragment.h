@@ -30,7 +30,7 @@ public:
 
 	virtual bool IsNodePure() const override { return false; }
 	virtual bool ShouldShowNodeProperties() const override { return true; }
-	
+
 
 	//———————— Node.Appearance																						————
 
@@ -107,6 +107,7 @@ public:
 	static FName FragmentInPinName() { return TEXT("InFragment"); }
 	static FName InputPinName(const FString& MemberPath);  // 成员输入引脚名称
 	static FName DeferredPinName() { return TEXT("bDeferred"); }
+	static FName OnFinishedPinName() { return TEXT("OnFinished"); }
 };
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

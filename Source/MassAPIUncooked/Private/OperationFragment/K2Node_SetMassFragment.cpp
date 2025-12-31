@@ -14,6 +14,7 @@
 #include "K2Node_VariableSet.h"
 #include "K2Node_TemporaryVariable.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "UObject/UnrealType.h"
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -42,11 +43,58 @@ namespace UK2Node_SetMembersInFragmentHelper
 		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 	};
+
+	// Helper to get the delegate signature from MassAPIFuncLib
+	UFunction* GetOnMassDeferredFinishedSignature()
+	{
+		static UFunction* Signature = nullptr;
+		if (!Signature)
+		{
+			// Find the function definition
+			if (UFunction* Func = UMassAPIFuncLib::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UMassAPIFuncLib, SetFragment_Entity_Unified)))
+			{
+				// Extract the delegate signature from the 'OnFinished' property
+				if (FDelegateProperty* Prop = CastField<FDelegateProperty>(Func->FindPropertyByName(TEXT("OnFinished"))))
+				{
+					Signature = Prop->SignatureFunction;
+				}
+			}
+		}
+		return Signature;
+	}
 }
 
 using namespace UK2Node_SetMembersInFragmentHelper;
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+static void SetDelegatePinType(UEdGraphPin* Pin)
+{
+	if (!Pin) return;
+
+	// 1. Find the library function
+	UFunction* Function = UMassAPIFuncLib::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UMassAPIFuncLib, SetFragment_Entity_Unified));
+
+	if (Function)
+	{
+		// 2. Find the specific property "OnFinished"
+		if (FDelegateProperty* DelegateProp = CastField<FDelegateProperty>(Function->FindPropertyByName(TEXT("OnFinished"))))
+		{
+			// 3. Set the Category (Delegate)
+			Pin->PinType.PinCategory = UEdGraphSchema_K2::PC_Delegate;
+
+			// 4. Set the Signature Function (The "Type")
+			Pin->PinType.PinSubCategoryObject = DelegateProp->SignatureFunction;
+
+			// 5. [CRITICAL FIX] Set the Member Reference so the compiler knows the exact source
+			if (DelegateProp->SignatureFunction)
+			{
+				Pin->PinType.PinSubCategoryMemberReference.MemberParent = DelegateProp->SignatureFunction->GetOuter();
+				Pin->PinType.PinSubCategoryMemberReference.MemberName = DelegateProp->SignatureFunction->GetFName();
+			}
+		}
+	}
+}
 
 //================ Node.Configuration																			========
 
@@ -96,24 +144,28 @@ void UK2Node_SetMassFragment::AllocateDefaultPins()
 	UEdGraphPin* FragmentTypePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Struct, UScriptStruct::StaticClass(), FragmentTypePinName());
 	FragmentTypePin->PinType.PinSubCategory = UEdGraphSchema_K2::PSC_Self;
 
-	// 2. Fragment Input Pin (Standard Mode)
-	// Create this BEFORE deferred pin so it appears above it.
+	// 2. Fragment Input Pin (Standard Mode only)
 	if (!bSetMember)
 	{
 		UEdGraphPin* FragmentInPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Wildcard, FragmentInPinName());
 		FragmentInPin->PinType.bIsReference = true;
 	}
 
-	// 3. Deferred Pin (Create LAST among inputs)
-	UEdGraphPin* DeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, UK2Node_SetMassFragment::DeferredPinName());
+	// 3. Deferred Pin
+	UEdGraphPin* DeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, DeferredPinName());
 	DeferredPin->DefaultValue = TEXT("false");
+
+	// 4. Delegate Pin (Dynamic)
+	// In standard allocation, we don't usually create this unless we know bDeferred is true.
+	// However, Super::AllocateDefaultPins() is just the start. 
+	// Reconstruction/Value changes handle the visibility logic mostly.
 
 	Super::AllocateDefaultPins();
 
-	// 4. Initialize State
+	// 5. Initialize State
 	UpdateDataSourceType();
 
-	// 5. Create Member Pins (If in Set Member mode)
+	// 6. Create Member Pins (If in Set Member mode)
 	if (bSetMember)
 	{
 		OnMemberReferenceChanged();
@@ -126,7 +178,7 @@ void UK2Node_SetMassFragment::ReallocatePinsDuringReconstruction(TArray<UEdGraph
 {
 	Super::ReallocatePinsDuringReconstruction(OldPins);
 
-	// 恢复DataSource引脚的类型
+	// 1. Restore DataSource Type
 	for (const UEdGraphPin* OldPin : OldPins)
 	{
 		if (OldPin && OldPin->PinName == DataSourcePinName())
@@ -134,18 +186,62 @@ void UK2Node_SetMassFragment::ReallocatePinsDuringReconstruction(TArray<UEdGraph
 			if (UEdGraphPin* NewDataSourcePin = FindPin(DataSourcePinName()))
 			{
 				NewDataSourcePin->PinType = OldPin->PinType;
-				NewDataSourcePin->PinType.bIsReference = true; // 确保引用标志被保留
+				NewDataSourcePin->PinType.bIsReference = true;
 			}
 			break;
 		}
 	}
 
-	// 更新缓存的DataSource类型
+	// 2. Restore Deferred / Delegate Logic
+	// [FIX] We must check OldPins for the deferred state, because the NEW pin 
+	// (created in AllocateDefaultPins) still has the default "false" value at this point.
+	bool bWasDeferred = false;
+	for (const UEdGraphPin* OldPin : OldPins)
+	{
+		if (OldPin && OldPin->PinName == DeferredPinName())
+		{
+			bWasDeferred = (OldPin->DefaultValue == TEXT("true"));
+			break;
+		}
+	}
+
+	if (bWasDeferred)
+	{
+		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
+
+		// If it doesn't exist yet, create it
+		if (!DelegatePin)
+		{
+			DelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
+		}
+
+		// [FIX] Apply the exact signature
+		SetDelegatePinType(DelegatePin);
+
+		// [FIX] Restore Connections manually
+		// Super::Reallocate... tries to match names, but if the pin didn't exist when Super ran,
+		// connections might be lost. We check OldPins to recover them.
+		for (UEdGraphPin* OldPin : OldPins)
+		{
+			if (OldPin && OldPin->PinName == OnFinishedPinName())
+			{
+				if (OldPin->LinkedTo.Num() > 0)
+				{
+					for (UEdGraphPin* Linked : OldPin->LinkedTo)
+					{
+						DelegatePin->MakeLinkTo(Linked);
+					}
+				}
+				break;
+			}
+		}
+	}
+
+	// 3. Update Caches
 	UpdateDataSourceType();
 
-	// 恢复Fragment类型
+	// 4. Restore Fragment Type
 	UScriptStruct* OldFragmentStruct = nullptr;
-	// Prioritize getting the type from the data pin itself, as this will be correct even if the pin was split.
 	for (const UEdGraphPin* OldPin : OldPins)
 	{
 		if (OldPin && OldPin->PinName == FragmentInPinName())
@@ -158,13 +254,11 @@ void UK2Node_SetMassFragment::ReallocatePinsDuringReconstruction(TArray<UEdGraph
 		}
 	}
 
-	// Fallback to the type selection pin if the data pin didn't have a type
 	if (!OldFragmentStruct)
 	{
 		OldFragmentStruct = GetFragmentStructFromOldPins(OldPins);
 	}
 
-	// Apply the found struct to the new FragmentType pin
 	if (OldFragmentStruct)
 	{
 		if (UEdGraphPin* FragmentTypePin = FindPin(FragmentTypePinName()))
@@ -186,13 +280,49 @@ void UK2Node_SetMassFragment::PostReconstructNode()
 void UK2Node_SetMassFragment::PinDefaultValueChanged(UEdGraphPin* Pin)
 {
 	Super::PinDefaultValueChanged(Pin);
+
+	// Handle Fragment Type Change
 	if (Pin && Pin->PinName == FragmentTypePinName())
 	{
 		OnFragmentTypeChanged();
 	}
+
+	// Handle Deferred Checkbox Toggle
+	if (Pin && Pin->PinName == DeferredPinName())
+	{
+		const bool bIsChecked = (Pin->DefaultValue == TEXT("true"));
+		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
+
+		bool bChanged = false;
+
+		if (bIsChecked && !DelegatePin)
+		{
+			// User checked 'bDeferred': Create the pin
+			DelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
+
+			// [FIX] Apply exact signature immediately
+			SetDelegatePinType(DelegatePin);
+
+			bChanged = true;
+		}
+		else if (!bIsChecked && DelegatePin)
+		{
+			// User unchecked 'bDeferred': Destroy the pin
+			DelegatePin->BreakAllPinLinks();
+			RemovePin(DelegatePin);
+			bChanged = true;
+		}
+
+		if (bChanged)
+		{
+			GetGraph()->NotifyNodeChanged(this);
+			// Typically refreshing the node visual is enough, strict structural mod not always needed for simple pin adds,
+			// but safer to mark it if layout issues occur.
+		}
+	}
 }
 
-//———————— Pin.Connection																							————
+//———————— Pin.Connection																						————
 
 bool UK2Node_SetMassFragment::IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const
 {
@@ -401,6 +531,15 @@ void UK2Node_SetMassFragment::UpdateDataSourceType()
 			DeferredPin->bHidden = !bShow;
 			if (!bShow) DeferredPin->BreakAllPinLinks();
 		}
+
+		// Also handle OnFinished visibility if we are hiding Deferred
+		// Actually, if we hide Deferred, we probably shouldn't show OnFinished either
+		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
+		if (DelegatePin && !bShow)
+		{
+			DelegatePin->BreakAllPinLinks();
+			RemovePin(DelegatePin);
+		}
 	}
 }
 
@@ -606,43 +745,41 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 {
 	if (!bSetMember)
 	{
-		return;  // Not in Set Member mode, do nothing
+		return;
 	}
 
 	UScriptStruct* FragmentStruct = GetFragmentStruct();
 
-	// Sync struct type to StructMemberReference
+	// Sync struct type
 	if (StructMemberReference.StructType != FragmentStruct)
 	{
 		StructMemberReference.StructType = FragmentStruct;
 	}
 
-	// --- 1. Preserve Connections AND Values ---
-	// Before deleting pins, save connections for both Member pins AND the Deferred pin.
-	// [FIX 1] We must also preserve the DefaultValue of the DeferredPin, 
-	// because ReallocatePinsDuringReconstruction has already run and restored it, 
-	// but we are about to destroy it again.
-
-	// Map to store connections for Member pins (Key: PinName, Value: Connected Pins)
+	// --- 1. Preserve Connections & State ---
 	TMap<FName, TArray<UEdGraphPin*>> OldMemberPinConnections;
-
-	// Variables to store bDeferred state
 	TArray<UEdGraphPin*> OldDeferredPinConnections;
+	TArray<UEdGraphPin*> OldDelegatePinConnections;
+
 	bool bWasDeferredPinVisible = true;
-	FString SavedDeferredDefaultValue = TEXT("false"); // Default backup
+	FString SavedDeferredDefaultValue = TEXT("false");
+	bool bWasDelegatePinPresent = false;
 
 	for (UEdGraphPin* Pin : Pins)
 	{
 		if (Pin->Direction == EGPD_Input)
 		{
-			// Explicitly check for bDeferred pin to save its state.
-			if (Pin->PinName == UK2Node_SetMassFragment::DeferredPinName())
+			if (Pin->PinName == DeferredPinName())
 			{
 				OldDeferredPinConnections = Pin->LinkedTo;
 				bWasDeferredPinVisible = !Pin->bHidden;
-				SavedDeferredDefaultValue = Pin->DefaultValue; // [FIX 1] Capture Value
+				SavedDeferredDefaultValue = Pin->DefaultValue; // Save the value (true/false)
 			}
-			// Save other dynamic member pins (ignoring static pins like Exec, DataSource, FragmentType)
+			else if (Pin->PinName == OnFinishedPinName())
+			{
+				OldDelegatePinConnections = Pin->LinkedTo;
+				bWasDelegatePinPresent = true;
+			}
 			else if (Pin->LinkedTo.Num() > 0 &&
 				Pin->PinName != UEdGraphSchema_K2::PN_Execute &&
 				Pin->PinName != DataSourcePinName() &&
@@ -654,8 +791,6 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 	}
 
 	// --- 2. Remove Dynamic Input Pins ---
-	// We remove ALL dynamic input pins (including bDeferred) to ensure we can recreate them in the correct order.
-
 	TArray<UEdGraphPin*> InputPinsToRemove;
 	for (UEdGraphPin* Pin : Pins)
 	{
@@ -677,29 +812,20 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 	bool bPinTypeChanged = (InputPinsToRemove.Num() > 0);
 
 	// --- 3. Recreate Member Pins ---
-	// Sort members by memory offset and create pins for them.
-
 	if (StructMemberReference.IsValid() && FragmentStruct)
 	{
-		// Create pairs of (Path, Offsets) for sorting
+		// ... [Standard Member Pin Creation Logic - Same as your original code] ...
 		TArray<TPair<FString, TArray<int32>>> PathsWithOffsets;
-
 		for (const FString& MemberPath : StructMemberReference.MemberPaths)
 		{
 			TArray<int32> OffsetIndices = StructMemberHelper::GetMemberOffsetIndices(FragmentStruct, MemberPath);
-			if (OffsetIndices.Num() > 0)
-			{
-				PathsWithOffsets.Add(TPair<FString, TArray<int32>>(MemberPath, OffsetIndices));
-			}
+			if (OffsetIndices.Num() > 0) PathsWithOffsets.Add(TPair<FString, TArray<int32>>(MemberPath, OffsetIndices));
 		}
 
-		// Sort by offset (Depth-First)
-		PathsWithOffsets.Sort([](const TPair<FString, TArray<int32>>& A, const TPair<FString, TArray<int32>>& B)
-			{
-				return StructMemberHelper::CompareOffsetIndices(A.Value, B.Value);
+		PathsWithOffsets.Sort([](const TPair<FString, TArray<int32>>& A, const TPair<FString, TArray<int32>>& B) {
+			return StructMemberHelper::CompareOffsetIndices(A.Value, B.Value);
 			});
 
-		// Create pins in sorted order
 		const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 
 		for (const auto& Pair : PathsWithOffsets)
@@ -708,56 +834,53 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 			FName PinName = InputPinName(MemberPath);
 			FProperty* Property = StructMemberHelper::FindPropertyByRecursivePath(FragmentStruct, MemberPath);
 
-			if (!Property || !StructMemberHelper::CanCreatePinForProperty(Property))
-			{
-				continue;
-			}
+			if (!Property || !StructMemberHelper::CanCreatePinForProperty(Property)) continue;
 
 			FEdGraphPinType NewPinType;
-			if (Schema->ConvertPropertyToPinType(Property, /*out*/ NewPinType))
+			if (Schema->ConvertPropertyToPinType(Property, NewPinType))
 			{
-				// Create new pin (Reference type)
 				UEdGraphPin* NewPin = CreatePin(EGPD_Input, NewPinType.PinCategory, PinName);
 				NewPin->PinType = NewPinType;
-				NewPin->PinType.bIsReference = true;  // Pass by reference
+				NewPin->PinType.bIsReference = true;
 				NewPin->PinFriendlyName = FText::FromString(MemberPath);
 				bPinTypeChanged = true;
 
-				// Restore Member Connections if they existed
 				if (TArray<UEdGraphPin*>* LinkedPins = OldMemberPinConnections.Find(PinName))
 				{
-					for (UEdGraphPin* LinkedPin : *LinkedPins)
-					{
-						if (LinkedPin)
-						{
-							NewPin->MakeLinkTo(LinkedPin);
-						}
-					}
+					for (UEdGraphPin* LinkedPin : *LinkedPins) { if (LinkedPin) NewPin->MakeLinkTo(LinkedPin); }
 				}
 			}
 		}
 	}
 
 	// --- 4. Recreate Deferred Pin ---
-	// We recreate it LAST so it appears at the bottom of the input list, below all members.
-	UEdGraphPin* NewDeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, UK2Node_SetMassFragment::DeferredPinName());
-	NewDeferredPin->DefaultValue = SavedDeferredDefaultValue; // [FIX 1] Restore Value
-	NewDeferredPin->bHidden = !bWasDeferredPinVisible; // Restore previous visibility state
+	UEdGraphPin* NewDeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, DeferredPinName());
+	NewDeferredPin->DefaultValue = SavedDeferredDefaultValue; // Restore value (Critical!)
+	NewDeferredPin->bHidden = !bWasDeferredPinVisible;
 
-	// Restore Deferred Connections
 	for (UEdGraphPin* LinkedPin : OldDeferredPinConnections)
 	{
-		if (LinkedPin)
+		if (LinkedPin) NewDeferredPin->MakeLinkTo(LinkedPin);
+	}
+
+	// --- 5. Recreate Delegate Pin (If deferred was checked) ---
+	// [FIX] Check the saved value. If "true", we must create the delegate pin.
+	if (SavedDeferredDefaultValue == TEXT("true"))
+	{
+		UEdGraphPin* NewDelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
+
+		// [FIX] Apply exact signature
+		SetDelegatePinType(NewDelegatePin);
+
+		for (UEdGraphPin* LinkedPin : OldDelegatePinConnections)
 		{
-			NewDeferredPin->MakeLinkTo(LinkedPin);
+			if (LinkedPin) NewDelegatePin->MakeLinkTo(LinkedPin);
 		}
 	}
 
-	// --- 5. Finalize ---
-	// Ensure visibility logic is correct based on DataSourceType (Entity vs Template)
+	// --- 6. Finalize ---
 	UpdateDataSourceType();
 
-	// Notify graph of changes
 	if (bPinTypeChanged || FragmentStruct)
 	{
 		GetGraph()->NotifyGraphChanged();
@@ -933,6 +1056,11 @@ virtual void Compile() override
 		case EMassFragmentSourceDataType::EntityHandle:
 			SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Entity_Unified);
 			Link(ProxyPin(TEXT("bDeferred")), FunctionInputPin(SetterFunctionNode, TEXT("bDeferred")));
+			// Connect OnFinished Delegate
+			if (UEdGraphPin* DelegatePin = ProxyPin(UK2Node_SetMassFragment::OnFinishedPinName()))
+			{
+				Link(DelegatePin, FunctionInputPin(SetterFunctionNode, TEXT("OnFinished")));
+			}
 			break;
 		case EMassFragmentSourceDataType::EntityTemplateData:
 			SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Template_Unified);
@@ -972,6 +1100,11 @@ virtual void Compile() override
 			SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Entity_Unified);
 			SetterFunctionDataSourcePinName = TEXT("EntityHandle");
 			Link(ProxyPin(TEXT("bDeferred")), FunctionInputPin(SetterFunctionNode, TEXT("bDeferred")));
+			// Connect OnFinished Delegate
+			if (UEdGraphPin* DelegatePin = ProxyPin(UK2Node_SetMassFragment::OnFinishedPinName()))
+			{
+				Link(DelegatePin, FunctionInputPin(SetterFunctionNode, TEXT("OnFinished")));
+			}
 			break;
 		case EMassFragmentSourceDataType::EntityTemplateData:
 			SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Template_Unified);

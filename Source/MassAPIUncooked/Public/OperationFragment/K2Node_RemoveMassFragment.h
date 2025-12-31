@@ -1,3 +1,4 @@
+
 // Leroy Works & Ember, All Rights Reserved.
 
 #pragma once
@@ -89,6 +90,8 @@ public:
 	static FName DataSourcePinName() { return TEXT("DataSource"); }
 	static FName FragmentTypePinName() { return TEXT("FragmentType"); }
 	static FName ReturnValuePinName() { return TEXT("bSuccess"); }
+	static FName DeferredPinName() { return TEXT("bDeferred"); }
+	static FName OnFinishedPinName() { return TEXT("OnFinished"); }
 
 };
 

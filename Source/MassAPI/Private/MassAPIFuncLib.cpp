@@ -23,7 +23,7 @@
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION == 7
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7
 // UE 5.7 accessor methods
 #define GET_TAGS GetTags()
 #define GET_FRAGMENTS GetFragments()
@@ -43,6 +43,17 @@
 DEFINE_LOG_CATEGORY_STATIC(LogMassBlueprintAPI, Log, All);
 
 
+void UMassAPIFuncLib::FlushMassCommands(const UObject* WorldContextObject)
+{
+    if (UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject))
+    {
+        if (FMassEntityManager* Manager = MassAPI->GetEntityManager())
+        {
+            Manager->FlushCommands();
+        }
+    }
+}
+
 //================ Entity Operations											    							========
 
 bool UMassAPIFuncLib::IsValid(const UObject* WorldContextObject, const FEntityHandle& EntityHandle)
@@ -56,22 +67,33 @@ bool UMassAPIFuncLib::IsValid(const UObject* WorldContextObject, const FEntityHa
 
 //———————— Destroy.Entity																					    	————
 
-void UMassAPIFuncLib::DestroyEntity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, const bool bDeferred)
+void UMassAPIFuncLib::DestroyEntity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, const bool bDeferred, const FOnMassDeferredFinished OnFinished)
 {
     if (UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject))
     {
         if (bDeferred)
         {
-            MassAPI->Defer().DestroyEntity(EntityHandle);
+            // Use a lambda to destroy and then callback
+            // Note: FMassDeferredDestroyCommand implies the action of destroying.
+            // Since we need to attach a callback, we use a generic command lambda.
+            MassAPI->Defer().PushCommand<FMassDeferredDestroyCommand>([EntityHandle, OnFinished](FMassEntityManager& Manager)
+                {
+                    if (Manager.IsEntityValid(EntityHandle))
+                    {
+                        Manager.DestroyEntity(EntityHandle);
+                        OnFinished.ExecuteIfBound(EntityHandle);
+                    }
+                });
         }
         else
         {
             MassAPI->DestroyEntity(EntityHandle);
+            OnFinished.ExecuteIfBound(EntityHandle);
         }
     }
 }
 
-void UMassAPIFuncLib::DestroyEntities(const UObject* WorldContextObject, const TArray<FEntityHandle>& EntityHandles, const bool bDeferred)
+void UMassAPIFuncLib::DestroyEntities(const UObject* WorldContextObject, const TArray<FEntityHandle>& EntityHandles, const bool bDeferred, const FOnMassDeferredFinished OnFinished)
 {
     UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
     if (!MassAPI || EntityHandles.Num() == 0) return;
@@ -86,71 +108,187 @@ void UMassAPIFuncLib::DestroyEntities(const UObject* WorldContextObject, const T
 
     if (bDeferred)
     {
-        MassAPI->Defer().DestroyEntities(MassHandles);
+        // For deferred batch destruction with callback, we push a generic command
+        MassAPI->Defer().PushCommand<FMassDeferredDestroyCommand>([MassHandles, OnFinished](FMassEntityManager& Manager)
+            {
+                Manager.BatchDestroyEntities(MassHandles);
+
+                // Fire delegate for each entity destroyed
+                if (OnFinished.IsBound())
+                {
+                    for (const FMassEntityHandle& Handle : MassHandles)
+                    {
+                        // Note: The entity is now invalid in Mass, but we pass the handle back so BP knows which ID was destroyed.
+                        OnFinished.Execute(FEntityHandle(Handle));
+                    }
+                }
+            });
     }
     else if (FMassEntityManager* EntityManager = MassAPI->GetEntityManager())
     {
         EntityManager->BatchDestroyEntities(MassHandles);
+
+        // Fire delegate for each entity
+        if (OnFinished.IsBound())
+        {
+            for (const FEntityHandle& Handle : EntityHandles)
+            {
+                OnFinished.Execute(Handle);
+            }
+        }
     }
 }
 
 //================ Entity Building													    						========
 
-FEntityHandle UMassAPIFuncLib::BuildEntityFromTemplateData(const UObject* WorldContextObject, UPARAM(ref) const FEntityTemplateData& TemplateData, const bool bDeferred)
+FEntityHandle UMassAPIFuncLib::BuildEntityFromTemplateData(const UObject* WorldContextObject, UPARAM(ref) const FEntityTemplateData& TemplateData, const bool bDeferred, const FOnMassDeferredFinished OnFinished)
 {
-    if (UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject))
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    if (!MassAPI) return FEntityHandle();
+
+    // Make sure we have valid data
+    FMassEntityTemplateData* Data = TemplateData.Get();
+    if (!Data) return FEntityHandle();
+
+    FMassEntityManager* Manager = MassAPI->GetEntityManager();
+    checkf(Manager, TEXT("EntityManager is not available"));
+
+    if (bDeferred)
     {
-        if (FMassEntityTemplateData* Data = TemplateData.Get())
-        {
-            FMassEntityHandle MassHandle;
+        // 1. Reserve immediately so we can return the handle
+        const FMassEntityHandle ReservedEntity = Manager->ReserveEntity();
 
-            if (bDeferred)
-            {
-                MassHandle = MassAPI->BuildEntityDefer(MassAPI->Defer(), *Data);
-            }
-            else
-            {
-                MassHandle = MassAPI->BuildEntity(*Data);
-            }
+        // 2. Capture data for the command
+        // Note: We copy the template descriptors to capture them by value for the lambda
+        Data->Sort(); // Ensure sorted before capturing
+        const FMassArchetypeCompositionDescriptor Composition = Data->GetCompositionDescriptor();
+        const FMassArchetypeCreationParams CreationParams = Data->GetArchetypeCreationParams();
+        const FMassArchetypeSharedFragmentValues SharedValues = Data->GetSharedFragmentValues();
+        const TArray<FInstancedStruct> InitialFragments(Data->GetInitialFragmentValues());
 
-            return FEntityHandle(MassHandle);
-        }
+        // 3. Push deferred creation command with callback
+        MassAPI->Defer().PushCommand<FMassDeferredCreateCommand>([ReservedEntity, Composition, CreationParams, SharedValues, InitialFragments, OnFinished](FMassEntityManager& Manager)
+            {
+                // Get or create archetype
+                const FMassArchetypeHandle ArchetypeHandle = Manager.CreateArchetype(Composition, CreationParams);
+                if (!ArchetypeHandle.IsValid())
+                {
+                    Manager.ReleaseReservedEntity(ReservedEntity);
+                    return;
+                }
+
+                // Build entity
+                Manager.BuildEntity(ReservedEntity, ArchetypeHandle, SharedValues);
+
+                // Set initial fragment values
+                if (InitialFragments.Num() > 0)
+                {
+                    Manager.SetEntityFragmentValues(ReservedEntity, InitialFragments);
+                }
+
+                // Fire Callback
+                OnFinished.ExecuteIfBound(ReservedEntity);
+            });
+
+        return FEntityHandle(ReservedEntity);
     }
-    return FEntityHandle();
+    else
+    {
+        // Immediate build
+        FMassEntityHandle MassHandle = MassAPI->BuildEntity(*Data);
+        OnFinished.ExecuteIfBound(MassHandle);
+        return FEntityHandle(MassHandle);
+    }
 }
 
-TArray<FEntityHandle> UMassAPIFuncLib::BuildEntitiesFromTemplateData(const UObject* WorldContextObject, int32 Quantity, UPARAM(ref) const FEntityTemplateData& TemplateData, const bool bDeferred)
+TArray<FEntityHandle> UMassAPIFuncLib::BuildEntitiesFromTemplateData(const UObject* WorldContextObject, int32 Quantity, UPARAM(ref) const FEntityTemplateData& TemplateData, const bool bDeferred, const FOnMassDeferredFinished OnFinished)
 {
     TArray<FEntityHandle> BPHandles;
+    if (Quantity <= 0) return BPHandles;
 
-    if (Quantity <= 0)
-    {
-        return BPHandles;
-    }
+    UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
+    if (!MassAPI) return BPHandles;
 
-    if (UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject))
+    FMassEntityTemplateData* Data = TemplateData.Get();
+    if (!Data) return BPHandles;
+
+    FMassEntityManager* Manager = MassAPI->GetEntityManager();
+    checkf(Manager, TEXT("EntityManager is not available"));
+
+    if (bDeferred)
     {
-        if (FMassEntityTemplateData* Data = TemplateData.Get())
+        // 1. Batch reserve entities
+        TArray<FMassEntityHandle> ReservedEntities;
+        ReservedEntities.AddUninitialized(Quantity);
+        Manager->BatchReserveEntities(MakeArrayView(ReservedEntities));
+
+        // Populate return array
+        BPHandles.Reserve(Quantity);
+        for (const FMassEntityHandle& Handle : ReservedEntities)
         {
-            TArray<FMassEntityHandle> MassHandles;
-            MassHandles.Reserve(Quantity);
+            BPHandles.Add(FEntityHandle(Handle));
+        }
 
-            if (bDeferred)
-            {
-                MassHandles = MassAPI->BuildEntities(Quantity, *Data);
-            }
-            else
-            {
-                MassAPI->BuildEntitiesDefer(MassAPI->Defer(), Quantity, *Data, MassHandles);
-            }
+        // 2. Capture data
+        Data->Sort();
+        const FMassArchetypeCompositionDescriptor Composition = Data->GetCompositionDescriptor();
+        const FMassArchetypeCreationParams CreationParams = Data->GetArchetypeCreationParams();
+        const FMassArchetypeSharedFragmentValues SharedValues = Data->GetSharedFragmentValues();
+        const TArray<FInstancedStruct> InitialFragments(Data->GetInitialFragmentValues());
 
-            BPHandles.Reserve(Quantity);
-            for (const FMassEntityHandle& MassHandle : MassHandles)
+        // 3. Push deferred command with callback loop
+        MassAPI->Defer().PushCommand<FMassDeferredCreateCommand>([ReservedEntities, Composition, CreationParams, SharedValues, InitialFragments, OnFinished](FMassEntityManager& Manager)
             {
-                BPHandles.Add(FEntityHandle(MassHandle));
+                const FMassArchetypeHandle ArchetypeHandle = Manager.CreateArchetype(Composition, CreationParams);
+                if (!ArchetypeHandle.IsValid())
+                {
+                    for (const FMassEntityHandle& Entity : ReservedEntities)
+                    {
+                        Manager.ReleaseReservedEntity(Entity);
+                    }
+                    return;
+                }
+
+                Manager.BatchCreateReservedEntities(ArchetypeHandle, SharedValues, ReservedEntities);
+
+                if (InitialFragments.Num() > 0)
+                {
+                    TArray<FMassArchetypeEntityCollection> EntityCollections;
+                    UE::Mass::Utils::CreateEntityCollections(Manager, ReservedEntities, FMassArchetypeEntityCollection::NoDuplicates, EntityCollections);
+                    Manager.BatchSetEntityFragmentValues(EntityCollections, InitialFragments);
+                }
+
+                // Fire callback for each entity
+                if (OnFinished.IsBound())
+                {
+                    for (const FMassEntityHandle& Entity : ReservedEntities)
+                    {
+                        OnFinished.Execute(FEntityHandle(Entity));
+                    }
+                }
+            });
+    }
+    else
+    {
+        // Immediate batch build
+        TArray<FMassEntityHandle> MassHandles = MassAPI->BuildEntities(Quantity, *Data);
+
+        BPHandles.Reserve(MassHandles.Num());
+        for (const FMassEntityHandle& MassHandle : MassHandles)
+        {
+            BPHandles.Add(FEntityHandle(MassHandle));
+        }
+
+        // Fire callbacks
+        if (OnFinished.IsBound())
+        {
+            for (const FEntityHandle& BPHandle : BPHandles)
+            {
+                OnFinished.Execute(BPHandle);
             }
         }
     }
+
     return BPHandles;
 }
 
@@ -304,86 +442,56 @@ bool UMassAPIFuncLib::IsEmpty_TemplateData(UPARAM(ref) const FEntityTemplateData
 
 //———————— Set.Fragment.Entity (Unified) ———————————————————————————————————————
 
-void UMassAPIFuncLib::SetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const FGenericStruct& InFragment, const bool bDeferred, bool& bSuccess)
+void UMassAPIFuncLib::SetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const FGenericStruct& InFragment, const bool bDeferred, bool& bSuccess, FOnMassDeferredFinished OnFinished)
 {
     checkNoEntry();
 }
 
-void UMassAPIFuncLib::Generic_SetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const void* InFragmentPtr, bool bDeferred, bool& bSuccess)
+// [CHANGED] Signature now uses Value for OnFinished
+void UMassAPIFuncLib::Generic_SetFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const void* InFragmentPtr, bool bDeferred, bool& bSuccess, FOnMassDeferredFinished OnFinished)
 {
     bSuccess = false;
 
-    if (!FragmentType)
-    {
-        UE_LOG(LogMassBlueprintAPI, Warning, TEXT("SetFragment_Entity: FragmentType is null."));
-        return;
-    }
-
-    if (!InFragmentPtr)
-    {
-        UE_LOG(LogMassBlueprintAPI, Warning, TEXT("SetFragment_Entity: InFragmentPtr is null for type '%s'."), *FragmentType->GetName());
-        return;
-    }
+    // ... (Validation Checks) ...
+    if (!FragmentType || !InFragmentPtr) return;
 
     UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
-
-    if (!MassAPI)
-    {
-        UE_LOG(LogMassBlueprintAPI, Warning, TEXT("SetFragment_Entity: MassAPISubsystem unavailable."));
-        return;
-    }
-
-    if (!MassAPI->IsValid(EntityHandle))
-    {
-        UE_LOG(LogMassBlueprintAPI, Warning, TEXT("SetFragment_Entity: EntityHandle is invalid."));
-        return;
-    }
+    if (!MassAPI || !MassAPI->IsValid(EntityHandle)) return;
 
     FMassEntityManager& EntityManager = *MassAPI->GetEntityManager();
 
-    // 2. Dispatch based on Type
     if (FragmentType->IsChildOf(FMassFragment::StaticStruct()))
     {
         FInstancedStruct FragmentInstance;
         FragmentInstance.InitializeAs(FragmentType, static_cast<const uint8*>(InFragmentPtr));
 
-        if (!FragmentInstance.IsValid())
-        {
-            UE_LOG(LogMassBlueprintAPI, Error, TEXT("SetFragment_Entity: Failed to initialize InstancedStruct for '%s'."), *FragmentType->GetName());
-            return;
-        }
-
         if (bDeferred)
         {
-            //TRACE_CPUPROFILER_EVENT_SCOPE_STR("SetFragment_Entity Deferred");
-            // --- Deferred Path ---
-            // Use FMassDeferredSetCommand. This is the correct command type for operations that might add OR update fragments.
-            // We capture FragmentInstance by value to persist the data.
-            MassAPI->Defer().PushCommand<FMassDeferredSetCommand>([EntityHandle, FragmentInstance](FMassEntityManager& Manager)
+            // Capture by Value (The delegate itself is a small struct wrapping a shared pointer)
+            MassAPI->Defer().PushCommand<FMassDeferredSetCommand>([EntityHandle, FragmentInstance, OnFinished](FMassEntityManager& Manager)
                 {
                     if (Manager.IsEntityValid(EntityHandle))
                     {
-                        // AddFragmentInstanceListToEntity handles both Adding (Archetype change) and Updating (In-place)
                         Manager.AddFragmentInstanceListToEntity(EntityHandle, MakeArrayView(&FragmentInstance, 1));
+
+                        // Execute safe
+                        OnFinished.ExecuteIfBound(EntityHandle);
                     }
                 });
             bSuccess = true;
         }
         else
         {
-            // --- Immediate Path ---
             if (MassAPI->HasFragment(EntityHandle, FragmentType))
             {
-                // Fast path: Update existing memory
                 EntityManager.SetEntityFragmentValues(EntityHandle, MakeArrayView(&FragmentInstance, 1));
-                bSuccess = true;
             }
             else
             {
-                // Structural change: Add fragment to archetype
                 MassAPI->AddFragment(EntityHandle, FragmentInstance);
-                bSuccess = true;
             }
+            bSuccess = true;
+            OnFinished.ExecuteIfBound(EntityHandle);
         }
     }
     else if (FragmentType->IsChildOf(FMassSharedFragment::StaticStruct()))
@@ -437,12 +545,21 @@ DEFINE_FUNCTION(UMassAPIFuncLib::execSetFragment_Entity_Unified)
 
     P_GET_UBOOL(bDeferred);
     P_GET_UBOOL_REF(bSuccess);
+
+    // [CHANGED] Read Delegate Property by Value (FScriptDelegate)
+    P_GET_PROPERTY(FDelegateProperty, OnFinished_ScriptDelegate);
+
     P_FINISH;
+
+    // [CHANGED] Convert FScriptDelegate to FOnMassDeferredFinished (Binary compatible safe cast)
+    // Dynamic Delegates in UE are wrappers around FScriptDelegate.
+    FOnMassDeferredFinished OnFinished;
+    (FScriptDelegate&)OnFinished = OnFinished_ScriptDelegate;
 
     bSuccess = false;
 
     P_NATIVE_BEGIN
-        Generic_SetFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, InFragmentPtr, bDeferred, bSuccess);
+        Generic_SetFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, InFragmentPtr, bDeferred, bSuccess, OnFinished);
     P_NATIVE_END
 }
 
@@ -780,7 +897,7 @@ void UMassAPIFuncLib::Generic_GetFragment_Template_Unified(UPARAM(ref) const FEn
         const FConstSharedStruct* FoundConstShared = SharedValues.GetConstSharedFragments().FindByPredicate([FragmentType](const FConstSharedStruct& Element) {
             return Element.GetScriptStruct() == FragmentType;
             });
-        
+
         if (FoundConstShared && FoundConstShared->IsValid())
         {
             FragmentType->CopyScriptStruct(OutFragmentPtr, FoundConstShared->GetMemory());
@@ -821,7 +938,7 @@ DEFINE_FUNCTION(UMassAPIFuncLib::execGetFragment_Template_Unified)
 
 //———————— Remove.Fragment.Entity (Unified) ————————————————————————————————————
 
-bool UMassAPIFuncLib::RemoveFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, bool bDeferred)
+bool UMassAPIFuncLib::RemoveFragment_Entity_Unified(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, bool bDeferred, FOnMassDeferredFinished OnFinished)
 {
     if (!FragmentType)
     {
@@ -840,11 +957,12 @@ bool UMassAPIFuncLib::RemoveFragment_Entity_Unified(const UObject* WorldContextO
         if (FragmentType->IsChildOf(FMassFragment::StaticStruct()))
         {
             // Explicitly use FMassDeferredRemoveCommand for removing fragments deferredly
-            MassAPI->Defer().PushCommand<FMassDeferredRemoveCommand>([EntityHandle, FragmentType](FMassEntityManager& Manager)
+            MassAPI->Defer().PushCommand<FMassDeferredRemoveCommand>([EntityHandle, FragmentType, OnFinished](FMassEntityManager& Manager)
                 {
                     if (Manager.IsEntityValid(EntityHandle))
                     {
                         Manager.RemoveFragmentFromEntity(EntityHandle, FragmentType);
+                        OnFinished.ExecuteIfBound(EntityHandle);
                     }
                 });
             return true;
@@ -852,11 +970,12 @@ bool UMassAPIFuncLib::RemoveFragment_Entity_Unified(const UObject* WorldContextO
         else if (FragmentType->IsChildOf(FMassTag::StaticStruct()))
         {
             // Explicitly use FMassDeferredRemoveCommand for removing tags deferredly
-            MassAPI->Defer().PushCommand<FMassDeferredRemoveCommand>([EntityHandle, FragmentType](FMassEntityManager& Manager)
+            MassAPI->Defer().PushCommand<FMassDeferredRemoveCommand>([EntityHandle, FragmentType, OnFinished](FMassEntityManager& Manager)
                 {
                     if (Manager.IsEntityValid(EntityHandle))
                     {
                         Manager.RemoveTagFromEntity(EntityHandle, FragmentType);
+                        OnFinished.ExecuteIfBound(EntityHandle);
                     }
                 });
             return true;
@@ -869,28 +988,36 @@ bool UMassAPIFuncLib::RemoveFragment_Entity_Unified(const UObject* WorldContextO
     }
     else
     {
+        bool bResult = false;
         if (FragmentType->IsChildOf(FMassFragment::StaticStruct()))
         {
-            return MassAPI->RemoveFragment(EntityHandle, FragmentType);
+            MassAPI->RemoveFragment(EntityHandle, FragmentType);
+            bResult = true;
         }
         else if (FragmentType->IsChildOf(FMassSharedFragment::StaticStruct()))
         {
-            return MassAPI->RemoveSharedFragment(EntityHandle, FragmentType);
+            bResult = MassAPI->RemoveSharedFragment(EntityHandle, FragmentType);
         }
         else if (FragmentType->IsChildOf(FMassConstSharedFragment::StaticStruct()))
         {
-            return MassAPI->RemoveConstSharedFragment(EntityHandle, FragmentType);
+            bResult = MassAPI->RemoveConstSharedFragment(EntityHandle, FragmentType);
         }
         else if (FragmentType->IsChildOf(FMassChunkFragment::StaticStruct()))
         {
             UE_LOG(LogMassBlueprintAPI, Warning, TEXT("RemoveFragment_Entity: Cannot remove Chunk Fragment '%s'. Only Tag, Fragment, and SharedFragment are supported."), *FragmentType->GetName());
-            return false;
+            bResult = false;
         }
         else
         {
             UE_LOG(LogMassBlueprintAPI, Warning, TEXT("RemoveFragment_Entity: Unknown or unsupported fragment type '%s'"), *FragmentType->GetName());
-            return false;
+            bResult = false;
         }
+
+        if (bResult)
+        {
+            OnFinished.ExecuteIfBound(EntityHandle);
+        }
+        return bResult;
     }
 }
 
@@ -1096,7 +1223,7 @@ bool UMassAPIFuncLib::HasFragment_Template_Unified(UPARAM(ref) const FEntityTemp
 
 //———————— Add.Tag.Entity																					    			————
 
-void UMassAPIFuncLib::AddTag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType, bool bDeferred)
+void UMassAPIFuncLib::AddTag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType, bool bDeferred, FOnMassDeferredFinished OnFinished)
 {
     UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
     if (!MassAPI || !MassAPI->IsValid(EntityHandle) || !TagType) return;
@@ -1105,17 +1232,19 @@ void UMassAPIFuncLib::AddTag_Entity(const UObject* WorldContextObject, const FEn
 
     if (bDeferred)
     {
-        MassAPI->Defer().PushCommand<FMassDeferredAddCommand>([EntityHandle, TagType](FMassEntityManager& Manager)
+        MassAPI->Defer().PushCommand<FMassDeferredAddCommand>([EntityHandle, TagType, OnFinished](FMassEntityManager& Manager)
             {
                 if (Manager.IsEntityValid(EntityHandle))
                 {
                     Manager.AddTagToEntity(EntityHandle, TagType);
+                    OnFinished.ExecuteIfBound(EntityHandle);
                 }
             });
     }
     else
     {
         MassAPI->GetEntityManager()->AddTagToEntity(EntityHandle, TagType);
+        OnFinished.ExecuteIfBound(EntityHandle);
     }
 }
 
@@ -1134,7 +1263,7 @@ void UMassAPIFuncLib::AddTag_Template(UPARAM(ref) FEntityTemplateData& TemplateD
 
 //———————— Remove.Tag.Entity																						    	————
 
-void UMassAPIFuncLib::RemoveTag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType, bool bDeferred)
+void UMassAPIFuncLib::RemoveTag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType, bool bDeferred, FOnMassDeferredFinished OnFinished)
 {
     UMassAPISubsystem* MassAPI = UMassAPISubsystem::GetPtr(WorldContextObject);
     if (!MassAPI || !MassAPI->IsValid(EntityHandle) || !TagType) return;
@@ -1143,17 +1272,19 @@ void UMassAPIFuncLib::RemoveTag_Entity(const UObject* WorldContextObject, const 
 
     if (bDeferred)
     {
-        MassAPI->Defer().PushCommand<FMassDeferredRemoveCommand>([EntityHandle, TagType](FMassEntityManager& Manager)
+        MassAPI->Defer().PushCommand<FMassDeferredRemoveCommand>([EntityHandle, TagType, OnFinished](FMassEntityManager& Manager)
             {
                 if (Manager.IsEntityValid(EntityHandle))
                 {
                     Manager.RemoveTagFromEntity(EntityHandle, TagType);
+                    OnFinished.ExecuteIfBound(EntityHandle);
                 }
             });
     }
     else
     {
         MassAPI->GetEntityManager()->RemoveTagFromEntity(EntityHandle, TagType);
+        OnFinished.ExecuteIfBound(EntityHandle);
     }
 }
 
@@ -1364,7 +1495,8 @@ void UMassAPIFuncLib::AddTag(const UObject* WorldContextObject, const FEntityHan
         UE_LOG(LogMassBlueprintAPI, Warning, TEXT("AddTag: Type '%s' is not a child of FMassTag."), TagType ? *TagType->GetName() : TEXT("Null"));
         return;
     }
-    AddTag_Entity(WorldContextObject, EntityHandle, TagType);
+    FOnMassDeferredFinished NoCallback;
+    AddTag_Entity(WorldContextObject, EntityHandle, TagType, false, NoCallback);
 }
 
 void UMassAPIFuncLib::RemoveTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType)
@@ -1374,7 +1506,8 @@ void UMassAPIFuncLib::RemoveTag(const UObject* WorldContextObject, const FEntity
         UE_LOG(LogMassBlueprintAPI, Warning, TEXT("RemoveTag: Type '%s' is not a child of FMassTag."), TagType ? *TagType->GetName() : TEXT("Null"));
         return;
     }
-    RemoveTag_Entity(WorldContextObject, EntityHandle, TagType);
+    FOnMassDeferredFinished NoCallback;
+    RemoveTag_Entity(WorldContextObject, EntityHandle, TagType, false, NoCallback);
 }
 
 bool UMassAPIFuncLib::HasTag_TemplateData(UPARAM(ref) const FEntityTemplateData& TemplateData, UScriptStruct* TagType)
@@ -1426,7 +1559,8 @@ bool UMassAPIFuncLib::RemoveFragment(const UObject* WorldContextObject, const FE
         UE_LOG(LogMassBlueprintAPI, Warning, TEXT("RemoveFragment: Type '%s' is not a child of FMassFragment."), FragmentType ? *FragmentType->GetName() : TEXT("Null"));
         return false;
     }
-    return RemoveFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType);
+    FOnMassDeferredFinished NoCallback;
+    return RemoveFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, false, NoCallback);
 }
 
 void UMassAPIFuncLib::GetFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess)
@@ -1487,9 +1621,10 @@ DEFINE_FUNCTION(UMassAPIFuncLib::execSetFragment)
     }
 
     bSuccess = false;
+    FOnMassDeferredFinished NoCallback;
 
     P_NATIVE_BEGIN
-        Generic_SetFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, InFragmentPtr, false, bSuccess);
+        Generic_SetFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, InFragmentPtr, false, bSuccess, NoCallback);
     P_NATIVE_END
 }
 
@@ -1577,7 +1712,8 @@ bool UMassAPIFuncLib::RemoveSharedFragment(const UObject* WorldContextObject, co
         UE_LOG(LogMassBlueprintAPI, Warning, TEXT("RemoveSharedFragment: Type '%s' is not a child of FMassSharedFragment."), FragmentType ? *FragmentType->GetName() : TEXT("Null"));
         return false;
     }
-    return RemoveFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType);
+    FOnMassDeferredFinished NoCallback;
+    return RemoveFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, false, NoCallback);
 }
 
 void UMassAPIFuncLib::GetSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess)
@@ -1632,8 +1768,10 @@ DEFINE_FUNCTION(UMassAPIFuncLib::execSetSharedFragment)
     }
 
     bSuccess = false;
+    FOnMassDeferredFinished NoCallback;
+
     P_NATIVE_BEGIN
-        Generic_SetFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, InFragmentPtr, false, bSuccess);
+        Generic_SetFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, InFragmentPtr, false, bSuccess, NoCallback);
     P_NATIVE_END
 }
 
@@ -1688,7 +1826,8 @@ bool UMassAPIFuncLib::RemoveConstSharedFragment(const UObject* WorldContextObjec
         UE_LOG(LogMassBlueprintAPI, Warning, TEXT("RemoveConstSharedFragment: Type '%s' is not a child of FMassConstSharedFragment."), FragmentType ? *FragmentType->GetName() : TEXT("Null"));
         return false;
     }
-    return RemoveFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType);
+    FOnMassDeferredFinished NoCallback;
+    return RemoveFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, false, NoCallback);
 }
 
 void UMassAPIFuncLib::GetConstSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess)
@@ -1743,8 +1882,10 @@ DEFINE_FUNCTION(UMassAPIFuncLib::execSetConstSharedFragment)
     }
 
     bSuccess = false;
+    FOnMassDeferredFinished NoCallback;
+
     P_NATIVE_BEGIN
-        Generic_SetFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, InFragmentPtr, false, bSuccess);
+        Generic_SetFragment_Entity_Unified(WorldContextObject, EntityHandle, FragmentType, InFragmentPtr, false, bSuccess, NoCallback);
     P_NATIVE_END
 }
 
