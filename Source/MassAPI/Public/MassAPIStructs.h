@@ -171,6 +171,17 @@ public:
     }
 };
 
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7
+template<>
+struct TMassFragmentTraits<FEntityFlagFragment>
+{
+    enum
+    {
+        AuthorAcceptsItsNotTriviallyCopyable = true
+    };
+};
+#endif
+
 /**
  * FEntityQuery allows for individual entity fragment and tag composition matching
  */
