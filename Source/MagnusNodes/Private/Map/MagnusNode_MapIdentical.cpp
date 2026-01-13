@@ -1,3 +1,8 @@
+/*
+* Magnus Nodes
+* Author: Ember, All Rights Reserved.
+*/
+
 #include "Map/MagnusNode_MapIdentical.h"
 
 // Engine

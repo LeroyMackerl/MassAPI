@@ -1,4 +1,9 @@
-﻿using UnrealBuildTool;
+﻿/*
+* Magnus Nodes
+* Author: Ember, All Rights Reserved.
+*/
+
+using UnrealBuildTool;
 
 public class MagnusNodes : ModuleRules
 {

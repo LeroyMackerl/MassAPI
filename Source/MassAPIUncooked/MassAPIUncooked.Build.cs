@@ -1,7 +1,7 @@
 ﻿/*
-* MassAPI
+* MassAPI Uncooked
 * Created: 2025
-* Author: Leroy Works, All Rights Reserved.
+* Author: Leroy Works & Ember, All Rights Reserved.
 */
 
 using UnrealBuildTool;

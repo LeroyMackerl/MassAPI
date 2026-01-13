@@ -1,4 +1,8 @@
-// Leroy Works & Ember, All Rights Reserved.
+/*
+* MassAPI Uncooked
+* Created: 2025
+* Author: Leroy Works & Ember, All Rights Reserved.
+*/
 
 #include "OperationFlag/K2Node_ClearMassFlag.h"
 #include "MassAPIFuncLib.h"

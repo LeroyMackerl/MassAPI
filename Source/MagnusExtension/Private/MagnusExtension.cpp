@@ -1,4 +1,9 @@
-﻿#include "MagnusExtension.h"
+﻿/*
+* Magnus Extension
+* Author: Ember, All Rights Reserved.
+*/
+
+#include "MagnusExtension.h"
 
 #define LOCTEXT_NAMESPACE "FMagnusExtensionModule"
 

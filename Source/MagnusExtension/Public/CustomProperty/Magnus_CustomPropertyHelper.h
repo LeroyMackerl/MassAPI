@@ -1,3 +1,8 @@
+/*
+* Magnus Extension
+* Author: Ember, All Rights Reserved.
+*/
+
 #pragma once
 
 

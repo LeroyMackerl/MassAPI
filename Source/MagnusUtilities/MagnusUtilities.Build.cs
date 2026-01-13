@@ -1,4 +1,9 @@
-﻿using UnrealBuildTool;
+﻿/*
+* Magnus Utilities
+* Author: Ember, All Rights Reserved.
+*/
+
+using UnrealBuildTool;
 
 public class MagnusUtilities : ModuleRules
 {

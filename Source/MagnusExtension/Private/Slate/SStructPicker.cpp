@@ -1,4 +1,8 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+/*
+* Magnus Extension
+* Author: Ember, All Rights Reserved.
+*/
+
 
 #include "Slate/SStructPicker.h"
 #include "StructViewerModule.h"

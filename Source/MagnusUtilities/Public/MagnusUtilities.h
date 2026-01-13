@@ -1,4 +1,9 @@
-﻿#pragma once
+﻿/*
+* Magnus Utilities
+* Author: Ember, All Rights Reserved.
+*/
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"

@@ -1,4 +1,7 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+/*
+* Magnus Extension
+* Author: Ember, All Rights Reserved.
+*/
 
 #pragma once
 

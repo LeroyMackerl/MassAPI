@@ -1,4 +1,9 @@
-﻿using UnrealBuildTool;
+﻿/*
+* Magnus Extension
+* Author: Ember, All Rights Reserved.
+*/
+
+using UnrealBuildTool;
 
 public class MagnusExtension : ModuleRules
 {

@@ -1,3 +1,8 @@
+/*
+* Magnus Nodes
+* Author: Ember, All Rights Reserved.
+*/
+
 #include "Struct/K2Node_SetStructMember.h"
 
 // Engine

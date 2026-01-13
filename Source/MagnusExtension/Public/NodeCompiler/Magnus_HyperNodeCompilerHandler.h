@@ -1,4 +1,7 @@
-// Leroy Works & Ember, All Rights Reserved.
+/*
+* Magnus Extension
+* Author: Ember, All Rights Reserved.
+*/
 
 #pragma once
 

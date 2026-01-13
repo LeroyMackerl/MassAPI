@@ -1,4 +1,9 @@
-﻿#include "MagnusUtilities.h"
+﻿/*
+* Magnus Utilities
+* Author: Ember, All Rights Reserved.
+*/
+
+#include "MagnusUtilities.h"
 
 #if WITH_EDITOR
 #include "CustomProperty/Magnus_CustomPropertyHelper.h"

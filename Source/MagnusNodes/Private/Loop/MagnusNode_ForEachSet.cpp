@@ -1,3 +1,8 @@
+/*
+* Magnus Nodes
+* Author: Ember, All Rights Reserved.
+*/
+
 #include "Loop/MagnusNode_ForEachSet.h"
 
 // Engine

@@ -1,3 +1,8 @@
+/*
+* Magnus Utilities
+* Author: Ember, All Rights Reserved.
+*/
+
 #include "FuncLib/MagnusFuncLib_Map.h"
 #include "Kismet/KismetArrayLibrary.h"
 

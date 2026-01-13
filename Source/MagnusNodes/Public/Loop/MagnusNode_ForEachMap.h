@@ -1,3 +1,8 @@
+/*
+* Magnus Nodes
+* Author: Ember, All Rights Reserved.
+*/
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,4 +1,8 @@
-// Leroy Works & Ember, All Rights Reserved.
+/*
+* MassAPI Uncooked
+* Created: 2025
+* Author: Leroy Works & Ember, All Rights Reserved.
+*/
 
 #include "MassAPIUncooked/Public/OperationTag/K2Node_RemoveMassTag.h"
 #include "MassAPIFuncLib.h"
