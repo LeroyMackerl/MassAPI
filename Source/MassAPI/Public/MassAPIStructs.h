@@ -12,6 +12,7 @@
 #include "MassAPIEnums.h"
 #include "MassEntityQuery.h"
 #include <atomic>
+#include "Runtime/Launch/Resources/Version.h"
 #include "MassAPIStructs.generated.h" 
 
 
