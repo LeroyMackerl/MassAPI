@@ -1,7 +1,7 @@
 /*
 * MassAPI
 * Created: 2025
-* Author: Leroy Works, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #include "MassAPISubsystem.h"
@@ -366,6 +366,24 @@ int64 UMassAPISubsystem::GetEntityFlags(FMassEntityHandle EntityHandle) const
 
     // Log a warning if the fragment is missing
     UE_LOG(LogMassAPI, Warning, TEXT("GetEntityFlags: Entity does not have FEntityFlagFragment. Add the fragment to the entity template or manually."));
+    return 0;
+}
+
+int64 UMassAPISubsystem::GetEntityFlagsHigh(FMassEntityHandle EntityHandle) const
+{
+    FMassEntityManager* Manager = GetEntityManager();
+    if (!Manager || !Manager->IsEntityValid(EntityHandle))
+    {
+        return 0;
+    }
+
+    if (const FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+    {
+        return FlagFragment->FlagsHigh;
+    }
+
+    // Log a warning if the fragment is missing
+    UE_LOG(LogMassAPI, Warning, TEXT("GetEntityFlagsHigh: Entity does not have FEntityFlagFragment. Add the fragment to the entity template or manually."));
     return 0;
 }
 

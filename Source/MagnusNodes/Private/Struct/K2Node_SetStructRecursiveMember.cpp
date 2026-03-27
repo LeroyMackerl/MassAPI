@@ -17,6 +17,318 @@
 #include "Styling/AppStyle.h"
 #include "Struct/K2Node_SetStructMember.h"
 #include "Struct/K2Node_GetStructMember.h"
+#include "K2Node_CallFunction.h"
+
+// MagnusUtilities - for precision conversion functions
+#include "FuncLib/MagnusFuncLib_Convert.h"
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+// Precision Conversion Helper
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+namespace K2Node_SetStructRecursiveMember_Local
+{
+	/**
+	 * Convert a float-precision pin type to its double-precision equivalent.
+	 * This allows users to input double-precision values (FVector, etc.) which
+	 * get converted to float-precision (FVector3f, etc.) at compile time.
+	 * Returns true if conversion was made, false if type was unchanged.
+	 */
+	static bool GetDoublePrecisionPinType(FEdGraphPinType& InOutPinType)
+	{
+		// Handle float -> double (PC_Real with subcategory)
+		if (InOutPinType.PinCategory == UEdGraphSchema_K2::PC_Real)
+		{
+			if (InOutPinType.PinSubCategory == TEXT("float"))
+			{
+				// Convert float to double (empty subcategory = double in UE5)
+				InOutPinType.PinSubCategory = NAME_None;
+				return true;
+			}
+			return false;
+		}
+
+		// Handle struct types
+		if (InOutPinType.PinCategory != UEdGraphSchema_K2::PC_Struct)
+		{
+			return false;
+		}
+
+		UScriptStruct* TargetStruct = Cast<UScriptStruct>(InOutPinType.PinSubCategoryObject.Get());
+		if (!TargetStruct)
+		{
+			return false;
+		}
+
+		const FName TargetName = TargetStruct->GetFName();
+
+		// FVector3f -> FVector
+		if (TargetName == FName(TEXT("Vector3f")))
+		{
+			InOutPinType.PinSubCategoryObject = TBaseStructure<FVector>::Get();
+			return true;
+		}
+
+		// FQuat4f -> FQuat
+		if (TargetName == FName(TEXT("Quat4f")))
+		{
+			InOutPinType.PinSubCategoryObject = TBaseStructure<FQuat>::Get();
+			return true;
+		}
+
+		// FRotator3f -> FRotator
+		if (TargetName == FName(TEXT("Rotator3f")))
+		{
+			InOutPinType.PinSubCategoryObject = TBaseStructure<FRotator>::Get();
+			return true;
+		}
+
+		// FTransform3f -> FTransform
+		if (TargetName == FName(TEXT("Transform3f")))
+		{
+			InOutPinType.PinSubCategoryObject = TBaseStructure<FTransform>::Get();
+			return true;
+		}
+
+		// FVector2f -> FVector2D
+		if (TargetName == FName(TEXT("Vector2f")))
+		{
+			InOutPinType.PinSubCategoryObject = TBaseStructure<FVector2D>::Get();
+			return true;
+		}
+
+		// FVector4f -> FVector4
+		if (TargetName == FName(TEXT("Vector4f")))
+		{
+			InOutPinType.PinSubCategoryObject = TBaseStructure<FVector4>::Get();
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Check if source type needs precision conversion to target type.
+	 * Returns the conversion function if needed, nullptr otherwise.
+	 * Supports: double<->float, FVector->FVector3f, FQuat->FQuat4f, FRotator->FRotator3f,
+	 *           FTransform->FTransform3f, FVector2D->FVector2f, FVector4->FVector4f
+	 */
+	static UFunction* GetPrecisionConversionFunction(const FEdGraphPinType& SourceType, const FEdGraphPinType& TargetType)
+	{
+		// Handle scalar precision conversion (PC_Real)
+		if (SourceType.PinCategory == UEdGraphSchema_K2::PC_Real &&
+			TargetType.PinCategory == UEdGraphSchema_K2::PC_Real)
+		{
+			// In UE5, double is the default for PC_Real, float has subcategory "float"
+			bool bSourceIsDouble = (SourceType.PinSubCategory.IsNone() || SourceType.PinSubCategory == TEXT("double"));
+			bool bSourceIsFloat = (SourceType.PinSubCategory == TEXT("float"));
+			bool bTargetIsDouble = (TargetType.PinSubCategory.IsNone() || TargetType.PinSubCategory == TEXT("double"));
+			bool bTargetIsFloat = (TargetType.PinSubCategory == TEXT("float"));
+
+			// double -> float
+			if (bSourceIsDouble && bTargetIsFloat)
+			{
+				return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+					GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, VariableConvert_DoubleToFloat));
+			}
+
+			// float -> double
+			if (bSourceIsFloat && bTargetIsDouble)
+			{
+				return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+					GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, VariableConvert_FloatToDouble));
+			}
+		}
+
+		// Only handle struct to struct conversions from here
+		if (SourceType.PinCategory != UEdGraphSchema_K2::PC_Struct ||
+			TargetType.PinCategory != UEdGraphSchema_K2::PC_Struct)
+		{
+			return nullptr;
+		}
+
+		UScriptStruct* SourceStruct = Cast<UScriptStruct>(SourceType.PinSubCategoryObject.Get());
+		UScriptStruct* TargetStruct = Cast<UScriptStruct>(TargetType.PinSubCategoryObject.Get());
+
+		if (!SourceStruct || !TargetStruct || SourceStruct == TargetStruct)
+		{
+			return nullptr;
+		}
+
+		// Get struct names for comparison (float types don't have TBaseStructure specializations)
+		const FName SourceName = SourceStruct->GetFName();
+		const FName TargetName = TargetStruct->GetFName();
+
+		// FVector -> FVector3f
+		if (SourceName == NAME_Vector && TargetName == FName(TEXT("Vector3f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_VectorToVector3f));
+		}
+
+		// FQuat -> FQuat4f
+		if (SourceName == NAME_Quat && TargetName == FName(TEXT("Quat4f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_QuatToQuat4f));
+		}
+
+		// FRotator -> FRotator3f
+		if (SourceName == NAME_Rotator && TargetName == FName(TEXT("Rotator3f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_RotatorToRotator3f));
+		}
+
+		// FTransform -> FTransform3f
+		if (SourceName == NAME_Transform && TargetName == FName(TEXT("Transform3f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_TransformToTransform3f));
+		}
+
+		// FVector2D -> FVector2f
+		if (SourceName == NAME_Vector2D && TargetName == FName(TEXT("Vector2f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_Vector2DToVector2f));
+		}
+
+		// FVector4 -> FVector4f
+		if (SourceName == NAME_Vector4 && TargetName == FName(TEXT("Vector4f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_Vector4ToVector4f));
+		}
+
+		// FMatrix -> FMatrix44f
+		if (SourceName == NAME_Matrix && TargetName == FName(TEXT("Matrix44f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_MatrixToMatrix44f));
+		}
+
+		// FPlane -> FPlane4f
+		if (SourceName == NAME_Plane && TargetName == FName(TEXT("Plane4f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_PlaneToPlane4f));
+		}
+
+		// FBox -> FBox3f
+		if (SourceName == FName(TEXT("Box")) && TargetName == FName(TEXT("Box3f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_BoxToBox3f));
+		}
+
+		// FBox2D -> FBox2f
+		if (SourceName == FName(TEXT("Box2D")) && TargetName == FName(TEXT("Box2f")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_Box2DToBox2f));
+		}
+
+		// Note: FSphere3f and FRay3f are not supported by Blueprint
+
+		return nullptr;
+	}
+
+	/**
+	 * Get identity function for a struct pin type.
+	 * Used for literal value handling where we need a proper function call node.
+	 * Returns nullptr for non-supported struct types.
+	 */
+	static UFunction* GetStructIdentityFunction(const FEdGraphPinType& PinType)
+	{
+		if (PinType.PinCategory != UEdGraphSchema_K2::PC_Struct)
+		{
+			return nullptr;
+		}
+
+		UScriptStruct* StructType = Cast<UScriptStruct>(PinType.PinSubCategoryObject.Get());
+		if (!StructType)
+		{
+			return nullptr;
+		}
+
+		const FName StructName = StructType->GetFName();
+
+		// FVector2D
+		if (StructName == NAME_Vector2D)
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityVector2D));
+		}
+
+		// FVector
+		if (StructName == NAME_Vector)
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityVector));
+		}
+
+		// FVector4
+		if (StructName == NAME_Vector4)
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityVector4));
+		}
+
+		// FRotator
+		if (StructName == NAME_Rotator)
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityRotator));
+		}
+
+		// FQuat
+		if (StructName == NAME_Quat)
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityQuat));
+		}
+
+		// FTransform
+		if (StructName == NAME_Transform)
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityTransform));
+		}
+
+		// FMatrix
+		if (StructName == NAME_Matrix)
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityMatrix));
+		}
+
+		// FPlane
+		if (StructName == NAME_Plane)
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityPlane));
+		}
+
+		// FBox
+		if (StructName == FName(TEXT("Box")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityBox));
+		}
+
+		// FBox2D
+		if (StructName == FName(TEXT("Box2D")))
+		{
+			return UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+				GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityBox2D));
+		}
+
+		// Note: FSphere and FRay are not supported by Blueprint
+
+		return nullptr;
+	}
+}
 
 //————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -474,10 +786,14 @@ void UK2Node_SetStructRecursiveMember::OnMemberReferenceChanged()
 				FEdGraphPinType NewPinType;
 				if (Schema->ConvertPropertyToPinType(Property, /*out*/ NewPinType))
 				{
+					// Convert float-precision types to double-precision for user input
+					// This allows users to enter FVector values which get converted to FVector3f at compile time
+					K2Node_SetStructRecursiveMember_Local::GetDoublePrecisionPinType(NewPinType);
+
 					// 创建新引脚
 					UEdGraphPin* NewPin = CreatePin(EGPD_Input, NewPinType.PinCategory, PinName);
 					NewPin->PinType = NewPinType;
-					NewPin->PinType.bIsReference = true;  // 使用引用传递，避免复制
+					NewPin->PinType.bIsReference = false;  // 使用值传递，允许字面值输入
 
 					// 构建显示名称：将路径中的每一级都转换为 DisplayName
 					FString DisplayPath;
@@ -668,19 +984,9 @@ void Compile() override
 				SetMemberNode->StructMemberReference.MemberPath = PartName;  // 只用单级名称
 				SetMemberNode->AllocateDefaultPins();
 
-				// 连接执行流
+				// Get execution pins (but don't connect yet - we may need to insert assignment first)
 				UEdGraphPin* SetExecPin = SetMemberNode->FindPin(UEdGraphSchema_K2::PN_Execute);
 				UEdGraphPin* SetThenPin = SetMemberNode->FindPin(UEdGraphSchema_K2::PN_Then);
-
-				if (SetExecPin && LastThenPin)
-				{
-					Link(LastThenPin, SetExecPin);
-				}
-
-				if (SetThenPin)
-				{
-					LastThenPin = SetThenPin;
-				}
 
 				// 连接 Struct 输入
 				UEdGraphPin* SetStructPin = SetMemberNode->FindPin(TEXT("Struct"));
@@ -691,10 +997,239 @@ void Compile() override
 
 				// 连接值输入
 				UEdGraphPin* SetValuePin = SetMemberNode->FindPin(TEXT("FieldValue"));
-				if (SetValuePin && OriginalValuePin->LinkedTo.Num() > 0)
+				if (SetValuePin)
 				{
-					// 连接到源引脚
-					Link(OriginalValuePin->LinkedTo[0], SetValuePin);
+					if (OriginalValuePin->LinkedTo.Num() > 0)
+					{
+						// Connected value pin - connect execution flow directly
+						if (SetExecPin && LastThenPin)
+						{
+							Link(LastThenPin, SetExecPin);
+						}
+						if (SetThenPin)
+						{
+							LastThenPin = SetThenPin;
+						}
+
+						UEdGraphPin* SourcePin = OriginalValuePin->LinkedTo[0];
+
+						// Check if precision conversion is needed (e.g., FVector -> FVector3f)
+						UFunction* ConversionFunc = K2Node_SetStructRecursiveMember_Local::GetPrecisionConversionFunction(
+							SourcePin->PinType, SetValuePin->PinType);
+
+						if (ConversionFunc)
+						{
+							// Create conversion function call node
+							UK2Node_CallFunction* ConversionNode = SpawnNode<UK2Node_CallFunction>();
+							ConversionNode->SetFromFunction(ConversionFunc);
+							ConversionNode->AllocateDefaultPins();
+
+							// Find input and output pins of conversion function
+							UEdGraphPin* ConvInputPin = nullptr;
+							UEdGraphPin* ConvOutputPin = ConversionNode->GetReturnValuePin();
+
+							for (UEdGraphPin* Pin : ConversionNode->Pins)
+							{
+								if (Pin->Direction == EGPD_Input &&
+									Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+									Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+								{
+									ConvInputPin = Pin;
+									break;
+								}
+							}
+
+							if (ConvInputPin && ConvOutputPin)
+							{
+								// Connect: Source -> Conversion -> SetValue
+								Link(SourcePin, ConvInputPin);
+								Link(ConvOutputPin, SetValuePin);
+							}
+							else
+							{
+								// Fallback: direct connection if conversion node setup failed
+								Link(SourcePin, SetValuePin);
+							}
+						}
+						else
+						{
+							// No conversion needed, direct connection
+							Link(SourcePin, SetValuePin);
+						}
+					}
+					else if (!OriginalValuePin->DefaultValue.IsEmpty())
+					{
+						// Handle literal values using function call nodes
+						// This creates a real pin connection which works reliably
+						// (direct DefaultValue copy fails for reference pins in the compile handler)
+
+						// Connect execution flow directly (no assignment node needed for pure functions)
+						if (SetExecPin && LastThenPin)
+						{
+							Link(LastThenPin, SetExecPin);
+						}
+						if (SetThenPin)
+						{
+							LastThenPin = SetThenPin;
+						}
+
+						// Check if precision conversion is needed
+						UFunction* ConversionFunc = K2Node_SetStructRecursiveMember_Local::GetPrecisionConversionFunction(
+							OriginalValuePin->PinType, SetValuePin->PinType);
+
+						// For scalar types (PC_Real), always use a function node to establish proper connection
+						// If conversion needed: use conversion function (e.g., VariableConvert_DoubleToFloat)
+						// If no conversion needed: use identity function (Conv_IdentityDouble)
+						if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_Real)
+						{
+							UFunction* FuncToUse = ConversionFunc;
+							if (!FuncToUse)
+							{
+								// No conversion needed - use identity function for double
+								FuncToUse = UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+									GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityDouble));
+							}
+
+							if (FuncToUse)
+							{
+								UK2Node_CallFunction* FuncNode = SpawnNode<UK2Node_CallFunction>();
+								FuncNode->SetFromFunction(FuncToUse);
+								FuncNode->AllocateDefaultPins();
+
+								// Find input pin (first non-exec, non-self input)
+								UEdGraphPin* FuncInputPin = nullptr;
+								UEdGraphPin* FuncOutputPin = FuncNode->GetReturnValuePin();
+
+								for (UEdGraphPin* Pin : FuncNode->Pins)
+								{
+									if (Pin->Direction == EGPD_Input &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+									{
+										FuncInputPin = Pin;
+										break;
+									}
+								}
+
+								if (FuncInputPin && FuncOutputPin)
+								{
+									// Set literal value on function's input pin
+									FuncInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+									FuncInputPin->bDefaultValueIsIgnored = false;
+
+									// Connect function output to target
+									Link(FuncOutputPin, SetValuePin);
+								}
+							}
+						}
+						else if (ConversionFunc)
+						{
+							// Struct type with conversion needed (e.g., FVector -> FVector3f)
+							UK2Node_CallFunction* ConversionNode = SpawnNode<UK2Node_CallFunction>();
+							ConversionNode->SetFromFunction(ConversionFunc);
+							ConversionNode->AllocateDefaultPins();
+
+							UEdGraphPin* ConvInputPin = nullptr;
+							UEdGraphPin* ConvOutputPin = ConversionNode->GetReturnValuePin();
+
+							for (UEdGraphPin* Pin : ConversionNode->Pins)
+							{
+								if (Pin->Direction == EGPD_Input &&
+									Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+									Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+								{
+									ConvInputPin = Pin;
+									break;
+								}
+							}
+
+							if (ConvInputPin && ConvOutputPin)
+							{
+								ConvInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+								ConvInputPin->bDefaultValueIsIgnored = false;
+								Link(ConvOutputPin, SetValuePin);
+							}
+						}
+						else
+						{
+							// Struct type without conversion - use identity function for literal values
+							// Direct DefaultValue copy doesn't work because SetValuePin has bIsReference=true
+							UFunction* IdentityFunc = K2Node_SetStructRecursiveMember_Local::GetStructIdentityFunction(OriginalValuePin->PinType);
+
+							if (IdentityFunc)
+							{
+								// Create identity function node to wrap the literal value
+								UK2Node_CallFunction* IdentityNode = SpawnNode<UK2Node_CallFunction>();
+								IdentityNode->SetFromFunction(IdentityFunc);
+								IdentityNode->AllocateDefaultPins();
+
+								// Find input pin (first non-exec, non-self input)
+								UEdGraphPin* IdentityInputPin = nullptr;
+								UEdGraphPin* IdentityOutputPin = IdentityNode->GetReturnValuePin();
+
+								for (UEdGraphPin* Pin : IdentityNode->Pins)
+								{
+									if (Pin->Direction == EGPD_Input &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+									{
+										IdentityInputPin = Pin;
+										break;
+									}
+								}
+
+								if (IdentityInputPin && IdentityOutputPin)
+								{
+									// Set literal value on identity function's input pin
+									IdentityInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+									IdentityInputPin->bDefaultValueIsIgnored = false;
+
+									// Connect identity function output to target
+									Link(IdentityOutputPin, SetValuePin);
+								}
+								else
+								{
+									// Fallback: direct copy if identity node setup failed
+									SetValuePin->PinType = OriginalValuePin->PinType;
+									SetValuePin->DefaultValue = OriginalValuePin->DefaultValue;
+									SetValuePin->bDefaultValueIsIgnored = false;
+									SetValuePin->bDefaultValueIsReadOnly = OriginalValuePin->bDefaultValueIsReadOnly;
+								}
+							}
+							else
+							{
+								// Unsupported struct type - fall back to direct copy
+								SetValuePin->PinType = OriginalValuePin->PinType;
+								SetValuePin->DefaultValue = OriginalValuePin->DefaultValue;
+								SetValuePin->bDefaultValueIsIgnored = false;
+								SetValuePin->bDefaultValueIsReadOnly = OriginalValuePin->bDefaultValueIsReadOnly;
+							}
+						}
+					}
+					else
+					{
+						// No value provided - just connect execution flow
+						if (SetExecPin && LastThenPin)
+						{
+							Link(LastThenPin, SetExecPin);
+						}
+						if (SetThenPin)
+						{
+							LastThenPin = SetThenPin;
+						}
+					}
+				}
+				else
+				{
+					// No SetValuePin found - just connect execution flow
+					if (SetExecPin && LastThenPin)
+					{
+						Link(LastThenPin, SetExecPin);
+					}
+					if (SetThenPin)
+					{
+						LastThenPin = SetThenPin;
+					}
 				}
 			}
 			else

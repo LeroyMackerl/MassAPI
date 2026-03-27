@@ -1,7 +1,7 @@
 /*
-* MassAPI Uncooked
+* MassAPI
 * Created: 2025
-* Author: Leroy Works & Ember, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #include "OperationFragment/K2Node_GetMassFragment.h"
@@ -21,7 +21,7 @@
 namespace UK2Node_GetMembersFromFragmentHelper
 {
 	// DataSource类型到标题的映射
-	const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
+	static const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
 	{
 		{ EMassFragmentSourceDataType::None,				TEXT("GetMassFragment") },
 		{ EMassFragmentSourceDataType::EntityHandle,		TEXT("GetMassFragment-Entity") },
@@ -29,7 +29,7 @@ namespace UK2Node_GetMembersFromFragmentHelper
 	};
 
 	// 4. Get - Icon Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 1.0f, 0.0f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 1.0f, 0.0f, 1.0f) },
@@ -37,15 +37,13 @@ namespace UK2Node_GetMembersFromFragmentHelper
 	};
 
 	// 4. Get - Title Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 1.0f, 0.0f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 1.0f, 0.0f, 1.0f) },
 	};
 }
-
-using namespace UK2Node_GetMembersFromFragmentHelper;
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -55,7 +53,7 @@ using namespace UK2Node_GetMembersFromFragmentHelper;
 
 FText UK2Node_GetMassFragment::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return FText::FromString(DataSourceTypeTitles.FindRef(CachedDataSourceType));
+	return FText::FromString(UK2Node_GetMembersFromFragmentHelper::DataSourceTypeTitles.FindRef(CachedDataSourceType));
 }
 
 FText UK2Node_GetMassFragment::GetMenuCategory() const
@@ -70,7 +68,7 @@ FText UK2Node_GetMassFragment::GetTooltipText() const
 
 FSlateIcon UK2Node_GetMassFragment::GetIconAndTint(FLinearColor& OutColor) const
 {
-	OutColor = DataSourceIconColors.FindRef(CachedDataSourceType);
+	OutColor = UK2Node_GetMembersFromFragmentHelper::DataSourceIconColors.FindRef(CachedDataSourceType);
 
 	static FSlateIcon Icon("EditorStyle", "GraphEditor.BreakStruct_16x");
 	return Icon;
@@ -78,7 +76,7 @@ FSlateIcon UK2Node_GetMassFragment::GetIconAndTint(FLinearColor& OutColor) const
 
 FLinearColor UK2Node_GetMassFragment::GetNodeTitleColor() const
 {
-	return DataSourceTitleColors.FindRef(CachedDataSourceType);
+	return UK2Node_GetMembersFromFragmentHelper::DataSourceTitleColors.FindRef(CachedDataSourceType);
 }
 
 //================ Pin.Management																				========

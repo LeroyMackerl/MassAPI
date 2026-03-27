@@ -11,6 +11,9 @@
 
 //====== FStructMemberReference 自定义面板实现 ======
 
+// Define the current struct type for MCPH_THIS_CLASS macro
+#define MCPH_CURRENT_STRUCT FStructMemberReference
+
 BEGIN_MCPH_IMPLEMENT(FStructMemberReference)
 
 MCPH_HEADER_IMPLEMENT
@@ -18,48 +21,48 @@ MCPH_HEADER_IMPLEMENT
 	// 保存主属性句柄
 	this->MainPropertyHandle = PropertyHandle;
 
-	// 获取子属性句柄
-	StructTypeHandle = PropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FStructMemberReference, StructType));
-	MemberPathHandle = PropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FStructMemberReference, MemberPath));
+// 获取子属性句柄
+StructTypeHandle = PropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FStructMemberReference, StructType));
+MemberPathHandle = PropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FStructMemberReference, MemberPath));
 
-	// 从 Meta 加载过滤器
-	LoadFilterFromMeta();
+// 从 Meta 加载过滤器
+LoadFilterFromMeta();
 
-	// 获取当前结构体类型
-	if (StructTypeHandle.IsValid())
-	{
-		UObject* StructObject = nullptr;
-		StructTypeHandle->GetValue(StructObject);
-		CurrentStructType = Cast<UScriptStruct>(StructObject);
+// 获取当前结构体类型
+if (StructTypeHandle.IsValid())
+{
+	UObject* StructObject = nullptr;
+	StructTypeHandle->GetValue(StructObject);
+	CurrentStructType = Cast<UScriptStruct>(StructObject);
 
-		// 监听 StructType 变化
-		StructTypeHandle->SetOnPropertyValueChanged(
-			FSimpleDelegate::CreateSP(this, &MCPH_THIS_CLASS::OnStructTypeChanged)
-		);
-	}
+	// 监听 StructType 变化
+	StructTypeHandle->SetOnPropertyValueChanged(
+		FSimpleDelegate::CreateSP(this, &MCPH_THIS_CLASS::OnStructTypeChanged)
+	);
+}
 
-	/*// 构建 Header
-	HeaderRow
-		.NameContent()
+/*// 构建 Header
+HeaderRow
+	.NameContent()
+	[
+		PropertyHandle->CreatePropertyNameWidget()
+	]
+	.ValueContent()
+	.MinDesiredWidth(300.0f)
+	.MaxDesiredWidth(600.0f)
+	[
+		SNew(SHorizontalBox)
+		// 显示当前值
+		+ SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.VAlign(VAlign_Center)
+		.Padding(2.0f)
 		[
-			PropertyHandle->CreatePropertyNameWidget()
+			SNew(STextBlock)
+			.Text(this, &MCPH_THIS_CLASS::GetCurrentValueText)
+			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
-		.ValueContent()
-		.MinDesiredWidth(300.0f)
-		.MaxDesiredWidth(600.0f)
-		[
-			SNew(SHorizontalBox)
-			// 显示当前值
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.0f)
-			.VAlign(VAlign_Center)
-			.Padding(2.0f)
-			[
-				SNew(STextBlock)
-				.Text(this, &MCPH_THIS_CLASS::GetCurrentValueText)
-				.Font(IDetailLayoutBuilder::GetDetailFont())
-			]
-		];*/
+	];*/
 }
 
 MCPH_CHILDREN_IMPLEMENT
@@ -105,44 +108,44 @@ void MCPH_THIS_CLASS::BuildFirstLevelMemberRows(IDetailChildrenBuilder& ChildBui
 			.NameContent()
 			[
 				SNew(SHorizontalBox)
-				// CheckBox
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				[
-					SNew(SCheckBox)
-					.IsChecked_Lambda([this, PropertyName]()
-					{
-						return IsPathSelected(PropertyName)
-							? ECheckBoxState::Checked
-							: ECheckBoxState::Unchecked;
-					})
-					.OnCheckStateChanged_Lambda([this, PropertyName](ECheckBoxState NewState)
-					{
-						if (NewState == ECheckBoxState::Checked)
-						{
-							SetSelectedPath(PropertyName);
-						}
-					})
-				]
+					// CheckBox
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					[
+						SNew(SCheckBox)
+							.IsChecked_Lambda([this, PropertyName]()
+								{
+									return IsPathSelected(PropertyName)
+										? ECheckBoxState::Checked
+										: ECheckBoxState::Unchecked;
+								})
+							.OnCheckStateChanged_Lambda([this, PropertyName](ECheckBoxState NewState)
+								{
+									if (NewState == ECheckBoxState::Checked)
+									{
+										SetSelectedPath(PropertyName);
+									}
+								})
+					]
 				// 成员名称
 				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				.VAlign(VAlign_Center)
-				.Padding(FMargin(5, 0))
-				[
-					SNew(STextBlock)
-					.Text(PropertyDisplayName)
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
+					.FillWidth(1.0f)
+					.VAlign(VAlign_Center)
+					.Padding(FMargin(5, 0))
+					[
+						SNew(STextBlock)
+							.Text(PropertyDisplayName)
+							.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
 			]
-			.ValueContent()
+		.ValueContent()
 			[
 				// 类型信息
 				SNew(STextBlock)
-				.Text(FText::FromString(PropertyType))
-				.Font(IDetailLayoutBuilder::GetDetailFont())
-				.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
+					.Text(FText::FromString(PropertyType))
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
 			];
 	}
 }
@@ -231,28 +234,28 @@ void MCPH_THIS_CLASS::LoadFilterFromMeta()
 	// 内置过滤器快捷方式
 	if (FilterString.Equals(TEXT("ContainerOnly"), ESearchCase::IgnoreCase))
 	{
-		CurrentFilterFunc = [](const FProperty* Property) -> bool
-		{
-			return IsContainerProperty(Property);
-		};
+		CurrentFilterFunc = [this](const FProperty* Property) -> bool
+			{
+				return IsContainerProperty(Property);
+			};
 		return;
 	}
 
 	if (FilterString.Equals(TEXT("SingleOnly"), ESearchCase::IgnoreCase))
 	{
-		CurrentFilterFunc = [](const FProperty* Property) -> bool
-		{
-			return IsSingleProperty(Property);
-		};
+		CurrentFilterFunc = [this](const FProperty* Property) -> bool
+			{
+				return IsSingleProperty(Property);
+			};
 		return;
 	}
 
 	if (FilterString.Equals(TEXT("NumericOnly"), ESearchCase::IgnoreCase))
 	{
-		CurrentFilterFunc = [](const FProperty* Property) -> bool
-		{
-			return IsNumericProperty(Property);
-		};
+		CurrentFilterFunc = [this](const FProperty* Property) -> bool
+			{
+				return IsNumericProperty(Property);
+			};
 		return;
 	}
 
@@ -291,8 +294,8 @@ bool MCPH_THIS_CLASS::IsContainerProperty(const FProperty* Property)
 
 	// 检查是否是容器类型
 	return Property->IsA<FArrayProperty>() ||
-	       Property->IsA<FSetProperty>() ||
-	       Property->IsA<FMapProperty>();
+		Property->IsA<FSetProperty>() ||
+		Property->IsA<FMapProperty>();
 }
 
 bool MCPH_THIS_CLASS::IsSingleProperty(const FProperty* Property)
@@ -311,18 +314,20 @@ bool MCPH_THIS_CLASS::IsNumericProperty(const FProperty* Property)
 
 	// 检查是否是数值类型
 	return Property->IsA<FIntProperty>() ||
-	       Property->IsA<FInt64Property>() ||
-	       Property->IsA<FUInt32Property>() ||
-	       Property->IsA<FUInt64Property>() ||
-	       Property->IsA<FFloatProperty>() ||
-	       Property->IsA<FDoubleProperty>() ||
-	       Property->IsA<FByteProperty>() ||
-	       Property->IsA<FInt8Property>() ||
-	       Property->IsA<FInt16Property>() ||
-	       Property->IsA<FUInt16Property>();
+		Property->IsA<FInt64Property>() ||
+		Property->IsA<FUInt32Property>() ||
+		Property->IsA<FUInt64Property>() ||
+		Property->IsA<FFloatProperty>() ||
+		Property->IsA<FDoubleProperty>() ||
+		Property->IsA<FByteProperty>() ||
+		Property->IsA<FInt8Property>() ||
+		Property->IsA<FInt16Property>() ||
+		Property->IsA<FUInt16Property>();
 }
 
 END_MCPH_IMPLEMENT
+
+#undef MCPH_CURRENT_STRUCT
 
 #endif // WITH_EDITOR
 

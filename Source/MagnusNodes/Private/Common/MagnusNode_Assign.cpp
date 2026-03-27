@@ -18,9 +18,9 @@
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-//================ Node.Configuration																		========
+//================ Node.Configuration																			========
 
-//———————— Node.Appearance																						————
+//———————— Node.Appearance																							————
 
 FText UMagnusNode_Assign::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
@@ -48,9 +48,9 @@ FSlateIcon UMagnusNode_Assign::GetIconAndTint(FLinearColor& OutColor) const
 	return Icon;
 }
 
-//================ Pin.Management																			========
+//================ Pin.Management																				========
 
-//———————— Pin.Registry																							————
+//———————— Pin.Registry																								————
 
 static FName TargetVarPinName(TEXT("Target"));
 UEdGraphPin* UMagnusNode_Assign::GetTargetPin() const
@@ -64,7 +64,7 @@ UEdGraphPin* UMagnusNode_Assign::GetValuePin() const
 	return FindPin(VarValuePinName);
 }
 
-//———————— Pin.Construction																						————
+//———————— Pin.Construction																							————
 
 void UMagnusNode_Assign::AllocateDefaultPins()
 {
@@ -78,7 +78,7 @@ void UMagnusNode_Assign::AllocateDefaultPins()
 	CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Wildcard, VarValuePinName);
 }
 
-//———————— Pin.Notify																							————
+//———————— Pin.Notify																								————
 
 void UMagnusNode_Assign::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins)
 {
@@ -180,7 +180,7 @@ void UMagnusNode_Assign::PostPasteNode()
 	}
 }
 
-//———————— Pin.Refresh																							————
+//———————— Pin.Refresh																								————
 
 void UMagnusNode_Assign::CoerceTypeFromPin(const UEdGraphPin* Pin)
 {

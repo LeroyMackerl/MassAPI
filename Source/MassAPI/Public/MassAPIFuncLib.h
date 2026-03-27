@@ -1,7 +1,7 @@
 /*
 * MassAPI
 * Created: 2025
-* Author: Leroy Works, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #pragma once
@@ -160,6 +160,51 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", BlueprintPure, meta = (DisplayName = "IsEmpty (TemplateData)", Tooltip = "Checks if the template data is empty or invalid.", Keywords = "check is empty valid template data mass"))
 	static bool IsEmpty_TemplateData(UPARAM(ref) const FEntityTemplateData& TemplateData);
+
+	//================ Math Conversions																			========
+
+	/**
+	 * Auto-cast converter from Double to Float.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Math", BlueprintPure, meta = (DisplayName = "To Float (Double)", CompactNodeTitle = "->", BlueprintAutocast, Tooltip = "Auto-cast converter from Double to Float.", Keywords = "convert cast float double mass auto"))
+	static float Conv_DoubleToFloat(double InDouble);
+
+	/**
+	 * Auto-cast converter from FVector to FVector3f.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Math", BlueprintPure, meta = (DisplayName = "To Vector3f (Vector)", CompactNodeTitle = "->", BlueprintAutocast, Tooltip = "Auto-cast converter from FVector to FVector3f.", Keywords = "convert cast vector vector3f mass auto"))
+	static FVector3f Conv_VectorToVector3f(FVector InVector);
+
+	/**
+	 * Auto-cast converter from FQuat to FQuat4f.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Math", BlueprintPure, meta = (DisplayName = "To Quat4f (Quat)", CompactNodeTitle = "->", BlueprintAutocast, Tooltip = "Auto-cast converter from FQuat to FQuat4f.", Keywords = "convert cast quat quat4f mass auto"))
+	static FQuat4f Conv_QuatToQuat4f(FQuat InQuat);
+
+	/**
+	 * Auto-cast converter from FRotator to FRotator3f.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Math", BlueprintPure, meta = (DisplayName = "To Rotator3f (Rotator)", CompactNodeTitle = "->", BlueprintAutocast, Tooltip = "Auto-cast converter from FRotator to FRotator3f.", Keywords = "convert cast rotator rotator3f mass auto"))
+	static FRotator3f Conv_RotatorToRotator3f(FRotator InRotator);
+
+	/**
+	 * Auto-cast converter from FTransform to FTransform3f.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Math", BlueprintPure, meta = (DisplayName = "To Transform3f (Transform)", CompactNodeTitle = "->", BlueprintAutocast, Tooltip = "Auto-cast converter from FTransform to FTransform3f.", Keywords = "convert cast transform transform3f mass auto"))
+	static FTransform3f Conv_TransformToTransform3f(FTransform InTransform);
+
+	/**
+	 * Auto-cast converter from FVector2D to FVector2f.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Math", BlueprintPure, meta = (DisplayName = "To Vector2f (Vector2D)", CompactNodeTitle = "->", BlueprintAutocast, Tooltip = "Auto-cast converter from FVector2D to FVector2f.", Keywords = "convert cast vector2d vector2f mass auto"))
+	static FVector2f Conv_Vector2DToVector2f(FVector2D InVector2D);
+
+	/**
+	 * Auto-cast converter from FVector4 to FVector4f.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Math", BlueprintPure, meta = (DisplayName = "To Vector4f (Vector4)", CompactNodeTitle = "->", BlueprintAutocast, Tooltip = "Auto-cast converter from FVector4 to FVector4f.", Keywords = "convert cast vector4 vector4f mass auto"))
+	static FVector4f Conv_Vector4ToVector4f(FVector4 InVector4);
+
 
 	//================ Fragment Operations																		========
 

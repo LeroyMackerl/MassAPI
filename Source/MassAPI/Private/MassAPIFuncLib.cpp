@@ -1,7 +1,7 @@
 /*
 * MassAPI
 * Created: 2025
-* Author: Leroy Works, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #include "MassAPIFuncLib.h"
@@ -314,13 +314,19 @@ int32 UMassAPIFuncLib::GetNumMatchingEntities(const UObject* WorldContextObject,
     // 1. Create a bound Native Query (Registers with Manager immediately)
     FMassEntityQuery NativeQuery = Query.GetNativeQuery(EntityManager->AsShared());
 
-    // 2. Flags Logic
-    const int64 AllFlagsQuery = Query.GetAllFlagsBitmask();
-    const int64 AnyFlagsQuery = Query.GetAnyFlagsBitmask();
-    const int64 NoneFlagsQuery = Query.GetNoneFlagsBitmask();
+    // 2. Flags Logic (Low 0-63)
+    const int64 AllFlagsQueryLow = Query.GetAllFlagsBitmask();
+    const int64 AnyFlagsQueryLow = Query.GetAnyFlagsBitmask();
+    const int64 NoneFlagsQueryLow = Query.GetNoneFlagsBitmask();
+
+    // 2b. Flags Logic (High 64-127)
+    const int64 AllFlagsQueryHigh = Query.GetAllFlagsBitmaskHigh();
+    const int64 AnyFlagsQueryHigh = Query.GetAnyFlagsBitmaskHigh();
+    const int64 NoneFlagsQueryHigh = Query.GetNoneFlagsBitmaskHigh();
 
     // 3. Fast Path
-    if (AllFlagsQuery == 0 && AnyFlagsQuery == 0 && NoneFlagsQuery == 0)
+    if (AllFlagsQueryLow == 0 && AnyFlagsQueryLow == 0 && NoneFlagsQueryLow == 0 &&
+        AllFlagsQueryHigh == 0 && AnyFlagsQueryHigh == 0 && NoneFlagsQueryHigh == 0)
     {
         return NativeQuery.GetNumMatchingEntities();
     }
@@ -332,13 +338,23 @@ int32 UMassAPIFuncLib::GetNumMatchingEntities(const UObject* WorldContextObject,
     for (const FMassEntityHandle& Handle : Matches)
     {
         const FEntityFlagFragment* FlagFragment = EntityManager->GetFragmentDataPtr<FEntityFlagFragment>(Handle);
-        const int64 EntityFlags = FlagFragment ? FlagFragment->Flags : 0;
+        const int64 EntityFlagsLow = FlagFragment ? FlagFragment->Flags : 0;
+        const int64 EntityFlagsHigh = FlagFragment ? FlagFragment->FlagsHigh : 0;
 
-        const bool bAll = (AllFlagsQuery == 0) || ((EntityFlags & AllFlagsQuery) == AllFlagsQuery);
-        const bool bAny = (AnyFlagsQuery == 0) || ((EntityFlags & AnyFlagsQuery) != 0);
-        const bool bNone = (NoneFlagsQuery == 0) || ((EntityFlags & NoneFlagsQuery) == 0);
+        // All flags: must have ALL in both low and high
+        const bool bAllLow = (AllFlagsQueryLow == 0) || ((EntityFlagsLow & AllFlagsQueryLow) == AllFlagsQueryLow);
+        const bool bAllHigh = (AllFlagsQueryHigh == 0) || ((EntityFlagsHigh & AllFlagsQueryHigh) == AllFlagsQueryHigh);
 
-        if (bAll && bAny && bNone)
+        // Any flags: need at least one match across both
+        const bool bAnyPass = (AnyFlagsQueryLow == 0 && AnyFlagsQueryHigh == 0)
+                            || ((EntityFlagsLow & AnyFlagsQueryLow) != 0)
+                            || ((EntityFlagsHigh & AnyFlagsQueryHigh) != 0);
+
+        // None flags: must NOT have any in either
+        const bool bNoneLow = (NoneFlagsQueryLow == 0) || ((EntityFlagsLow & NoneFlagsQueryLow) == 0);
+        const bool bNoneHigh = (NoneFlagsQueryHigh == 0) || ((EntityFlagsHigh & NoneFlagsQueryHigh) == 0);
+
+        if (bAllLow && bAllHigh && bAnyPass && bNoneLow && bNoneHigh)
         {
             Count++;
         }
@@ -363,13 +379,19 @@ TArray<FEntityHandle> UMassAPIFuncLib::GetMatchingEntities(const UObject* WorldC
     // 2. Execute
     TArray<FMassEntityHandle> Matches = NativeQuery.GetMatchingEntityHandles();
 
-    // 3. Flags Logic
-    const int64 AllFlagsQuery = Query.GetAllFlagsBitmask();
-    const int64 AnyFlagsQuery = Query.GetAnyFlagsBitmask();
-    const int64 NoneFlagsQuery = Query.GetNoneFlagsBitmask();
+    // 3. Flags Logic (Low 0-63)
+    const int64 AllFlagsQueryLow = Query.GetAllFlagsBitmask();
+    const int64 AnyFlagsQueryLow = Query.GetAnyFlagsBitmask();
+    const int64 NoneFlagsQueryLow = Query.GetNoneFlagsBitmask();
+
+    // 3b. Flags Logic (High 64-127)
+    const int64 AllFlagsQueryHigh = Query.GetAllFlagsBitmaskHigh();
+    const int64 AnyFlagsQueryHigh = Query.GetAnyFlagsBitmaskHigh();
+    const int64 NoneFlagsQueryHigh = Query.GetNoneFlagsBitmaskHigh();
 
     // 4. Fast Path
-    if (AllFlagsQuery == 0 && AnyFlagsQuery == 0 && NoneFlagsQuery == 0)
+    if (AllFlagsQueryLow == 0 && AnyFlagsQueryLow == 0 && NoneFlagsQueryLow == 0 &&
+        AllFlagsQueryHigh == 0 && AnyFlagsQueryHigh == 0 && NoneFlagsQueryHigh == 0)
     {
         BPHandles.Reserve(Matches.Num());
         for (const FMassEntityHandle& H : Matches)
@@ -384,13 +406,23 @@ TArray<FEntityHandle> UMassAPIFuncLib::GetMatchingEntities(const UObject* WorldC
     for (const FMassEntityHandle& Handle : Matches)
     {
         const FEntityFlagFragment* FlagFragment = EntityManager->GetFragmentDataPtr<FEntityFlagFragment>(Handle);
-        const int64 EntityFlags = FlagFragment ? FlagFragment->Flags : 0;
+        const int64 EntityFlagsLow = FlagFragment ? FlagFragment->Flags : 0;
+        const int64 EntityFlagsHigh = FlagFragment ? FlagFragment->FlagsHigh : 0;
 
-        const bool bAll = (AllFlagsQuery == 0) || ((EntityFlags & AllFlagsQuery) == AllFlagsQuery);
-        const bool bAny = (AnyFlagsQuery == 0) || ((EntityFlags & AnyFlagsQuery) != 0);
-        const bool bNone = (NoneFlagsQuery == 0) || ((EntityFlags & NoneFlagsQuery) == 0);
+        // All flags: must have ALL in both low and high
+        const bool bAllLow = (AllFlagsQueryLow == 0) || ((EntityFlagsLow & AllFlagsQueryLow) == AllFlagsQueryLow);
+        const bool bAllHigh = (AllFlagsQueryHigh == 0) || ((EntityFlagsHigh & AllFlagsQueryHigh) == AllFlagsQueryHigh);
 
-        if (bAll && bAny && bNone)
+        // Any flags: need at least one match across both
+        const bool bAnyPass = (AnyFlagsQueryLow == 0 && AnyFlagsQueryHigh == 0)
+                            || ((EntityFlagsLow & AnyFlagsQueryLow) != 0)
+                            || ((EntityFlagsHigh & AnyFlagsQueryHigh) != 0);
+
+        // None flags: must NOT have any in either
+        const bool bNoneLow = (NoneFlagsQueryLow == 0) || ((EntityFlagsLow & NoneFlagsQueryLow) == 0);
+        const bool bNoneHigh = (NoneFlagsQueryHigh == 0) || ((EntityFlagsHigh & NoneFlagsQueryHigh) == 0);
+
+        if (bAllLow && bAllHigh && bAnyPass && bNoneLow && bNoneHigh)
         {
             BPHandles.Add(FEntityHandle(Handle));
         }
@@ -435,6 +467,44 @@ bool UMassAPIFuncLib::IsEmpty_TemplateData(UPARAM(ref) const FEntityTemplateData
         return Data->IsEmpty();
     }
     return true;
+}
+
+
+//================ Math Conversions ============================================
+
+float UMassAPIFuncLib::Conv_DoubleToFloat(double InDouble)
+{
+	return (float)InDouble;
+}
+
+FVector3f UMassAPIFuncLib::Conv_VectorToVector3f(FVector InVector)
+{
+	return (FVector3f)InVector;
+}
+
+FQuat4f UMassAPIFuncLib::Conv_QuatToQuat4f(FQuat InQuat)
+{
+	return (FQuat4f)InQuat;
+}
+
+FRotator3f UMassAPIFuncLib::Conv_RotatorToRotator3f(FRotator InRotator)
+{
+	return (FRotator3f)InRotator;
+}
+
+FTransform3f UMassAPIFuncLib::Conv_TransformToTransform3f(FTransform InTransform)
+{
+	return (FTransform3f)InTransform;
+}
+
+FVector2f UMassAPIFuncLib::Conv_Vector2DToVector2f(FVector2D InVector2D)
+{
+	return (FVector2f)InVector2D;
+}
+
+FVector4f UMassAPIFuncLib::Conv_Vector4ToVector4f(FVector4 InVector4)
+{
+	return (FVector4f)InVector4;
 }
 
 
@@ -1349,17 +1419,29 @@ void UMassAPIFuncLib::SetFlag_Template(const UObject* WorldContextObject, UPARAM
         return;
     }
 
-    // 1. Get current flags state
-    const int64 CurrentFlags = GetFlag_Template(TemplateData);
-
-    // 2. Create a temporary fragment to utilize its methods
+    // 1. Get current flags state (both low and high)
     FEntityFlagFragment TempFlagFragment;
-    TempFlagFragment.Flags = CurrentFlags;
+    if (const FMassEntityTemplateData* Data = TemplateData.Get())
+    {
+        TConstArrayView<FInstancedStruct> InitialValues = Data->GetInitialFragmentValues();
+        for (const FInstancedStruct& Value : InitialValues)
+        {
+            if (Value.GetScriptStruct() == FEntityFlagFragment::StaticStruct())
+            {
+                if (const FEntityFlagFragment* ExistingFragment = reinterpret_cast<const FEntityFlagFragment*>(Value.GetMemory()))
+                {
+                    TempFlagFragment.Flags = ExistingFragment->Flags;
+                    TempFlagFragment.FlagsHigh = ExistingFragment->FlagsHigh;
+                    break;
+                }
+            }
+        }
+    }
 
-    // 3. Use the fragment's own logic to set the flag
+    // 2. Use the fragment's own logic to set the flag (handles both low and high)
     TempFlagFragment.SetFlag(FlagToSet);
 
-    // 4. Write the modified fragment back to the template
+    // 3. Write the modified fragment back to the template
     Generic_SetFragment_Template_Unified(WorldContextObject, TemplateData, FEntityFlagFragment::StaticStruct(), &TempFlagFragment);
 }
 
@@ -1417,17 +1499,29 @@ void UMassAPIFuncLib::ClearFlag_Template(const UObject* WorldContextObject, UPAR
         return;
     }
 
-    // 1. Get current flags state
-    const int64 CurrentFlags = GetFlag_Template(TemplateData);
-
-    // 2. Create a temporary fragment to utilize its methods
+    // 1. Get current flags state (both low and high)
     FEntityFlagFragment TempFlagFragment;
-    TempFlagFragment.Flags = CurrentFlags;
+    if (const FMassEntityTemplateData* Data = TemplateData.Get())
+    {
+        TConstArrayView<FInstancedStruct> InitialValues = Data->GetInitialFragmentValues();
+        for (const FInstancedStruct& Value : InitialValues)
+        {
+            if (Value.GetScriptStruct() == FEntityFlagFragment::StaticStruct())
+            {
+                if (const FEntityFlagFragment* ExistingFragment = reinterpret_cast<const FEntityFlagFragment*>(Value.GetMemory()))
+                {
+                    TempFlagFragment.Flags = ExistingFragment->Flags;
+                    TempFlagFragment.FlagsHigh = ExistingFragment->FlagsHigh;
+                    break;
+                }
+            }
+        }
+    }
 
-    // 3. Use the fragment's own logic to clear the flag
+    // 2. Use the fragment's own logic to clear the flag (handles both low and high)
     TempFlagFragment.ClearFlag(FlagToClear);
 
-    // 4. Write the modified fragment back to the template
+    // 3. Write the modified fragment back to the template
     Generic_SetFragment_Template_Unified(WorldContextObject, TemplateData, FEntityFlagFragment::StaticStruct(), &TempFlagFragment);
 }
 

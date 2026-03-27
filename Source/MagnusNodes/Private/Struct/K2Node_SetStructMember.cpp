@@ -559,8 +559,12 @@ public:
 		FBPTerminal* ValueTerm = *FoundValueTerm;
 
 		// 创建目标成员 terminal
+		const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+		FEdGraphPinType TargetPinType;
+		Schema->ConvertPropertyToPinType(BoundProperty, TargetPinType);
+
 		FBPTerminal* DestinationTerm = new FBPTerminal();
-		DestinationTerm->Type = ValueInputPin->PinType;
+		DestinationTerm->Type = TargetPinType;
 		DestinationTerm->bPassedByReference = true;
 		DestinationTerm->AssociatedVarProperty = BoundProperty;
 		DestinationTerm->Context = StructContextTerm;

@@ -1,7 +1,7 @@
 /*
-* MassAPI Uncooked
+* MassAPI
 * Created: 2025
-* Author: Leroy Works & Ember, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #include "OperationFragment/K2Node_SetMassFragment.h"
@@ -17,7 +17,11 @@
 #include "Struct/K2Node_SetStructRecursiveMember.h"
 #include "K2Node_VariableSet.h"
 #include "K2Node_TemporaryVariable.h"
+#include "K2Node_ExecutionSequence.h"
+#include "K2Node_IfThenElse.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/KismetArrayLibrary.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "UObject/UnrealType.h"
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -25,27 +29,33 @@
 namespace UK2Node_SetMembersInFragmentHelper
 {
 	// DataSource类型到标题的映射
-	const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
+	static const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
 	{
-		{ EMassFragmentSourceDataType::None,				TEXT("SetMassFragment") },
-		{ EMassFragmentSourceDataType::EntityHandle,		TEXT("SetMassFragment-Entity") },
-		{ EMassFragmentSourceDataType::EntityTemplateData,	TEXT("SetMassFragment-Template") }
+		{ EMassFragmentSourceDataType::None,					TEXT("SetMassFragment") },
+		{ EMassFragmentSourceDataType::EntityHandle,			TEXT("SetMassFragment-Entity") },
+		{ EMassFragmentSourceDataType::EntityTemplateData,		TEXT("SetMassFragment-Template") },
+		{ EMassFragmentSourceDataType::EntityHandleArray,		TEXT("SetMassFragment-Entities") },
+		{ EMassFragmentSourceDataType::EntityTemplateDataArray,	TEXT("SetMassFragment-Templates") }
 	};
 
 	// 2. Set - Icon Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
 	{
-		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::None,                    FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,            FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,      FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandleArray,       FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateDataArray, FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 	};
 
 	// 2. Set - Title Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
 	{
-		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
-		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::None,                    FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandle,            FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateData,      FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityHandleArray,       FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
+		{ EMassFragmentSourceDataType::EntityTemplateDataArray, FLinearColor(0.0f, 0.8f, 1.0f, 1.0f) },
 	};
 
 	// Helper to get the delegate signature from MassAPIFuncLib
@@ -68,13 +78,14 @@ namespace UK2Node_SetMembersInFragmentHelper
 	}
 }
 
-using namespace UK2Node_SetMembersInFragmentHelper;
-
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+namespace K2Node_SetMassFragment_Local
+{
 
 static void SetDelegatePinType(UEdGraphPin* Pin)
 {
-	if (!Pin) return;
+	if (!Pin) { return; }
 
 	// 1. Find the library function
 	UFunction* Function = UMassAPIFuncLib::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UMassAPIFuncLib, SetFragment_Entity_Unified));
@@ -93,12 +104,13 @@ static void SetDelegatePinType(UEdGraphPin* Pin)
 			// 5. [CRITICAL FIX] Set the Member Reference so the compiler knows the exact source
 			if (DelegateProp->SignatureFunction)
 			{
-				Pin->PinType.PinSubCategoryMemberReference.MemberParent = DelegateProp->SignatureFunction->GetOuter();
-				Pin->PinType.PinSubCategoryMemberReference.MemberName = DelegateProp->SignatureFunction->GetFName();
+				FMemberReference::FillSimpleMemberReference(static_cast<UFunction*>(DelegateProp->SignatureFunction.Get()), Pin->PinType.PinSubCategoryMemberReference);
 			}
 		}
 	}
 }
+
+} // namespace K2Node_SetMassFragment_Local
 
 //================ Node.Configuration																			========
 
@@ -106,7 +118,7 @@ static void SetDelegatePinType(UEdGraphPin* Pin)
 
 FText UK2Node_SetMassFragment::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return  FText::FromString(DataSourceTypeTitles.FindRef(CachedDataSourceType));
+	return  FText::FromString(UK2Node_SetMembersInFragmentHelper::DataSourceTypeTitles.FindRef(CachedDataSourceType));
 }
 
 FText UK2Node_SetMassFragment::GetMenuCategory() const
@@ -116,12 +128,20 @@ FText UK2Node_SetMassFragment::GetMenuCategory() const
 
 FText UK2Node_SetMassFragment::GetTooltipText() const
 {
-	return FText::FromString(TEXT("Set members in a fragment."));
+	FString Tooltip = TEXT("Set members in a fragment.");
+
+	if (CachedDataSourceType == EMassFragmentSourceDataType::EntityHandleArray ||
+		CachedDataSourceType == EMassFragmentSourceDataType::EntityTemplateDataArray)
+	{
+		Tooltip += TEXT(" (Array mode: processes each element in a loop. For deferred mode, OnFinished fires once per element.)");
+	}
+
+	return FText::FromString(Tooltip);
 }
 
 FSlateIcon UK2Node_SetMassFragment::GetIconAndTint(FLinearColor& OutColor) const
 {
-	OutColor = DataSourceIconColors.FindRef(CachedDataSourceType);
+	OutColor = UK2Node_SetMembersInFragmentHelper::DataSourceIconColors.FindRef(CachedDataSourceType);
 
 	static FSlateIcon Icon("EditorStyle", "GraphEditor.MakeStruct_16x");
 	return Icon;
@@ -129,7 +149,7 @@ FSlateIcon UK2Node_SetMassFragment::GetIconAndTint(FLinearColor& OutColor) const
 
 FLinearColor UK2Node_SetMassFragment::GetNodeTitleColor() const
 {
-	return DataSourceTitleColors.FindRef(CachedDataSourceType);
+	return UK2Node_SetMembersInFragmentHelper::DataSourceTitleColors.FindRef(CachedDataSourceType);
 }
 
 //================ Pin.Management																				========
@@ -152,7 +172,7 @@ void UK2Node_SetMassFragment::AllocateDefaultPins()
 	if (!bSetMember)
 	{
 		UEdGraphPin* FragmentInPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Wildcard, FragmentInPinName());
-		FragmentInPin->PinType.bIsReference = true;
+		FragmentInPin->PinType.bIsReference = false;  // 使用值传递，允许字面值输入
 	}
 
 	// 3. Deferred Pin
@@ -180,9 +200,43 @@ void UK2Node_SetMassFragment::AllocateDefaultPins()
 
 void UK2Node_SetMassFragment::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins)
 {
+	// [FIX] Restore pin types BEFORE calling Super so it can properly restore connections.
+	// Super::ReallocatePinsDuringReconstruction matches pins by name and restores connections,
+	// but if the new pin is Wildcard and old pin was a struct type, it may fail/skip restoration.
+	// By restoring types first, Super can properly handle connection restoration.
+
+	// Pre-restore DataSource pin type
+	for (const UEdGraphPin* OldPin : OldPins)
+	{
+		if (OldPin && OldPin->PinName == DataSourcePinName())
+		{
+			if (UEdGraphPin* NewDataSourcePin = FindPin(DataSourcePinName()))
+			{
+				NewDataSourcePin->PinType = OldPin->PinType;
+				NewDataSourcePin->PinType.bIsReference = true;
+			}
+			break;
+		}
+	}
+
+	// Pre-restore FragmentIn pin type (for non-bSetMember mode)
+	for (const UEdGraphPin* OldPin : OldPins)
+	{
+		if (OldPin && OldPin->PinName == FragmentInPinName())
+		{
+			if (UEdGraphPin* NewFragmentInPin = FindPin(FragmentInPinName()))
+			{
+				NewFragmentInPin->PinType = OldPin->PinType;
+				NewFragmentInPin->DefaultValue = OldPin->DefaultValue;
+				NewFragmentInPin->AutogeneratedDefaultValue = OldPin->AutogeneratedDefaultValue;
+			}
+			break;
+		}
+	}
+
 	Super::ReallocatePinsDuringReconstruction(OldPins);
 
-	// 1. Restore DataSource Type
+	// 1. Restore DataSource Type (already done above, but keep this for UpdateDataSourceType cache update)
 	for (const UEdGraphPin* OldPin : OldPins)
 	{
 		if (OldPin && OldPin->PinName == DataSourcePinName())
@@ -197,7 +251,7 @@ void UK2Node_SetMassFragment::ReallocatePinsDuringReconstruction(TArray<UEdGraph
 	}
 
 	// 2. Restore Deferred / Delegate Logic
-	// [FIX] We must check OldPins for the deferred state, because the NEW pin 
+	// [FIX] We must check OldPins for the deferred state, because the NEW pin
 	// (created in AllocateDefaultPins) still has the default "false" value at this point.
 	bool bWasDeferred = false;
 	for (const UEdGraphPin* OldPin : OldPins)
@@ -220,7 +274,7 @@ void UK2Node_SetMassFragment::ReallocatePinsDuringReconstruction(TArray<UEdGraph
 		}
 
 		// [FIX] Apply the exact signature
-		SetDelegatePinType(DelegatePin);
+		K2Node_SetMassFragment_Local::SetDelegatePinType(DelegatePin);
 
 		// [FIX] Restore Connections manually
 		// Super::Reallocate... tries to match names, but if the pin didn't exist when Super ran,
@@ -270,6 +324,32 @@ void UK2Node_SetMassFragment::ReallocatePinsDuringReconstruction(TArray<UEdGraph
 			FragmentTypePin->DefaultObject = OldFragmentStruct;
 		}
 	}
+
+	// 5. [FIX] Preserve member pin state (DefaultValues + Connections) for bSetMember mode
+	// Store old pin state so OnMemberReferenceChanged can restore them
+	if (bSetMember)
+	{
+		CachedOldPinStates.Empty();
+		for (UEdGraphPin* OldPin : OldPins)
+		{
+			if (OldPin && OldPin->Direction == EGPD_Input &&
+				OldPin->PinName != UEdGraphSchema_K2::PN_Execute &&
+				OldPin->PinName != DataSourcePinName() &&
+				OldPin->PinName != FragmentTypePinName() &&
+				OldPin->PinName != DeferredPinName() &&
+				OldPin->PinName != OnFinishedPinName())
+			{
+				// Store both DefaultValue and Connections for member pins
+				if (!OldPin->DefaultValue.IsEmpty() || !OldPin->AutogeneratedDefaultValue.IsEmpty() || OldPin->LinkedTo.Num() > 0)
+				{
+					FCachedPinState& CachedState = CachedOldPinStates.Add(OldPin->PinName);
+					CachedState.DefaultValue = OldPin->DefaultValue;
+					CachedState.AutogeneratedDefaultValue = OldPin->AutogeneratedDefaultValue;
+					CachedState.LinkedTo = OldPin->LinkedTo;
+				}
+			}
+		}
+	}
 }
 
 void UK2Node_SetMassFragment::PostReconstructNode()
@@ -305,7 +385,7 @@ void UK2Node_SetMassFragment::PinDefaultValueChanged(UEdGraphPin* Pin)
 			DelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
 
 			// [FIX] Apply exact signature immediately
-			SetDelegatePinType(DelegatePin);
+			K2Node_SetMassFragment_Local::SetDelegatePinType(DelegatePin);
 
 			bChanged = true;
 		}
@@ -516,28 +596,49 @@ void UK2Node_SetMassFragment::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
 
 void UK2Node_SetMassFragment::UpdateDataSourceType()
 {
-	// Detection Logic
+	// 1. Get pin
 	UEdGraphPin* DataSourcePin = FindPin(DataSourcePinName());
-	if (!DataSourcePin) { CachedDataSourceType = EMassFragmentSourceDataType::None; return; }
+	if (!DataSourcePin)
+	{
+		CachedDataSourceType = EMassFragmentSourceDataType::None;
+		return;
+	}
 
+	// 2. Extract struct and container types
 	UScriptStruct* DataSourceStruct = Cast<UScriptStruct>(DataSourcePin->PinType.PinSubCategoryObject.Get());
-	if (DataSourceStruct == FEntityHandle::StaticStruct()) CachedDataSourceType = EMassFragmentSourceDataType::EntityHandle;
-	else if (DataSourceStruct == FEntityTemplateData::StaticStruct()) CachedDataSourceType = EMassFragmentSourceDataType::EntityTemplateData;
-	else CachedDataSourceType = EMassFragmentSourceDataType::None;
+	const bool bIsArray = (DataSourcePin->PinType.ContainerType == EPinContainerType::Array);
 
-	// Visibility Logic
+	// 3. Decision table
+	if (DataSourceStruct == FEntityHandle::StaticStruct())
+	{
+		CachedDataSourceType = bIsArray ?
+			EMassFragmentSourceDataType::EntityHandleArray :
+			EMassFragmentSourceDataType::EntityHandle;
+	}
+	else if (DataSourceStruct == FEntityTemplateData::StaticStruct())
+	{
+		CachedDataSourceType = bIsArray ?
+			EMassFragmentSourceDataType::EntityTemplateDataArray :
+			EMassFragmentSourceDataType::EntityTemplateData;
+	}
+	else
+	{
+		CachedDataSourceType = EMassFragmentSourceDataType::None;
+	}
+
+	// 4. Visibility logic - bDeferred now supported for arrays too
 	UEdGraphPin* DeferredPin = FindPin(TEXT("bDeferred"));
 	if (DeferredPin)
 	{
-		const bool bShow = (CachedDataSourceType == EMassFragmentSourceDataType::EntityHandle);
+		const bool bShow = (CachedDataSourceType == EMassFragmentSourceDataType::EntityHandle ||
+							CachedDataSourceType == EMassFragmentSourceDataType::EntityHandleArray);
+
 		if (DeferredPin->bHidden == bShow)
 		{
 			DeferredPin->bHidden = !bShow;
 			if (!bShow) DeferredPin->BreakAllPinLinks();
 		}
 
-		// Also handle OnFinished visibility if we are hiding Deferred
-		// Actually, if we hide Deferred, we probably shouldn't show OnFinished either
 		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
 		if (DelegatePin && !bShow)
 		{
@@ -685,7 +786,7 @@ void UK2Node_SetMassFragment::OnFragmentTypeChanged()
 
 				FragmentInPin->PinType.PinCategory = UEdGraphSchema_K2::PC_Struct;
 				FragmentInPin->PinType.PinSubCategoryObject = SelectedStruct;
-				FragmentInPin->PinType.bIsReference = true;  // 使用引用传递，避免复制
+				FragmentInPin->PinType.bIsReference = false;  // 使用值传递，允许字面值输入
 				bPinTypeChanged = true;
 			}
 		}
@@ -761,7 +862,7 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 	}
 
 	// --- 1. Preserve Connections & State ---
-	TMap<FName, TArray<UEdGraphPin*>> OldMemberPinConnections;
+	TMap<FName, FCachedPinState> OldMemberPinStates;  // [FIX] Store both connections and values
 	TArray<UEdGraphPin*> OldDeferredPinConnections;
 	TArray<UEdGraphPin*> OldDelegatePinConnections;
 
@@ -784,15 +885,32 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 				OldDelegatePinConnections = Pin->LinkedTo;
 				bWasDelegatePinPresent = true;
 			}
-			else if (Pin->LinkedTo.Num() > 0 &&
-				Pin->PinName != UEdGraphSchema_K2::PN_Execute &&
+			else if (Pin->PinName != UEdGraphSchema_K2::PN_Execute &&
 				Pin->PinName != DataSourcePinName() &&
 				Pin->PinName != FragmentTypePinName())
 			{
-				OldMemberPinConnections.Add(Pin->PinName, Pin->LinkedTo);
+				// [FIX] Preserve both connections and DefaultValues
+				if (Pin->LinkedTo.Num() > 0 || !Pin->DefaultValue.IsEmpty() || !Pin->AutogeneratedDefaultValue.IsEmpty())
+				{
+					FCachedPinState& CachedState = OldMemberPinStates.Add(Pin->PinName);
+					CachedState.DefaultValue = Pin->DefaultValue;
+					CachedState.AutogeneratedDefaultValue = Pin->AutogeneratedDefaultValue;
+					CachedState.LinkedTo = Pin->LinkedTo;
+				}
 			}
 		}
 	}
+
+	// [FIX] Merge with any cached state from ReallocatePinsDuringReconstruction
+	// (these take priority as they come from the actual old pins before destruction)
+	for (const auto& CachedPair : CachedOldPinStates)
+	{
+		if (!OldMemberPinStates.Contains(CachedPair.Key))
+		{
+			OldMemberPinStates.Add(CachedPair.Key, CachedPair.Value);
+		}
+	}
+	CachedOldPinStates.Empty();  // Clear after use
 
 	// --- 2. Remove Dynamic Input Pins ---
 	TArray<UEdGraphPin*> InputPinsToRemove;
@@ -845,13 +963,24 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 			{
 				UEdGraphPin* NewPin = CreatePin(EGPD_Input, NewPinType.PinCategory, PinName);
 				NewPin->PinType = NewPinType;
-				NewPin->PinType.bIsReference = true;
+				NewPin->PinType.bIsReference = false;  // 使用值传递，允许字面值输入
 				NewPin->PinFriendlyName = FText::FromString(MemberPath);
 				bPinTypeChanged = true;
 
-				if (TArray<UEdGraphPin*>* LinkedPins = OldMemberPinConnections.Find(PinName))
+				// [FIX] Restore both connections and DefaultValue from cached state
+				if (FCachedPinState* CachedState = OldMemberPinStates.Find(PinName))
 				{
-					for (UEdGraphPin* LinkedPin : *LinkedPins) { if (LinkedPin) NewPin->MakeLinkTo(LinkedPin); }
+					// Restore connections
+					for (UEdGraphPin* LinkedPin : CachedState->LinkedTo)
+					{
+						if (LinkedPin)
+						{
+							NewPin->MakeLinkTo(LinkedPin);
+						}
+					}
+					// Restore DefaultValue (literal values entered by user)
+					NewPin->DefaultValue = CachedState->DefaultValue;
+					NewPin->AutogeneratedDefaultValue = CachedState->AutogeneratedDefaultValue;
 				}
 			}
 		}
@@ -874,7 +1003,7 @@ void UK2Node_SetMassFragment::OnMemberReferenceChanged()
 		UEdGraphPin* NewDelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
 
 		// [FIX] Apply exact signature
-		SetDelegatePinType(NewDelegatePin);
+		K2Node_SetMassFragment_Local::SetDelegatePinType(NewDelegatePin);
 
 		for (UEdGraphPin* LinkedPin : OldDelegatePinConnections)
 		{
@@ -959,8 +1088,335 @@ virtual void Compile() override
 		return;
 	}
 
-	// 根据bSetMember决定编译方式
-	if (OwnerNode->bSetMember)
+	// Validate array mode
+	bool bIsArray = (OwnerNode->CachedDataSourceType == EMassFragmentSourceDataType::EntityHandleArray ||
+					 OwnerNode->CachedDataSourceType == EMassFragmentSourceDataType::EntityTemplateDataArray);
+
+	if (bIsArray)
+	{
+		UEdGraphPin* DataSourcePin = ProxyPin(UK2Node_SetMassFragment::DataSourcePinName());
+		if (!DataSourcePin || DataSourcePin->LinkedTo.Num() == 0)
+		{
+			CompilerContext.MessageLog.Error(TEXT("DataSource array must be connected. @@"), OwnerNode);
+			return;
+		}
+
+		if (DataSourcePin->PinType.ContainerType != EPinContainerType::Array)
+		{
+			CompilerContext.MessageLog.Error(TEXT("Internal error: DataSource type mismatch (expected array). @@"), OwnerNode);
+			return;
+		}
+	}
+
+	// Array mode handling
+	if (bIsArray)
+	{
+		// ARRAY PATH: Generate ForEach loop
+		bool bIsEntityMode = (OwnerNode->CachedDataSourceType == EMassFragmentSourceDataType::EntityHandleArray);
+
+		// 1. Create loop counter
+		UK2Node_TemporaryVariable* LoopCounterNode = SpawnNode<UK2Node_TemporaryVariable>();
+		LoopCounterNode->VariableType.PinCategory = UEdGraphSchema_K2::PC_Int;
+		LoopCounterNode->AllocateDefaultPins();
+		UEdGraphPin* LoopCounterPin = LoopCounterNode->GetVariablePin();
+
+		// 2. Array Length
+		UK2Node_CallFunction* ArrayLengthNode = HNCH_SpawnFunctionNode(UKismetArrayLibrary, Array_Length);
+		UEdGraphPin* LengthArrayPin = ArrayLengthNode->FindPinChecked(TEXT("TargetArray"), EGPD_Input);
+		LengthArrayPin->PinType = ProxyPin(UK2Node_SetMassFragment::DataSourcePinName())->PinType;
+		CompilerContext.CopyPinLinksToIntermediate(*ProxyPin(UK2Node_SetMassFragment::DataSourcePinName()), *LengthArrayPin);
+
+		// 3. Counter initialization
+		UK2Node_AssignmentStatement* CounterInitNode = SpawnNode<UK2Node_AssignmentStatement>();
+		CounterInitNode->AllocateDefaultPins();
+		Link(LoopCounterPin, CounterInitNode->GetVariablePin());
+		CounterInitNode->GetValuePin()->DefaultValue = TEXT("0");
+
+		// 4. Branch node
+		UK2Node_IfThenElse* BranchNode = SpawnNode<UK2Node_IfThenElse>();
+		BranchNode->AllocateDefaultPins();
+
+		// 5. Loop condition (counter < length)
+		UK2Node_CallFunction* ConditionNode = HNCH_SpawnFunctionNode(UKismetMathLibrary, Less_IntInt);
+		Link(LoopCounterPin, ConditionNode->FindPinChecked(TEXT("A")));
+		Link(ArrayLengthNode->GetReturnValuePin(), ConditionNode->FindPinChecked(TEXT("B")));
+		Link(ConditionNode->GetReturnValuePin(), BranchNode->GetConditionPin());
+
+		// 6. Execution sequence
+		UK2Node_ExecutionSequence* SequenceNode = SpawnNode<UK2Node_ExecutionSequence>();
+		SequenceNode->AllocateDefaultPins();
+
+		// 7. Array Get (extract element)
+		UK2Node_CallFunction* ArrayGetNode = HNCH_SpawnFunctionNode(UKismetArrayLibrary, Array_Get);
+		UEdGraphPin* GetArrayPin = ArrayGetNode->FindPinChecked(TEXT("TargetArray"), EGPD_Input);
+		GetArrayPin->PinType = ProxyPin(UK2Node_SetMassFragment::DataSourcePinName())->PinType;
+		CompilerContext.CopyPinLinksToIntermediate(*ProxyPin(UK2Node_SetMassFragment::DataSourcePinName()), *GetArrayPin);
+		Link(LoopCounterPin, ArrayGetNode->FindPinChecked(TEXT("Index")));
+
+		// Set array element output pin type (copy from array but change container to None)
+		UEdGraphPin* ArrayItemPin = ArrayGetNode->FindPinChecked(TEXT("Item"));
+		ArrayItemPin->PinType = ProxyPin(UK2Node_SetMassFragment::DataSourcePinName())->PinType;
+		ArrayItemPin->PinType.ContainerType = EPinContainerType::None;
+
+		// 8. Check if bSetMember mode for arrays
+		if (OwnerNode->bSetMember)
+		{
+			// bSetMember mode with arrays: GetFragment → SetStructRecursiveMember → SetFragment for each element
+
+			// Validate MemberPaths
+			if (!OwnerNode->StructMemberReference.IsValid())
+			{
+				CompilerContext.MessageLog.Error(TEXT("No members selected. Please select members in the Details panel. @@"), OwnerNode);
+				return;
+			}
+
+			// For template mode, we need a temp var for the template element since Array_Get returns a copy
+			UK2Node_TemporaryVariable* TempTemplateVar = nullptr;
+			UEdGraphPin* TemplateSourcePin = nullptr;
+			UK2Node_AssignmentStatement* TempTemplateAssignNode = nullptr;
+
+			if (!bIsEntityMode)
+			{
+				// Create temporary variable to hold the template element
+				TempTemplateVar = SpawnNode<UK2Node_TemporaryVariable>();
+				TempTemplateVar->VariableType = ArrayItemPin->PinType;
+				TempTemplateVar->AllocateDefaultPins();
+				TemplateSourcePin = TempTemplateVar->GetVariablePin();
+
+				// Assign array element to temp var
+				TempTemplateAssignNode = SpawnNode<UK2Node_AssignmentStatement>();
+				TempTemplateAssignNode->AllocateDefaultPins();
+				Link(TemplateSourcePin, TempTemplateAssignNode->GetVariablePin());
+				Link(ArrayItemPin, TempTemplateAssignNode->GetValuePin());
+			}
+
+			// Create Knot nodes for distribution (array element/temp var and FragmentType need to go to multiple places)
+			UK2Node_Knot* ArrayElementKnot = SpawnKnotNode();
+			ArrayElementKnot->GetInputPin()->PinType = ArrayItemPin->PinType;
+			if (bIsEntityMode)
+			{
+				Link(ArrayItemPin, ArrayElementKnot->GetInputPin());
+			}
+			else
+			{
+				Link(TemplateSourcePin, ArrayElementKnot->GetInputPin());
+			}
+
+			UK2Node_Knot* FragmentTypeKnot = SpawnKnotNode();
+			Link(ProxyPin(UK2Node_SetMassFragment::FragmentTypePinName()), FragmentTypeKnot->GetInputPin());
+
+			// Create GetFragment function call
+			UK2Node_CallFunction* GetterFunctionNode;
+			FString GetterFunctionDataSourcePinName;
+			FString SetterFunctionDataSourcePinName;
+
+			if (bIsEntityMode)
+			{
+				GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Entity_Unified);
+				GetterFunctionDataSourcePinName = TEXT("EntityHandle");
+				SetterFunctionDataSourcePinName = TEXT("EntityHandle");
+			}
+			else
+			{
+				GetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, GetFragment_Template_Unified);
+				GetterFunctionDataSourcePinName = TEXT("TemplateData");
+				SetterFunctionDataSourcePinName = TEXT("TemplateData");
+			}
+
+			// Connect array element knot to GetFragment
+			Link(ArrayElementKnot->GetOutputPin(), FunctionInputPin(GetterFunctionNode, GetterFunctionDataSourcePinName));
+			Link(FragmentTypeKnot->GetOutputPin(), FunctionInputPin(GetterFunctionNode, TEXT("FragmentType")));
+
+			// Get OutFragment pin and set type
+			UEdGraphPin* OutFragmentPin = NodePin(GetterFunctionNode, TEXT("OutFragment"));
+			OutFragmentPin->PinType.PinCategory = UEdGraphSchema_K2::PC_Struct;
+			OutFragmentPin->PinType.PinSubCategoryObject = FragmentStruct;
+
+			// Create temporary variable
+			UK2Node_TemporaryVariable* TempVar = SpawnTempVarNode(
+				UEdGraphSchema_K2::PC_Struct,
+				NAME_None,
+				FragmentStruct
+			);
+
+			// Create Assignment node
+			UK2Node_AssignmentStatement* AssignNode = SpawnAssignNode(TempValuePin(TempVar));
+			Link(OutFragmentPin, AssignValuePin(AssignNode));
+
+			// Create SetStructRecursiveMember node
+			UK2Node_SetStructRecursiveMember* MemberNode = SpawnNode<UK2Node_SetStructRecursiveMember>();
+			MemberNode->StructMemberReference.StructType = FragmentStruct;
+			MemberNode->StructMemberReference.MemberPaths = OwnerNode->StructMemberReference.MemberPaths;
+			MemberNode->AllocateDefaultPins();
+			MemberNode->OnMemberReferenceChanged();
+
+			// Connect TempVar to MemberNode
+			Link(TempValuePin(TempVar), NodePin(MemberNode, TEXT("Struct")));
+
+			// Move member input pins
+			for (const FString& MemberPath : OwnerNode->StructMemberReference.MemberPaths)
+			{
+				FName PinName = UK2Node_SetMassFragment::InputPinName(MemberPath);
+				UEdGraphPin* OriginalInputPin = ProxyPin(PinName);
+				UEdGraphPin* MemberInputPin = NodePin(MemberNode, PinName.ToString());
+
+				if (OriginalInputPin && MemberInputPin)
+				{
+					Link(OriginalInputPin, MemberInputPin);
+				}
+			}
+
+			// Create SetFragment function call
+			UK2Node_CallFunction* SetterFunctionNode;
+
+			if (bIsEntityMode)
+			{
+				SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Entity_Unified);
+				Link(ProxyPin(TEXT("bDeferred")), FunctionInputPin(SetterFunctionNode, TEXT("bDeferred")));
+				if (UEdGraphPin* DelegatePin = ProxyPin(UK2Node_SetMassFragment::OnFinishedPinName()))
+				{
+					Link(DelegatePin, FunctionInputPin(SetterFunctionNode, TEXT("OnFinished")));
+				}
+			}
+			else
+			{
+				SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Template_Unified);
+			}
+
+			// Connect array element knot to SetFragment
+			Link(ArrayElementKnot->GetOutputPin(), FunctionInputPin(SetterFunctionNode, SetterFunctionDataSourcePinName));
+			Link(FragmentTypeKnot->GetOutputPin(), FunctionInputPin(SetterFunctionNode, TEXT("FragmentType")));
+
+			// Set InFragment pin type and connect TempVar
+			UEdGraphPin* InFragmentPin = FunctionInputPin(SetterFunctionNode, TEXT("InFragment"));
+			InFragmentPin->PinType.PinCategory = UEdGraphSchema_K2::PC_Struct;
+			InFragmentPin->PinType.PinSubCategoryObject = FragmentStruct;
+			InFragmentPin->PinType.bIsReference = true;
+			Link(TempValuePin(TempVar), InFragmentPin);
+
+			// Connect execution flow
+			if (bIsEntityMode)
+			{
+				Link(SequenceNode->GetThenPinGivenIndex(0), ExecPin(AssignNode));
+				Link(ThenPin(AssignNode), ExecPin(MemberNode));
+				Link(ThenPin(MemberNode), ExecPin(SetterFunctionNode));
+				Link(ThenPin(SetterFunctionNode), SequenceNode->GetThenPinGivenIndex(1));
+			}
+			else
+			{
+				// Template mode: need Array_Set to write modified template back
+				UK2Node_CallFunction* ArraySetNode = HNCH_SpawnFunctionNode(UKismetArrayLibrary, Array_Set);
+				UEdGraphPin* SetArrayPin = ArraySetNode->FindPinChecked(TEXT("TargetArray"), EGPD_Input);
+				SetArrayPin->PinType = ProxyPin(UK2Node_SetMassFragment::DataSourcePinName())->PinType;
+				CompilerContext.CopyPinLinksToIntermediate(*ProxyPin(UK2Node_SetMassFragment::DataSourcePinName()), *SetArrayPin);
+				Link(LoopCounterPin, ArraySetNode->FindPinChecked(TEXT("Index")));
+				UEdGraphPin* SetItemPin = ArraySetNode->FindPinChecked(TEXT("Item"));
+				SetItemPin->PinType = TemplateSourcePin->PinType;
+				Link(TemplateSourcePin, SetItemPin);
+
+				// Execution: TempTemplateAssign → AssignFragment → MemberNode → SetFragment → Array_Set
+				Link(SequenceNode->GetThenPinGivenIndex(0), ExecPin(TempTemplateAssignNode));
+				Link(ThenPin(TempTemplateAssignNode), ExecPin(AssignNode));
+				Link(ThenPin(AssignNode), ExecPin(MemberNode));
+				Link(ThenPin(MemberNode), ExecPin(SetterFunctionNode));
+				Link(ThenPin(SetterFunctionNode), ExecPin(ArraySetNode));
+				Link(ThenPin(ArraySetNode), SequenceNode->GetThenPinGivenIndex(1));
+
+				// Reconstruct Array_Set node to finalize pin types
+				ArraySetNode->PostReconstructNode();
+			}
+		}
+		else
+		{
+			// Standard mode with arrays: Direct SetFragment call for each element
+
+			// Create SetFragment function call
+			UK2Node_CallFunction* SetterFunctionNode;
+
+			if (bIsEntityMode)
+			{
+				SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Entity_Unified);
+				Link(ArrayItemPin, FunctionInputPin(SetterFunctionNode, TEXT("EntityHandle")));
+				Link(ProxyPin(TEXT("bDeferred")), FunctionInputPin(SetterFunctionNode, TEXT("bDeferred")));
+				if (UEdGraphPin* DelegatePin = ProxyPin(UK2Node_SetMassFragment::OnFinishedPinName()))
+				{
+					Link(DelegatePin, FunctionInputPin(SetterFunctionNode, TEXT("OnFinished")));
+				}
+
+				Link(ProxyPin(UK2Node_SetMassFragment::FragmentTypePinName()), FunctionInputPin(SetterFunctionNode, TEXT("FragmentType")));
+				Link(ProxyPin(UK2Node_SetMassFragment::FragmentInPinName()), FunctionInputPin(SetterFunctionNode, TEXT("InFragment")));
+
+				// Connect execution flow
+				Link(SequenceNode->GetThenPinGivenIndex(0), ExecPin(SetterFunctionNode));
+				Link(ThenPin(SetterFunctionNode), SequenceNode->GetThenPinGivenIndex(1));
+			}
+			else
+			{
+				// Template mode: Array_Get returns a copy, so we need to use a temp var and Array_Set to write back
+
+				// Create temporary variable to hold the template element
+				UK2Node_TemporaryVariable* TempTemplateVar = SpawnNode<UK2Node_TemporaryVariable>();
+				TempTemplateVar->VariableType = ArrayItemPin->PinType;
+				TempTemplateVar->AllocateDefaultPins();
+				UEdGraphPin* TempTemplatePin = TempTemplateVar->GetVariablePin();
+
+				// Assign array element to temp var
+				UK2Node_AssignmentStatement* TempAssignNode = SpawnNode<UK2Node_AssignmentStatement>();
+				TempAssignNode->AllocateDefaultPins();
+				Link(TempTemplatePin, TempAssignNode->GetVariablePin());
+				Link(ArrayItemPin, TempAssignNode->GetValuePin());
+
+				// Call SetFragment_Template_Unified with the temp var (by ref, so it gets modified)
+				SetterFunctionNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, SetFragment_Template_Unified);
+				Link(TempTemplatePin, FunctionInputPin(SetterFunctionNode, TEXT("TemplateData")));
+				Link(ProxyPin(UK2Node_SetMassFragment::FragmentTypePinName()), FunctionInputPin(SetterFunctionNode, TEXT("FragmentType")));
+				Link(ProxyPin(UK2Node_SetMassFragment::FragmentInPinName()), FunctionInputPin(SetterFunctionNode, TEXT("InFragment")));
+
+				// Array_Set to write the modified template back into the array
+				UK2Node_CallFunction* ArraySetNode = HNCH_SpawnFunctionNode(UKismetArrayLibrary, Array_Set);
+				UEdGraphPin* SetArrayPin = ArraySetNode->FindPinChecked(TEXT("TargetArray"), EGPD_Input);
+				SetArrayPin->PinType = ProxyPin(UK2Node_SetMassFragment::DataSourcePinName())->PinType;
+				CompilerContext.CopyPinLinksToIntermediate(*ProxyPin(UK2Node_SetMassFragment::DataSourcePinName()), *SetArrayPin);
+				Link(LoopCounterPin, ArraySetNode->FindPinChecked(TEXT("Index")));
+				UEdGraphPin* SetItemPin = ArraySetNode->FindPinChecked(TEXT("Item"));
+				SetItemPin->PinType = TempTemplatePin->PinType;
+				Link(TempTemplatePin, SetItemPin);
+
+				// Connect execution flow: TempAssign → SetFragment → Array_Set
+				Link(SequenceNode->GetThenPinGivenIndex(0), ExecPin(TempAssignNode));
+				Link(ThenPin(TempAssignNode), ExecPin(SetterFunctionNode));
+				Link(ThenPin(SetterFunctionNode), ExecPin(ArraySetNode));
+				Link(ThenPin(ArraySetNode), SequenceNode->GetThenPinGivenIndex(1));
+
+				// Reconstruct Array_Set node to finalize pin types
+				ArraySetNode->PostReconstructNode();
+			}
+		}
+
+		// 9. Increment counter
+		UK2Node_CallFunction* IncrementNode = HNCH_SpawnFunctionNode(UKismetMathLibrary, Add_IntInt);
+		Link(LoopCounterPin, IncrementNode->FindPinChecked(TEXT("A")));
+		IncrementNode->FindPinChecked(TEXT("B"))->DefaultValue = TEXT("1");
+
+		UK2Node_AssignmentStatement* CounterAssignNode = SpawnNode<UK2Node_AssignmentStatement>();
+		CounterAssignNode->AllocateDefaultPins();
+		Link(LoopCounterPin, CounterAssignNode->GetVariablePin());
+		Link(IncrementNode->GetReturnValuePin(), CounterAssignNode->GetValuePin());
+
+		// 10. Connect execution flow
+		Link(ProxyExecPin(), ExecPin(CounterInitNode));
+		Link(ThenPin(CounterInitNode), ExecPin(BranchNode));
+		Link(BranchNode->GetThenPin(), ExecPin(SequenceNode));
+		Link(SequenceNode->GetThenPinGivenIndex(1), ExecPin(CounterAssignNode));
+		Link(ThenPin(CounterAssignNode), ExecPin(BranchNode));  // Loop back
+		Link(BranchNode->GetElsePin(), ProxyThenPin());
+
+		// 11. Reconstruct array function nodes to finalize pin types (must be after all connections)
+		ArrayLengthNode->PostReconstructNode();
+		ArrayGetNode->PostReconstructNode();
+	}
+	// 根据bSetMember决定编译方式 (SINGLE-ENTITY PATH)
+	else if (OwnerNode->bSetMember)
 	{
 		// 设置成员模式：GetFragment → LocalWildcard → SetStructRecursiveMemberField → SetFragment
 
@@ -1048,7 +1504,18 @@ virtual void Compile() override
 
 			if (OriginalInputPin && MemberInputPin)
 			{
-				Link(OriginalInputPin, MemberInputPin);
+				if (OriginalInputPin->LinkedTo.Num() > 0)
+				{
+					// 有连接，传递连接
+					Link(OriginalInputPin, MemberInputPin);
+				}
+				else if (!OriginalInputPin->DefaultValue.IsEmpty())
+				{
+					// 处理字面值：直接复制 DefaultValue
+					MemberInputPin->DefaultValue = OriginalInputPin->DefaultValue;
+					MemberInputPin->bDefaultValueIsIgnored = false;
+					MemberInputPin->bDefaultValueIsReadOnly = OriginalInputPin->bDefaultValueIsReadOnly;
+				}
 			}
 		}
 
@@ -1125,7 +1592,21 @@ virtual void Compile() override
 		// 连接参数引脚
 		Link(ProxyPin(UK2Node_SetMassFragment::DataSourcePinName()), FunctionInputPin(SetterFunctionNode, SetterFunctionDataSourcePinName));
 		Link(ProxyPin(UK2Node_SetMassFragment::FragmentTypePinName()), FunctionInputPin(SetterFunctionNode, TEXT("FragmentType")));
-		Link(ProxyPin(UK2Node_SetMassFragment::FragmentInPinName()), FunctionInputPin(SetterFunctionNode, TEXT("InFragment")));
+
+		// 处理 FragmentIn 引脚：支持连接和字面值
+		UEdGraphPin* FragmentInPin = ProxyPin(UK2Node_SetMassFragment::FragmentInPinName());
+		UEdGraphPin* TargetInFragmentPin = FunctionInputPin(SetterFunctionNode, TEXT("InFragment"));
+		if (FragmentInPin->LinkedTo.Num() > 0)
+		{
+			Link(FragmentInPin, TargetInFragmentPin);
+		}
+		else if (!FragmentInPin->DefaultValue.IsEmpty())
+		{
+			// 处理字面值
+			TargetInFragmentPin->DefaultValue = FragmentInPin->DefaultValue;
+			TargetInFragmentPin->bDefaultValueIsIgnored = false;
+			TargetInFragmentPin->bDefaultValueIsReadOnly = FragmentInPin->bDefaultValueIsReadOnly;
+		}
 	}
 }
 

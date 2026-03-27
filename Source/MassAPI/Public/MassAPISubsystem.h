@@ -1,7 +1,7 @@
 /*
 * MassAPI
 * Created: 2025
-* Author: Leroy Works, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #pragma once
@@ -189,13 +189,19 @@ public:
 		FMassEntityManager* Manager = GetEntityManager();
 		checkf(Manager, TEXT("EntityManager is not available"));
 
-		// 从查询中获取缓存的位掩码
-		const int64 AllFlagsQuery = Query.GetAllFlagsBitmask();
-		const int64 AnyFlagsQuery = Query.GetAnyFlagsBitmask();
-		const int64 NoneFlagsQuery = Query.GetNoneFlagsBitmask();
+		// 从查询中获取缓存的位掩码 (低位 0-63)
+		const int64 AllFlagsQueryLow = Query.GetAllFlagsBitmask();
+		const int64 AnyFlagsQueryLow = Query.GetAnyFlagsBitmask();
+		const int64 NoneFlagsQueryLow = Query.GetNoneFlagsBitmask();
+
+		// 从查询中获取缓存的位掩码 (高位 64-127)
+		const int64 AllFlagsQueryHigh = Query.GetAllFlagsBitmaskHigh();
+		const int64 AnyFlagsQueryHigh = Query.GetAnyFlagsBitmaskHigh();
+		const int64 NoneFlagsQueryHigh = Query.GetNoneFlagsBitmaskHigh();
 
 		// 只有在有标志位查询时才执行检查
-		if (AllFlagsQuery == 0 && AnyFlagsQuery == 0 && NoneFlagsQuery == 0)
+		if (AllFlagsQueryLow == 0 && AnyFlagsQueryLow == 0 && NoneFlagsQueryLow == 0 &&
+		    AllFlagsQueryHigh == 0 && AnyFlagsQueryHigh == 0 && NoneFlagsQueryHigh == 0)
 		{
 			return true; // 没有标志位查询，总是通过
 		}
@@ -204,14 +210,26 @@ public:
 		const FEntityFlagFragment* FlagFragment = Manager->GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle);
 
 		// 如果实体没有 Flag Fragment，则认为它的标志位为 0
-		const int64 EntityFlags = FlagFragment ? FlagFragment->Flags : 0;
+		const int64 EntityFlagsLow = FlagFragment ? FlagFragment->Flags : 0;
+		const int64 EntityFlagsHigh = FlagFragment ? FlagFragment->FlagsHigh : 0;
 
-		// 执行标志位检查
-		const bool bAllFlags = (AllFlagsQuery == 0) || ((EntityFlags & AllFlagsQuery) == AllFlagsQuery);
-		const bool bAnyFlags = (AnyFlagsQuery == 0) || ((EntityFlags & AnyFlagsQuery) != 0);
-		const bool bNoneFlags = (NoneFlagsQuery == 0) || ((EntityFlags & NoneFlagsQuery) == 0);
+		// 执行标志位检查 (低位 + 高位)
+		// All flags: must have ALL in both low and high
+		const bool bAllLow = (AllFlagsQueryLow == 0) || ((EntityFlagsLow & AllFlagsQueryLow) == AllFlagsQueryLow);
+		const bool bAllHigh = (AllFlagsQueryHigh == 0) || ((EntityFlagsHigh & AllFlagsQueryHigh) == AllFlagsQueryHigh);
+		const bool bAllFlags = bAllLow && bAllHigh;
 
-		return (bAllFlags && bAnyFlags && bNoneFlags);
+		// Any flags: need at least one match across both
+		const bool bAnyPass = (AnyFlagsQueryLow == 0 && AnyFlagsQueryHigh == 0)
+		                    || ((EntityFlagsLow & AnyFlagsQueryLow) != 0)
+		                    || ((EntityFlagsHigh & AnyFlagsQueryHigh) != 0);
+
+		// None flags: must NOT have any in either
+		const bool bNoneLow = (NoneFlagsQueryLow == 0) || ((EntityFlagsLow & NoneFlagsQueryLow) == 0);
+		const bool bNoneHigh = (NoneFlagsQueryHigh == 0) || ((EntityFlagsHigh & NoneFlagsQueryHigh) == 0);
+		const bool bNoneFlags = bNoneLow && bNoneHigh;
+
+		return (bAllFlags && bAnyPass && bNoneFlags);
 	}
 
 	/**
@@ -1277,11 +1295,18 @@ public:
 	//--------------- Flag Operations ---------------
 
 	/**
-	 * 获取实体当前的 64 位标志位掩码。
+	 * 获取实体当前的低位 64 位标志位掩码 (flags 0-63)。
 	 * @param EntityHandle The entity to check.
 	 * @return The 64-bit flag mask. Returns 0 if the entity is invalid or has no flag fragment.
 	 */
 	int64 GetEntityFlags(FMassEntityHandle EntityHandle) const;
+
+	/**
+	 * 获取实体当前的高位 64 位标志位掩码 (flags 64-127)。
+	 * @param EntityHandle The entity to check.
+	 * @return The 64-bit high flag mask. Returns 0 if the entity is invalid or has no flag fragment.
+	 */
+	int64 GetEntityFlagsHigh(FMassEntityHandle EntityHandle) const;
 
 	/**
 	 * 检查实体是否拥有某个特定标志。
@@ -1316,7 +1341,7 @@ public:
 	 * 每次迭代时触发的委托
 	 * 用于 ForEachMatchingEntities 蓝图节点
 	 */
-	UPROPERTY(BlueprintAssignable)
+	UPROPERTY(BlueprintAssignable, Category = "MassAPI")
 	FOnEntityIterate OnEntityIterate;
 
 	/**

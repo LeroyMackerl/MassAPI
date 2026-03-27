@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Magnus Extension
 * Author: Ember, All Rights Reserved.
 */
@@ -10,6 +10,7 @@ public class MagnusExtension : ModuleRules
     public MagnusExtension(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+        bUseUnity = false;
 
         PublicIncludePaths.AddRange(new string[] {
             ModuleDirectory + "/Public",
@@ -19,7 +20,7 @@ public class MagnusExtension : ModuleRules
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
-                "Core", 
+                "Core",
             }
         );
 
@@ -32,7 +33,7 @@ public class MagnusExtension : ModuleRules
                 "SlateCore",
             }
         );
-        
+
         if (Target.bBuildEditor)
         {
             PrivateDependencyModuleNames.AddRange(

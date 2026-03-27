@@ -10,6 +10,7 @@ public class MassAPI : ModuleRules
     public MassAPI(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+        bUseUnity = false;
 
         PublicIncludePaths.AddRange(
             new string[] {

@@ -49,9 +49,9 @@ public: \
 #define END_MCPH_DEFINE \
 };
 
-// 获取自定义属性类名
-#define MCPH_CLASS(StructName) \
-FMagnusCustomProperty_##StructName
+// 获取自定义属性类名 (双层宏用于确保参数在 ## 之前被展开)
+#define MCPH_CLASS_IMPL(StructName) FMagnusCustomProperty_##StructName
+#define MCPH_CLASS(StructName) MCPH_CLASS_IMPL(StructName)
 
 //———————— Header						    																        ————
 
@@ -194,30 +194,28 @@ static FMCPHCustomPropertyAdder_##StructType GMCPHAutoRegister_##StructType;
 
 //———————— Implementation (CPP)			    																        ————
 
+// 开始实现块（注册自定义属性）
 #define BEGIN_MCPH_IMPLEMENT(StructName) \
 _Pragma("warning(push)") \
 _Pragma("warning(disable: 4996)") \
-namespace MCPH_Impl_##StructName { \
-	typedef StructName __MCPH_StructType; \
-	typedef MCPH_CLASS(StructName) __MCPH_ClassType; \
-} \
-using namespace MCPH_Impl_##StructName; \
 MCPH_AUTO_REGISTER(StructName)
 
-// Header 实现（无需参数，使用 BEGIN_MCPH_IMPLEMENT 中定义的类型）
+// Header 实现（需要传入 StructName）
 #define MCPH_HEADER_IMPLEMENT \
-void __MCPH_ClassType::CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils)
+void MCPH_THIS_CLASS::CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils)
 
-// Children 实现（无需参数，使用 BEGIN_MCPH_IMPLEMENT 中定义的类型）
+// Children 实现（需要传入 StructName）
 #define MCPH_CHILDREN_IMPLEMENT \
-void __MCPH_ClassType::CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
+void MCPH_THIS_CLASS::CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
 
-// 获取当前自定义属性类（用于成员函数实现）
-#define MCPH_THIS_CLASS __MCPH_ClassType
+// 获取当前自定义属性类（需在每个 .cpp 文件顶部定义 MCPH_CURRENT_STRUCT）
+// 用法: 在 BEGIN_MCPH_IMPLEMENT 之前添加 #define MCPH_CURRENT_STRUCT YourStructName
+#define MCPH_THIS_CLASS MCPH_CLASS(MCPH_CURRENT_STRUCT)
 
 // 结束实现块
 #define END_MCPH_IMPLEMENT \
-_Pragma("warning(pop)")
+_Pragma("warning(pop)") \
+/* 在文件末尾 undef MCPH_CURRENT_STRUCT 以避免污染 */
 
 #endif // WITH_EDITOR
 

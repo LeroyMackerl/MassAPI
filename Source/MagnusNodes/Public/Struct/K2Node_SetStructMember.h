@@ -23,37 +23,42 @@ public:
 
 	//================ Node.Configuration																		========
 
-	//———————— Node.Config																							————
+	//———————— Node.Config
 
 	virtual bool IsNodePure() const override { return false; }
+	virtual bool ShouldShowNodeProperties() const override { return true; }
 
 	//================ Node.Properties																			========
 
+	/** 结构体成员引用 */
 	UPROPERTY(EditAnywhere, Category = "MemberSelection")
 	FStructMemberReference StructMemberReference;
 
+	FNodeTextCache CachedTooltip;
+	FNodeTextCache CachedNodeTitle;
+
 	//================ Pin.Management																			========
 
-	//———————— Pin.Construction																						————
+	//———————— Pin.Construction
 
 	virtual void AllocateDefaultPins() override;
 
-	//———————— Pin.Modification																						————
+	//———————— Pin.Modification
 
 	virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) override;
 	virtual void PostReconstructNode() override;
 
-	//———————— Pin.ValueChange																						————
+	//———————— Pin.ValueChange
 
 	virtual void PinDefaultValueChanged(UEdGraphPin* Pin) override;
 	virtual void PinTypeChanged(UEdGraphPin* Pin) override;
 
-	//———————— Pin.Connection																						————
+	//———————— Pin.Connection
 
 	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override;
 	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
 
-	//———————— Pin.Reconstruct																						————
+	//———————— Pin.Reconstruct
 
 	virtual void ValidateNodeDuringCompilation(FCompilerResultsLog& MessageLog) const override;
 
@@ -71,13 +76,13 @@ public:
 	static FName StructPinName() { return FName(TEXT("Struct")); }
 	static FName MemberPinName() { return FName(TEXT("FieldValue")); }
 
-	//================ Editor.PropertyChange																	========
+	//================ Editor.PropertyChange																========
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
-	//================ Blueprint.Integration																	========
+	//================ Blueprint.Integration																========
 
-	//———————— Blueprint.Compile																					————
+	//———————— Blueprint.Compile
 
 	virtual FNodeHandlingFunctor* CreateNodeHandler(FKismetCompilerContext& CompilerContext) const override;
 

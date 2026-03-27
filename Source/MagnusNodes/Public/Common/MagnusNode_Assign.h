@@ -29,7 +29,7 @@ public:
 	//———————— Node.Config																							————
 
 	virtual bool ShouldDrawCompact() const { return true; }
-	virtual int32 GetNodeRefreshPriority() const override { return EBaseNodeRefreshPriority::Low_UsesDependentWildcard; }
+	virtual int32 GetNodeRefreshPriority() const override { return Low_UsesDependentWildcard; }
 
 	//———————— Node.Appearance																						————
 
@@ -65,11 +65,11 @@ public:
 	//———————— Blueprint.Menu																						————
 
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
-	virtual bool IsActionFilteredOut(class FBlueprintActionFilter const& Filter) override;
+	virtual bool IsActionFilteredOut(FBlueprintActionFilter const& Filter) override;
 
 	//———————— Blueprint.Compile																					————
 
-	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
+	virtual FNodeHandlingFunctor* CreateNodeHandler(FKismetCompilerContext& CompilerContext) const override;
 
 };
 

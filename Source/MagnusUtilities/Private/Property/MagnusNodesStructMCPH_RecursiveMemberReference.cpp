@@ -8,6 +8,10 @@
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 #if WITH_EDITOR
+
+// Define the current struct type for MCPH_THIS_CLASS macro
+#define MCPH_CURRENT_STRUCT FStructRecursiveMemberReference
+
 BEGIN_MCPH_IMPLEMENT(FStructRecursiveMemberReference)
 
 MCPH_HEADER_IMPLEMENT
@@ -26,29 +30,6 @@ MCPH_HEADER_IMPLEMENT
 		// 监听 StructType 变化
 		StructTypeHandle->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &MCPH_THIS_CLASS::OnStructTypeChanged));
 	}
-
-	/*// 构建 Header
-	HeaderRow
-		.NameContent()
-		[
-			PropertyHandle->CreatePropertyNameWidget()
-		]
-		.ValueContent()
-		.MinDesiredWidth(300.0f)
-		.MaxDesiredWidth(600.0f)
-		[
-			SNew(SHorizontalBox)
-			// 显示当前值
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.0f)
-			.VAlign(VAlign_Center)
-			.Padding(2.0f)
-			[
-				SNew(STextBlock)
-				.Text(this, &MCPH_THIS_CLASS::GetCurrentValueText)
-				.Font(IDetailLayoutBuilder::GetDetailFont())
-			]
-		];*/
 }
 
 MCPH_CHILDREN_IMPLEMENT
@@ -96,39 +77,39 @@ void MCPH_THIS_CLASS::BuildRecursiveMemberRows(
 				.NameContent()
 				[
 					SNew(SHorizontalBox)
-					// CheckBox
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SCheckBox)
-						.IsChecked_Lambda([this, FullPath]()
-						{
-							return IsPathSelected(FullPath) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-						})
-						.OnCheckStateChanged_Lambda([this, FullPath](ECheckBoxState NewState)
-						{
-							TogglePathSelection(FullPath);
-						})
-					]
+						// CheckBox
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						[
+							SNew(SCheckBox)
+								.IsChecked_Lambda([this, FullPath]()
+									{
+										return IsPathSelected(FullPath) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+									})
+								.OnCheckStateChanged_Lambda([this, FullPath](ECheckBoxState NewState)
+									{
+										TogglePathSelection(FullPath);
+									})
+						]
 					// 成员名称
 					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.VAlign(VAlign_Center)
-					.Padding(FMargin(5, 0))
-					[
-						SNew(STextBlock)
-						.Text(PropertyDisplayName)
-						.Font(IDetailLayoutBuilder::GetDetailFont())
-					]
+						.FillWidth(1.0f)
+						.VAlign(VAlign_Center)
+						.Padding(FMargin(5, 0))
+						[
+							SNew(STextBlock)
+								.Text(PropertyDisplayName)
+								.Font(IDetailLayoutBuilder::GetDetailFont())
+						]
 				]
-				.ValueContent()
+			.ValueContent()
 				[
 					// 类型信息
 					SNew(STextBlock)
-					.Text(FText::FromString(PropertyType))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-					.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
+						.Text(FText::FromString(PropertyType))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+						.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
 				];
 
 			// 递归构建子成员
@@ -141,39 +122,39 @@ void MCPH_THIS_CLASS::BuildRecursiveMemberRows(
 				.NameContent()
 				[
 					SNew(SHorizontalBox)
-					// CheckBox
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SCheckBox)
-						.IsChecked_Lambda([this, FullPath]()
-						{
-							return IsPathSelected(FullPath) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-						})
-						.OnCheckStateChanged_Lambda([this, FullPath](ECheckBoxState NewState)
-						{
-							TogglePathSelection(FullPath);
-						})
-					]
+						// CheckBox
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						[
+							SNew(SCheckBox)
+								.IsChecked_Lambda([this, FullPath]()
+									{
+										return IsPathSelected(FullPath) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+									})
+								.OnCheckStateChanged_Lambda([this, FullPath](ECheckBoxState NewState)
+									{
+										TogglePathSelection(FullPath);
+									})
+						]
 					// 成员名称
 					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.VAlign(VAlign_Center)
-					.Padding(FMargin(5, 0))
-					[
-						SNew(STextBlock)
-						.Text(PropertyDisplayName)
-						.Font(IDetailLayoutBuilder::GetDetailFont())
-					]
+						.FillWidth(1.0f)
+						.VAlign(VAlign_Center)
+						.Padding(FMargin(5, 0))
+						[
+							SNew(STextBlock)
+								.Text(PropertyDisplayName)
+								.Font(IDetailLayoutBuilder::GetDetailFont())
+						]
 				]
-				.ValueContent()
+			.ValueContent()
 				[
 					// 类型信息
 					SNew(STextBlock)
-					.Text(FText::FromString(PropertyType))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-					.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
+						.Text(FText::FromString(PropertyType))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+						.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
 				];
 		}
 	}
@@ -218,39 +199,39 @@ void MCPH_THIS_CLASS::BuildRecursiveMemberRowsForGroup(
 				.NameContent()
 				[
 					SNew(SHorizontalBox)
-					// CheckBox
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SCheckBox)
-						.IsChecked_Lambda([this, FullPath]()
-						{
-							return IsPathSelected(FullPath) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-						})
-						.OnCheckStateChanged_Lambda([this, FullPath](ECheckBoxState NewState)
-						{
-							TogglePathSelection(FullPath);
-						})
-					]
+						// CheckBox
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						[
+							SNew(SCheckBox)
+								.IsChecked_Lambda([this, FullPath]()
+									{
+										return IsPathSelected(FullPath) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+									})
+								.OnCheckStateChanged_Lambda([this, FullPath](ECheckBoxState NewState)
+									{
+										TogglePathSelection(FullPath);
+									})
+						]
 					// 成员名称
 					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.VAlign(VAlign_Center)
-					.Padding(FMargin(5, 0))
-					[
-						SNew(STextBlock)
-						.Text(PropertyDisplayName)
-						.Font(IDetailLayoutBuilder::GetDetailFont())
-					]
+						.FillWidth(1.0f)
+						.VAlign(VAlign_Center)
+						.Padding(FMargin(5, 0))
+						[
+							SNew(STextBlock)
+								.Text(PropertyDisplayName)
+								.Font(IDetailLayoutBuilder::GetDetailFont())
+						]
 				]
-				.ValueContent()
+			.ValueContent()
 				[
 					// 类型信息
 					SNew(STextBlock)
-					.Text(FText::FromString(PropertyType))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-					.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
+						.Text(FText::FromString(PropertyType))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+						.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
 				];
 
 			// 递归构建子成员
@@ -263,39 +244,39 @@ void MCPH_THIS_CLASS::BuildRecursiveMemberRowsForGroup(
 				.NameContent()
 				[
 					SNew(SHorizontalBox)
-					// CheckBox
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SCheckBox)
-						.IsChecked_Lambda([this, FullPath]()
-						{
-							return IsPathSelected(FullPath) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-						})
-						.OnCheckStateChanged_Lambda([this, FullPath](ECheckBoxState NewState)
-						{
-							TogglePathSelection(FullPath);
-						})
-					]
+						// CheckBox
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						[
+							SNew(SCheckBox)
+								.IsChecked_Lambda([this, FullPath]()
+									{
+										return IsPathSelected(FullPath) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+									})
+								.OnCheckStateChanged_Lambda([this, FullPath](ECheckBoxState NewState)
+									{
+										TogglePathSelection(FullPath);
+									})
+						]
 					// 成员名称
 					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.VAlign(VAlign_Center)
-					.Padding(FMargin(5, 0))
-					[
-						SNew(STextBlock)
-						.Text(PropertyDisplayName)
-						.Font(IDetailLayoutBuilder::GetDetailFont())
-					]
+						.FillWidth(1.0f)
+						.VAlign(VAlign_Center)
+						.Padding(FMargin(5, 0))
+						[
+							SNew(STextBlock)
+								.Text(PropertyDisplayName)
+								.Font(IDetailLayoutBuilder::GetDetailFont())
+						]
 				]
-				.ValueContent()
+			.ValueContent()
 				[
 					// 类型信息
 					SNew(STextBlock)
-					.Text(FText::FromString(PropertyType))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-					.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
+						.Text(FText::FromString(PropertyType))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+						.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
 				];
 		}
 	}
@@ -366,10 +347,10 @@ void MCPH_THIS_CLASS::RemoveConflictingPaths(const FString& Path, TArray<FString
 {
 	// 移除所有是Path的父节点或子节点的路径
 	Paths.RemoveAll([this, &Path](const FString& ExistingPath)
-	{
-		// 如果ExistingPath是Path的父节点或子节点，则移除
-		return IsParentOf(ExistingPath, Path) || IsChildOf(ExistingPath, Path);
-	});
+		{
+			// 如果ExistingPath是Path的父节点或子节点，则移除
+			return IsParentOf(ExistingPath, Path) || IsChildOf(ExistingPath, Path);
+		});
 }
 
 void MCPH_THIS_CLASS::TogglePathSelection(const FString& Path)
@@ -503,6 +484,9 @@ FReply MCPH_THIS_CLASS::OnClearClicked()
 }
 
 END_MCPH_IMPLEMENT
+
+#undef MCPH_CURRENT_STRUCT
+
 #endif
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

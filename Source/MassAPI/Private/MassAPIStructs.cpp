@@ -1,7 +1,7 @@
 /*
 * MassAPI
 * Created: 2025
-* Author: Leroy Works, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #include "MassAPIStructs.h"
@@ -58,22 +58,31 @@ void FEntityTemplate::GetTemplateData(FMassEntityTemplateData& OutTemplateData, 
     }
 
     // 5. Add Entity Flags
-    // If the Flags array has content, we create an FEntityFlagFragment, calculate the bitmask,
-    // and add it to the template data.
+    // If the Flags array has content, we create an FEntityFlagFragment, calculate the bitmasks,
+    // and add it to the template data. Flags 0-63 go to Flags, 64-127 go to FlagsHigh.
     if (Flags.Num() > 0)
     {
         FEntityFlagFragment FlagFragment;
         FlagFragment.Flags = 0;
+        FlagFragment.FlagsHigh = 0;
 
         for (const EEntityFlags Flag : Flags)
         {
             if (Flag < EEntityFlags::EEntityFlags_MAX)
             {
-                FlagFragment.Flags |= (1LL << static_cast<uint8>(Flag));
+                const uint8 Index = static_cast<uint8>(Flag);
+                if (Index >= 64)
+                {
+                    FlagFragment.FlagsHigh |= (1LL << (Index - 64));
+                }
+                else
+                {
+                    FlagFragment.Flags |= (1LL << Index);
+                }
             }
         }
 
-        // Add the fragment to the composition and store its initial value (the calculated bitmask)
+        // Add the fragment to the composition and store its initial value (the calculated bitmasks)
         OutTemplateData.AddFragment(FConstStructView::Make(FlagFragment));
     }
 }

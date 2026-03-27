@@ -1,7 +1,7 @@
 ﻿/*
 * MassAPI
 * Created: 2025
-* Author: Leroy Works, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #include "Deprecated/K2Node_GetFragment.h"

@@ -1,7 +1,7 @@
 /*
-* MassAPI Uncooked
+* MassAPI
 * Created: 2025
-* Author: Leroy Works & Ember, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #include "OperationFragment/K2Node_RemoveMassFragment.h"
@@ -21,7 +21,7 @@
 namespace UK2Node_RemoveMassFragmentHelper
 {
 	// DataSource类型到标题的映射
-	const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
+	static const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
 	{
 		{ EMassFragmentSourceDataType::None,				TEXT("RemoveMassFragment") },
 		{ EMassFragmentSourceDataType::EntityHandle,		TEXT("RemoveMassFragment-Entity") },
@@ -29,7 +29,7 @@ namespace UK2Node_RemoveMassFragmentHelper
 	};
 
 	// 3. Clear - Icon Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
@@ -37,7 +37,7 @@ namespace UK2Node_RemoveMassFragmentHelper
 	};
 
 	// 3. Clear - Title Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
@@ -45,13 +45,14 @@ namespace UK2Node_RemoveMassFragmentHelper
 	};
 }
 
-using namespace UK2Node_RemoveMassFragmentHelper;
-
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+namespace K2Node_RemoveMassFragment_Local
+{
 
 static void SetDelegatePinType(UEdGraphPin* Pin)
 {
-	if (!Pin) return;
+	if (!Pin) { return; }
 
 	// 1. Find the library function
 	// NOTE: RemoveFragment is not a custom thunk but a regular UFunction in the library,
@@ -73,12 +74,13 @@ static void SetDelegatePinType(UEdGraphPin* Pin)
 			// 5. [CRITICAL FIX] Set the Member Reference so the compiler knows the exact source
 			if (DelegateProp->SignatureFunction)
 			{
-				Pin->PinType.PinSubCategoryMemberReference.MemberParent = DelegateProp->SignatureFunction->GetOuter();
-				Pin->PinType.PinSubCategoryMemberReference.MemberName = DelegateProp->SignatureFunction->GetFName();
+				FMemberReference::FillSimpleMemberReference(static_cast<UFunction*>(DelegateProp->SignatureFunction.Get()), Pin->PinType.PinSubCategoryMemberReference);
 			}
 		}
 	}
 }
+
+} // namespace K2Node_RemoveMassFragment_Local
 
 //================ Node.Configuration				========
 
@@ -86,7 +88,7 @@ static void SetDelegatePinType(UEdGraphPin* Pin)
 
 FText UK2Node_RemoveMassFragment::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return FText::FromString(DataSourceTypeTitles.FindRef(CachedDataSourceType));
+	return FText::FromString(UK2Node_RemoveMassFragmentHelper::DataSourceTypeTitles.FindRef(CachedDataSourceType));
 }
 
 FText UK2Node_RemoveMassFragment::GetMenuCategory() const
@@ -101,7 +103,7 @@ FText UK2Node_RemoveMassFragment::GetTooltipText() const
 
 FSlateIcon UK2Node_RemoveMassFragment::GetIconAndTint(FLinearColor& OutColor) const
 {
-	OutColor = DataSourceIconColors.FindRef(CachedDataSourceType);
+	OutColor = UK2Node_RemoveMassFragmentHelper::DataSourceIconColors.FindRef(CachedDataSourceType);
 
 	static FSlateIcon Icon("EditorStyle", "Kismet.AllClasses.FunctionIcon");
 	return Icon;
@@ -109,7 +111,7 @@ FSlateIcon UK2Node_RemoveMassFragment::GetIconAndTint(FLinearColor& OutColor) co
 
 FLinearColor UK2Node_RemoveMassFragment::GetNodeTitleColor() const
 {
-	return DataSourceTitleColors.FindRef(CachedDataSourceType);
+	return UK2Node_RemoveMassFragmentHelper::DataSourceTitleColors.FindRef(CachedDataSourceType);
 }
 
 //================ Pin.Management						========
@@ -182,7 +184,7 @@ void UK2Node_RemoveMassFragment::ReallocatePinsDuringReconstruction(TArray<UEdGr
 		}
 
 		// Apply the exact signature
-		SetDelegatePinType(DelegatePin);
+		K2Node_RemoveMassFragment_Local::SetDelegatePinType(DelegatePin);
 
 		// Restore Connections manually
 		for (UEdGraphPin* OldPin : OldPins)
@@ -247,7 +249,7 @@ void UK2Node_RemoveMassFragment::PinDefaultValueChanged(UEdGraphPin* Pin)
 			DelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
 
 			// Apply exact signature immediately
-			SetDelegatePinType(DelegatePin);
+			K2Node_RemoveMassFragment_Local::SetDelegatePinType(DelegatePin);
 
 			bChanged = true;
 		}

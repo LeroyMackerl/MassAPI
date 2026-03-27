@@ -1,18 +1,18 @@
 /*
 * MassAPI
 * Created: 2025
-* Author: Leroy Works, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #pragma once
 
+#include "Runtime/Launch/Resources/Version.h"
 #include "MassEntityTypes.h"
 #include "MassEntityManager.h"
 #include "MassEntityTemplate.h"
 #include "MassAPIEnums.h"
 #include "MassEntityQuery.h"
 #include <atomic>
-#include "Runtime/Launch/Resources/Version.h"
 #include "MassAPIStructs.generated.h" 
 
 
@@ -44,7 +44,7 @@ public:
 
 /**
  * (New) Stores dynamic flags without causing Archetype migration.
- * Uses int64 as a bitmask for high-performance internal storage and query.
+ * Uses two int64 bitmasks for 128 flags total (Flags for 0-63, FlagsHigh for 64-127).
  * Thread-safe implementation using atomic spinlock.
  */
 USTRUCT(BlueprintType)
@@ -57,8 +57,13 @@ private:
     mutable std::atomic<bool> LockFlag{ false };
 
 public:
+    /** Low flags (0-63) */
     UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags")
     int64 Flags = 0;
+
+    /** High flags (64-127) */
+    UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags")
+    int64 FlagsHigh = 0;
 
     // --- Constructors & Operators (Required for std::atomic) ---
 
@@ -68,6 +73,7 @@ public:
     {
         LockFlag.store(Other.LockFlag.load());
         Flags = Other.Flags;
+        FlagsHigh = Other.FlagsHigh;
     }
 
     FEntityFlagFragment& operator=(const FEntityFlagFragment& Other)
@@ -76,6 +82,7 @@ public:
         {
             LockFlag.store(Other.LockFlag.load());
             Flags = Other.Flags;
+            FlagsHigh = Other.FlagsHigh;
         }
         return *this;
     }
@@ -92,6 +99,20 @@ public:
         LockFlag.store(false, std::memory_order_release);
     }
 
+    // --- Helper Methods for 128-bit Flag Support ---
+
+    /** Returns true if the flag index is >= 64 (stored in FlagsHigh) */
+    FORCEINLINE static bool IsHighFlag(const EEntityFlags Flag)
+    {
+        return static_cast<uint8>(Flag) >= 64;
+    }
+
+    /** Returns the local bit index (0-63) within the appropriate int64 */
+    FORCEINLINE static uint8 GetLocalBitIndex(const EEntityFlags Flag)
+    {
+        return static_cast<uint8>(Flag) & 63;  // Equivalent to % 64
+    }
+
     // --- Flag Operations ---
 
     /**
@@ -101,7 +122,9 @@ public:
     FORCEINLINE bool HasFlag(const EEntityFlags Flag) const
     {
         if (Flag >= EEntityFlags::EEntityFlags_MAX) return false;
-        return (Flags & (1LL << static_cast<uint8>(Flag))) != 0;
+        const uint8 LocalIndex = GetLocalBitIndex(Flag);
+        const int64 Mask = (1LL << LocalIndex);
+        return IsHighFlag(Flag) ? (FlagsHigh & Mask) != 0 : (Flags & Mask) != 0;
     }
 
     /**
@@ -120,8 +143,16 @@ public:
 
         Lock(); // Enter Critical Section
 
-        // We could check again here, but setting the bit again is harmless (idempotent).
-        Flags |= (1LL << static_cast<uint8>(Flag));
+        const uint8 LocalIndex = GetLocalBitIndex(Flag);
+        const int64 Mask = (1LL << LocalIndex);
+        if (IsHighFlag(Flag))
+        {
+            FlagsHigh |= Mask;
+        }
+        else
+        {
+            Flags |= Mask;
+        }
 
         Unlock(); // Exit Critical Section
     }
@@ -141,7 +172,18 @@ public:
         }
 
         Lock(); // Enter Critical Section
-        Flags &= ~(1LL << static_cast<uint8>(Flag));
+
+        const uint8 LocalIndex = GetLocalBitIndex(Flag);
+        const int64 Mask = (1LL << LocalIndex);
+        if (IsHighFlag(Flag))
+        {
+            FlagsHigh &= ~Mask;
+        }
+        else
+        {
+            Flags &= ~Mask;
+        }
+
         Unlock(); // Exit Critical Section
     }
 
@@ -160,14 +202,32 @@ public:
         }
 
         Lock(); // Enter Critical Section
+
+        const uint8 LocalIndex = GetLocalBitIndex(Flag);
+        const int64 Mask = (1LL << LocalIndex);
         if (bValue)
         {
-            Flags |= (1LL << static_cast<uint8>(Flag));
+            if (IsHighFlag(Flag))
+            {
+                FlagsHigh |= Mask;
+            }
+            else
+            {
+                Flags |= Mask;
+            }
         }
         else
         {
-            Flags &= ~(1LL << static_cast<uint8>(Flag));
+            if (IsHighFlag(Flag))
+            {
+                FlagsHigh &= ~Mask;
+            }
+            else
+            {
+                Flags &= ~Mask;
+            }
         }
+
         Unlock(); // Exit Critical Section
     }
 };
@@ -176,10 +236,7 @@ public:
 template<>
 struct TMassFragmentTraits<FEntityFlagFragment>
 {
-    enum
-    {
-        AuthorAcceptsItsNotTriviallyCopyable = true
-    };
+    static constexpr bool AuthorAcceptsItsNotTriviallyCopyable = true;
 };
 #endif
 
@@ -294,10 +351,15 @@ private:
     mutable FMassArchetypeCompositionDescriptor AnyComposition;
     mutable FMassArchetypeCompositionDescriptor NoneComposition;
 
-    // Bitmask Cache
+    // Bitmask Cache (Low flags 0-63)
     mutable int64 AllFlagsBitmask_Cache = 0;
     mutable int64 AnyFlagsBitmask_Cache = 0;
     mutable int64 NoneFlagsBitmask_Cache = 0;
+
+    // Bitmask Cache (High flags 64-127)
+    mutable int64 AllFlagsBitmaskHigh_Cache = 0;
+    mutable int64 AnyFlagsBitmaskHigh_Cache = 0;
+    mutable int64 NoneFlagsBitmaskHigh_Cache = 0;
 
     // Dirty Flags
     mutable bool bIsAllCompDirty = false;
@@ -325,10 +387,15 @@ public:
         return NoneComposition;
     }
 
-    // Flag Accessors
+    // Flag Accessors (Low flags 0-63)
     int64 GetAllFlagsBitmask() const { if (bIsFlagsCacheDirty) BuildFlagsCache(); return AllFlagsBitmask_Cache; }
     int64 GetAnyFlagsBitmask() const { if (bIsFlagsCacheDirty) BuildFlagsCache(); return AnyFlagsBitmask_Cache; }
     int64 GetNoneFlagsBitmask() const { if (bIsFlagsCacheDirty) BuildFlagsCache(); return NoneFlagsBitmask_Cache; }
+
+    // Flag Accessors (High flags 64-127)
+    int64 GetAllFlagsBitmaskHigh() const { if (bIsFlagsCacheDirty) BuildFlagsCache(); return AllFlagsBitmaskHigh_Cache; }
+    int64 GetAnyFlagsBitmaskHigh() const { if (bIsFlagsCacheDirty) BuildFlagsCache(); return AnyFlagsBitmaskHigh_Cache; }
+    int64 GetNoneFlagsBitmaskHigh() const { if (bIsFlagsCacheDirty) BuildFlagsCache(); return NoneFlagsBitmaskHigh_Cache; }
 
     /** * Returns a native FMassEntityQuery bound to the provided EntityManager.
      * Note: We cannot cache the bound query itself because the Manager can change,
@@ -395,10 +462,38 @@ private:
 
     void BuildFlagsCache() const
     {
+        // Reset all caches
         AllFlagsBitmask_Cache = 0; AnyFlagsBitmask_Cache = 0; NoneFlagsBitmask_Cache = 0;
-        for (const EEntityFlags Flag : AllFlagsList) if (Flag < EEntityFlags::EEntityFlags_MAX) AllFlagsBitmask_Cache |= (1LL << (uint8)Flag);
-        for (const EEntityFlags Flag : AnyFlagsList) if (Flag < EEntityFlags::EEntityFlags_MAX) AnyFlagsBitmask_Cache |= (1LL << (uint8)Flag);
-        for (const EEntityFlags Flag : NoneFlagsList) if (Flag < EEntityFlags::EEntityFlags_MAX) NoneFlagsBitmask_Cache |= (1LL << (uint8)Flag);
+        AllFlagsBitmaskHigh_Cache = 0; AnyFlagsBitmaskHigh_Cache = 0; NoneFlagsBitmaskHigh_Cache = 0;
+
+        // Helper lambda to set the correct bitmask based on flag index
+        auto SetFlagBit = [](int64& LowMask, int64& HighMask, const EEntityFlags Flag)
+        {
+            if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
+            const uint8 Index = static_cast<uint8>(Flag);
+            if (Index >= 64)
+            {
+                HighMask |= (1LL << (Index - 64));
+            }
+            else
+            {
+                LowMask |= (1LL << Index);
+            }
+        };
+
+        for (const EEntityFlags Flag : AllFlagsList)
+        {
+            SetFlagBit(AllFlagsBitmask_Cache, AllFlagsBitmaskHigh_Cache, Flag);
+        }
+        for (const EEntityFlags Flag : AnyFlagsList)
+        {
+            SetFlagBit(AnyFlagsBitmask_Cache, AnyFlagsBitmaskHigh_Cache, Flag);
+        }
+        for (const EEntityFlags Flag : NoneFlagsList)
+        {
+            SetFlagBit(NoneFlagsBitmask_Cache, NoneFlagsBitmaskHigh_Cache, Flag);
+        }
+
         bIsFlagsCacheDirty = false;
     }
 

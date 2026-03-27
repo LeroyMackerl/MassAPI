@@ -1,7 +1,7 @@
 /*
-* MassAPI Uncooked
+* MassAPI
 * Created: 2025
-* Author: Leroy Works & Ember, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #include "OperationFlag/K2Node_ClearMassFlag.h"
@@ -21,7 +21,7 @@
 namespace UK2Node_ClearMassFlagHelper
 {
 	// DataSource类型到标题的映射
-	const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
+	static const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
 	{
 		{ EMassFragmentSourceDataType::None,				TEXT("ClearMassFlag") },
 		{ EMassFragmentSourceDataType::EntityHandle,		TEXT("ClearMassFlag-Entity") },
@@ -29,7 +29,7 @@ namespace UK2Node_ClearMassFlagHelper
 	};
 
 	// 3. Clear - Icon Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
@@ -37,15 +37,13 @@ namespace UK2Node_ClearMassFlagHelper
 	};
 
 	// 3. Clear - Title Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityTemplateData,  FLinearColor(1.0f, 0.147f, 0.1f, 1.0f) },
 	};
 }
-
-using namespace UK2Node_ClearMassFlagHelper;
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -55,7 +53,7 @@ using namespace UK2Node_ClearMassFlagHelper;
 
 FText UK2Node_ClearMassFlag::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return FText::FromString(DataSourceTypeTitles.FindRef(CachedDataSourceType));
+	return FText::FromString(UK2Node_ClearMassFlagHelper::DataSourceTypeTitles.FindRef(CachedDataSourceType));
 }
 
 FText UK2Node_ClearMassFlag::GetMenuCategory() const
@@ -70,7 +68,7 @@ FText UK2Node_ClearMassFlag::GetTooltipText() const
 
 FSlateIcon UK2Node_ClearMassFlag::GetIconAndTint(FLinearColor& OutColor) const
 {
-	OutColor = DataSourceIconColors.FindRef(CachedDataSourceType);
+	OutColor = UK2Node_ClearMassFlagHelper::DataSourceIconColors.FindRef(CachedDataSourceType);
 
 	static FSlateIcon Icon("EditorStyle", "Kismet.AllClasses.FunctionIcon");
 	return Icon;
@@ -78,7 +76,7 @@ FSlateIcon UK2Node_ClearMassFlag::GetIconAndTint(FLinearColor& OutColor) const
 
 FLinearColor UK2Node_ClearMassFlag::GetNodeTitleColor() const
 {
-	return DataSourceTitleColors.FindRef(CachedDataSourceType);
+	return UK2Node_ClearMassFlagHelper::DataSourceTitleColors.FindRef(CachedDataSourceType);
 }
 
 //================ Pin.Management				========

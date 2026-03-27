@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Magnus Extension
 * Author: Ember, All Rights Reserved.
 */

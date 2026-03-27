@@ -1,7 +1,7 @@
 /*
-* MassAPI Uncooked
+* MassAPI
 * Created: 2025
-* Author: Leroy Works & Ember, All Rights Reserved.
+* Author: Leroy Works, Ember, All Rights Reserved.
 */
 
 #include "OperationFlag/K2Node_HasMassFlag.h"
@@ -20,7 +20,7 @@
 
 namespace UK2Node_HasMassFlagHelper
 {
-	const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
+	static const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
 	{
 		{ EMassFragmentSourceDataType::None,				TEXT("HasMassFlag") },
 		{ EMassFragmentSourceDataType::EntityHandle,		TEXT("HasMassFlag-Entity") },
@@ -28,7 +28,7 @@ namespace UK2Node_HasMassFlagHelper
 	};
 
 	// 1. Has - Icon Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceIconColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(1.0f, 0.9f, 0.0f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.9f, 0.0f, 1.0f) },
@@ -36,7 +36,7 @@ namespace UK2Node_HasMassFlagHelper
 	};
 
 	// 1. Has - Title Colors
-	const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
+	static const TMap<EMassFragmentSourceDataType, FLinearColor> DataSourceTitleColors =
 	{
 		{ EMassFragmentSourceDataType::None,                FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) },
 		{ EMassFragmentSourceDataType::EntityHandle,        FLinearColor(1.0f, 0.9f, 0.0f, 1.0f) },
@@ -44,13 +44,11 @@ namespace UK2Node_HasMassFlagHelper
 	};
 }
 
-using namespace UK2Node_HasMassFlagHelper;
-
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 FText UK2Node_HasMassFlag::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return FText::FromString(DataSourceTypeTitles.FindRef(CachedDataSourceType));
+	return FText::FromString(UK2Node_HasMassFlagHelper::DataSourceTypeTitles.FindRef(CachedDataSourceType));
 }
 
 FText UK2Node_HasMassFlag::GetMenuCategory() const
@@ -65,14 +63,14 @@ FText UK2Node_HasMassFlag::GetTooltipText() const
 
 FSlateIcon UK2Node_HasMassFlag::GetIconAndTint(FLinearColor& OutColor) const
 {
-	OutColor = DataSourceIconColors.FindRef(CachedDataSourceType);
+	OutColor = UK2Node_HasMassFlagHelper::DataSourceIconColors.FindRef(CachedDataSourceType);
 	static FSlateIcon Icon("EditorStyle", "Kismet.AllClasses.FunctionIcon");
 	return Icon;
 }
 
 FLinearColor UK2Node_HasMassFlag::GetNodeTitleColor() const
 {
-	return DataSourceTitleColors.FindRef(CachedDataSourceType);
+	return UK2Node_HasMassFlagHelper::DataSourceTitleColors.FindRef(CachedDataSourceType);
 }
 
 void UK2Node_HasMassFlag::AllocateDefaultPins()
