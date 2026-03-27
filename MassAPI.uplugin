@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
-	"Version": 1.1,
-	"VersionName": "1.1",
+	"Version": 1.2.1,
+	"VersionName": "1.2.1",
 	"FriendlyName": "MassAPI",
 	"Description": "Provide user-friendly C++ and blueprint API for MassEntity",
 	"Category": "MassEntity",
@@ -17,25 +17,19 @@
 	"Installed": false,
 	"Modules": [
 		{
-			"Name": "MagnusExtension",
-			"Type": "UncookedOnly",
-			"LoadingPhase": "Default"
-		},
-		{
 			"Name": "MassAPI",
 			"Type": "Runtime",
-			"LoadingPhase": "PreDefault",
-			"PlatformAllowList": [
-				"Win64"
-			]
+			"LoadingPhase": "PreDefault"
 		},
 		{
 			"Name": "MassAPIUncooked",
 			"Type": "UncookedOnly",
-			"LoadingPhase": "Default",
-			"PlatformAllowList": [
-				"Win64"
-			]
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "MagnusExtension",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default"
 		},
 		{
 			"Name": "MagnusUtilities",
