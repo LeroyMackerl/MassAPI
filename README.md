@@ -1,4 +1,11 @@
+# Note
+* MassAPI plugin is designed as an open-source community infrastructure for Mass Entity.
+* We welcome code contributions.
+* Feel free to integrate this plugin into your Mass project to provide a more user-friendly API.
+
 # Update Log
+*20251231 Updated to v1.2.1 with critical bug fixes.
+
 *20251231 Updated to v1.2 with Deferred delegate.
 
 *20251229 Updated to v1.1.1 with minor bug fixes.
