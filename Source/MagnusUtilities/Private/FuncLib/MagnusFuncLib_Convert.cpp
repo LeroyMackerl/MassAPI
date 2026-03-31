@@ -33,6 +33,55 @@ float UMagnusFuncLib_Convert::Conv_IdentityFloat(float Value)
 	return Value;
 }
 
+//———————— Conv_IdentityBool																					————
+
+bool UMagnusFuncLib_Convert::Conv_IdentityBool(bool Value)
+{
+	return Value;
+}
+
+//———————— Conv_IdentityInt																						————
+
+int32 UMagnusFuncLib_Convert::Conv_IdentityInt(int32 Value)
+{
+	return Value;
+}
+
+//———————— Conv_IdentityInt64																					————
+
+int64 UMagnusFuncLib_Convert::Conv_IdentityInt64(int64 Value)
+{
+	return Value;
+}
+
+//———————— Conv_IdentityByte																					————
+
+uint8 UMagnusFuncLib_Convert::Conv_IdentityByte(uint8 Value)
+{
+	return Value;
+}
+
+//———————— Conv_IdentityName																					————
+
+FName UMagnusFuncLib_Convert::Conv_IdentityName(FName Value)
+{
+	return Value;
+}
+
+//———————— Conv_IdentityString																					————
+
+FString UMagnusFuncLib_Convert::Conv_IdentityString(const FString& Value)
+{
+	return Value;
+}
+
+//———————— Conv_IdentityText																					————
+
+FText UMagnusFuncLib_Convert::Conv_IdentityText(const FText& Value)
+{
+	return Value;
+}
+
 //================ Struct Identity (for literal value handling) ========
 
 FVector2D UMagnusFuncLib_Convert::Conv_IdentityVector2D(FVector2D Value)

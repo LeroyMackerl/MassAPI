@@ -1077,9 +1077,10 @@ void Compile() override
 						UFunction* ConversionFunc = K2Node_SetStructRecursiveMember_Local::GetPrecisionConversionFunction(
 							OriginalValuePin->PinType, SetValuePin->PinType);
 
-						// For scalar types (PC_Real), always use a function node to establish proper connection
+						// For scalar types (PC_Real, PC_Boolean, PC_Int, PC_Int64, PC_Byte), always use a function node
+						// to establish proper connection, since reference pins cannot accept literal values directly.
 						// If conversion needed: use conversion function (e.g., VariableConvert_DoubleToFloat)
-						// If no conversion needed: use identity function (Conv_IdentityDouble)
+						// If no conversion needed: use identity function (e.g., Conv_IdentityDouble, Conv_IdentityBool)
 						if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_Real)
 						{
 							UFunction* FuncToUse = ConversionFunc;
@@ -1118,6 +1119,244 @@ void Compile() override
 									FuncInputPin->bDefaultValueIsIgnored = false;
 
 									// Connect function output to target
+									Link(FuncOutputPin, SetValuePin);
+								}
+							}
+						}
+						// Handle bool literal values
+						else if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_Boolean)
+						{
+							UFunction* FuncToUse = UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+								GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityBool));
+
+							if (FuncToUse)
+							{
+								UK2Node_CallFunction* FuncNode = SpawnNode<UK2Node_CallFunction>();
+								FuncNode->SetFromFunction(FuncToUse);
+								FuncNode->AllocateDefaultPins();
+
+								UEdGraphPin* FuncInputPin = nullptr;
+								UEdGraphPin* FuncOutputPin = FuncNode->GetReturnValuePin();
+
+								for (UEdGraphPin* Pin : FuncNode->Pins)
+								{
+									if (Pin->Direction == EGPD_Input &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+									{
+										FuncInputPin = Pin;
+										break;
+									}
+								}
+
+								if (FuncInputPin && FuncOutputPin)
+								{
+									FuncInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+									FuncInputPin->bDefaultValueIsIgnored = false;
+									Link(FuncOutputPin, SetValuePin);
+								}
+							}
+						}
+						// Handle int32 literal values
+						else if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_Int)
+						{
+							UFunction* FuncToUse = UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+								GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityInt));
+
+							if (FuncToUse)
+							{
+								UK2Node_CallFunction* FuncNode = SpawnNode<UK2Node_CallFunction>();
+								FuncNode->SetFromFunction(FuncToUse);
+								FuncNode->AllocateDefaultPins();
+
+								UEdGraphPin* FuncInputPin = nullptr;
+								UEdGraphPin* FuncOutputPin = FuncNode->GetReturnValuePin();
+
+								for (UEdGraphPin* Pin : FuncNode->Pins)
+								{
+									if (Pin->Direction == EGPD_Input &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+									{
+										FuncInputPin = Pin;
+										break;
+									}
+								}
+
+								if (FuncInputPin && FuncOutputPin)
+								{
+									FuncInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+									FuncInputPin->bDefaultValueIsIgnored = false;
+									Link(FuncOutputPin, SetValuePin);
+								}
+							}
+						}
+						// Handle int64 literal values
+						else if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_Int64)
+						{
+							UFunction* FuncToUse = UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+								GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityInt64));
+
+							if (FuncToUse)
+							{
+								UK2Node_CallFunction* FuncNode = SpawnNode<UK2Node_CallFunction>();
+								FuncNode->SetFromFunction(FuncToUse);
+								FuncNode->AllocateDefaultPins();
+
+								UEdGraphPin* FuncInputPin = nullptr;
+								UEdGraphPin* FuncOutputPin = FuncNode->GetReturnValuePin();
+
+								for (UEdGraphPin* Pin : FuncNode->Pins)
+								{
+									if (Pin->Direction == EGPD_Input &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+									{
+										FuncInputPin = Pin;
+										break;
+									}
+								}
+
+								if (FuncInputPin && FuncOutputPin)
+								{
+									FuncInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+									FuncInputPin->bDefaultValueIsIgnored = false;
+									Link(FuncOutputPin, SetValuePin);
+								}
+							}
+						}
+						// Handle byte (uint8) literal values
+						else if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_Byte)
+						{
+							UFunction* FuncToUse = UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+								GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityByte));
+
+							if (FuncToUse)
+							{
+								UK2Node_CallFunction* FuncNode = SpawnNode<UK2Node_CallFunction>();
+								FuncNode->SetFromFunction(FuncToUse);
+								FuncNode->AllocateDefaultPins();
+
+								UEdGraphPin* FuncInputPin = nullptr;
+								UEdGraphPin* FuncOutputPin = FuncNode->GetReturnValuePin();
+
+								for (UEdGraphPin* Pin : FuncNode->Pins)
+								{
+									if (Pin->Direction == EGPD_Input &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+									{
+										FuncInputPin = Pin;
+										break;
+									}
+								}
+
+								if (FuncInputPin && FuncOutputPin)
+								{
+									FuncInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+									FuncInputPin->bDefaultValueIsIgnored = false;
+									Link(FuncOutputPin, SetValuePin);
+								}
+							}
+						}
+						// Handle FName literal values
+						else if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_Name)
+						{
+							UFunction* FuncToUse = UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+								GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityName));
+
+							if (FuncToUse)
+							{
+								UK2Node_CallFunction* FuncNode = SpawnNode<UK2Node_CallFunction>();
+								FuncNode->SetFromFunction(FuncToUse);
+								FuncNode->AllocateDefaultPins();
+
+								UEdGraphPin* FuncInputPin = nullptr;
+								UEdGraphPin* FuncOutputPin = FuncNode->GetReturnValuePin();
+
+								for (UEdGraphPin* Pin : FuncNode->Pins)
+								{
+									if (Pin->Direction == EGPD_Input &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+									{
+										FuncInputPin = Pin;
+										break;
+									}
+								}
+
+								if (FuncInputPin && FuncOutputPin)
+								{
+									FuncInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+									FuncInputPin->bDefaultValueIsIgnored = false;
+									Link(FuncOutputPin, SetValuePin);
+								}
+							}
+						}
+						// Handle FString literal values
+						else if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_String)
+						{
+							UFunction* FuncToUse = UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+								GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityString));
+
+							if (FuncToUse)
+							{
+								UK2Node_CallFunction* FuncNode = SpawnNode<UK2Node_CallFunction>();
+								FuncNode->SetFromFunction(FuncToUse);
+								FuncNode->AllocateDefaultPins();
+
+								UEdGraphPin* FuncInputPin = nullptr;
+								UEdGraphPin* FuncOutputPin = FuncNode->GetReturnValuePin();
+
+								for (UEdGraphPin* Pin : FuncNode->Pins)
+								{
+									if (Pin->Direction == EGPD_Input &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+									{
+										FuncInputPin = Pin;
+										break;
+									}
+								}
+
+								if (FuncInputPin && FuncOutputPin)
+								{
+									FuncInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+									FuncInputPin->bDefaultValueIsIgnored = false;
+									Link(FuncOutputPin, SetValuePin);
+								}
+							}
+						}
+						// Handle FText literal values
+						else if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_Text)
+						{
+							UFunction* FuncToUse = UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
+								GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityText));
+
+							if (FuncToUse)
+							{
+								UK2Node_CallFunction* FuncNode = SpawnNode<UK2Node_CallFunction>();
+								FuncNode->SetFromFunction(FuncToUse);
+								FuncNode->AllocateDefaultPins();
+
+								UEdGraphPin* FuncInputPin = nullptr;
+								UEdGraphPin* FuncOutputPin = FuncNode->GetReturnValuePin();
+
+								for (UEdGraphPin* Pin : FuncNode->Pins)
+								{
+									if (Pin->Direction == EGPD_Input &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Self &&
+										Pin->PinName != UEdGraphSchema_K2::PN_Execute)
+									{
+										FuncInputPin = Pin;
+										break;
+									}
+								}
+
+								if (FuncInputPin && FuncOutputPin)
+								{
+									FuncInputPin->DefaultValue = OriginalValuePin->DefaultValue;
+									FuncInputPin->bDefaultValueIsIgnored = false;
 									Link(FuncOutputPin, SetValuePin);
 								}
 							}

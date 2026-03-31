@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"Version": 1.2.1,
+	"Version": 1,
 	"VersionName": "1.2.1",
 	"FriendlyName": "MassAPI",
 	"Description": "Provide user-friendly C++ and blueprint API for MassEntity",
@@ -10,7 +10,6 @@
 	"DocsURL": "https://github.com/LeroyMackerl/MassAPI?tab=readme-ov-file#core-concepts",
 	"MarketplaceURL": "com.epicgames.launcher://ue/Fab/product/0d985811-5744-45de-9a5e-be71e8336fc3",
 	"SupportURL": "https://discord.gg/8AUMxq3SgV",
-	"EngineVersion": "5.6",
 	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,

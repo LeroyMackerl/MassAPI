@@ -41,6 +41,34 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Magnus|Convert", meta = (DisplayName = "Identity (Float)", BlueprintInternalUseOnly = "true"))
 	static float Conv_IdentityFloat(float Value);
 
+	/** Identity function for bool - used internally for literal value handling */
+	UFUNCTION(BlueprintPure, Category = "Magnus|Convert", meta = (DisplayName = "Identity (Bool)", BlueprintInternalUseOnly = "true"))
+	static bool Conv_IdentityBool(bool Value);
+
+	/** Identity function for int32 - used internally for literal value handling */
+	UFUNCTION(BlueprintPure, Category = "Magnus|Convert", meta = (DisplayName = "Identity (Int)", BlueprintInternalUseOnly = "true"))
+	static int32 Conv_IdentityInt(int32 Value);
+
+	/** Identity function for int64 - used internally for literal value handling */
+	UFUNCTION(BlueprintPure, Category = "Magnus|Convert", meta = (DisplayName = "Identity (Int64)", BlueprintInternalUseOnly = "true"))
+	static int64 Conv_IdentityInt64(int64 Value);
+
+	/** Identity function for uint8 (byte) - used internally for literal value handling */
+	UFUNCTION(BlueprintPure, Category = "Magnus|Convert", meta = (DisplayName = "Identity (Byte)", BlueprintInternalUseOnly = "true"))
+	static uint8 Conv_IdentityByte(uint8 Value);
+
+	/** Identity function for FName - used internally for literal value handling */
+	UFUNCTION(BlueprintPure, Category = "Magnus|Convert", meta = (DisplayName = "Identity (Name)", BlueprintInternalUseOnly = "true"))
+	static FName Conv_IdentityName(FName Value);
+
+	/** Identity function for FString - used internally for literal value handling */
+	UFUNCTION(BlueprintPure, Category = "Magnus|Convert", meta = (DisplayName = "Identity (String)", BlueprintInternalUseOnly = "true"))
+	static FString Conv_IdentityString(const FString& Value);
+
+	/** Identity function for FText - used internally for literal value handling */
+	UFUNCTION(BlueprintPure, Category = "Magnus|Convert", meta = (DisplayName = "Identity (Text)", BlueprintInternalUseOnly = "true"))
+	static FText Conv_IdentityText(const FText& Value);
+
 	//================ Struct Identity (for literal value handling) ========
 
 	/** Identity function for FVector2D - used internally for literal value handling */
