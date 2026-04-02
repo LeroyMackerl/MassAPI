@@ -1225,9 +1225,12 @@ void Compile() override
 								}
 							}
 						}
-						// Handle byte (uint8) literal values
+						// Handle byte (uint8) and enum literal values
 						else if (OriginalValuePin->PinType.PinCategory == UEdGraphSchema_K2::PC_Byte)
 						{
+							// Use Conv_IdentityByte for both regular bytes and enums
+							// For enums, we need to set the full pin type (including PinSubCategoryObject)
+							// on the function's input pin so it can accept the enum literal value
 							UFunction* FuncToUse = UMagnusFuncLib_Convert::StaticClass()->FindFunctionByName(
 								GET_FUNCTION_NAME_CHECKED(UMagnusFuncLib_Convert, Conv_IdentityByte));
 
@@ -1253,6 +1256,14 @@ void Compile() override
 
 								if (FuncInputPin && FuncOutputPin)
 								{
+									// For enum types, copy the full pin type to preserve PinSubCategoryObject (UEnum*)
+									// This allows the pin to accept enum literal values like "TargetIsPlayer"
+									if (OriginalValuePin->PinType.PinSubCategoryObject.IsValid())
+									{
+										FuncInputPin->PinType = OriginalValuePin->PinType;
+										FuncOutputPin->PinType = OriginalValuePin->PinType;
+									}
+
 									FuncInputPin->DefaultValue = OriginalValuePin->DefaultValue;
 									FuncInputPin->bDefaultValueIsIgnored = false;
 									Link(FuncOutputPin, SetValuePin);
