@@ -4,6 +4,8 @@
 * Feel free to integrate this plugin into your Mass project to provide a more user-friendly API.
 
 # Update Log
+*20250517 Updated to v1.3.0 with support for ue 5.8 preview.
+
 *20251231 Updated to v1.2.1 with critical bug fixes.
 
 *20251231 Updated to v1.2 with Deferred delegate.
