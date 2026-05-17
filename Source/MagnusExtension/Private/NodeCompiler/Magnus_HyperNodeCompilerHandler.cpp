@@ -55,7 +55,7 @@ void FHyperNodeCompilerHandler::AutoSyncPinType(UEdGraphPin* SourcePin, UEdGraph
 	{
 		if (Pin && Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard)
 			return Cast<UK2Node_CallFunction>(Pin->GetOwningNode()) != nullptr;
-		
+
 		return false;
 	};
 
@@ -69,7 +69,7 @@ void FHyperNodeCompilerHandler::AutoSyncPinType(UEdGraphPin* SourcePin, UEdGraph
 		TargetPin->PinType = SourcePin->PinType;
 	else if (ShouldSyncPinType(SourcePin) && !IsWildcard(TargetPin))
 		SourcePin->PinType = TargetPin->PinType;
-	
+
 }
 
 //———————— Pin.Link																							        ————
@@ -312,7 +312,7 @@ UK2Node_MakeArray* FHyperNodeCompilerHandler::SpawnMakeArrayNode(UEdGraphPin* Ta
 	// 如果目标引脚存在，则连接并同步类型
 	if (TargetPin)
 		Link(MakeArrayNode->GetOutputPin(), TargetPin);
-	
+
 	// 为每个额外的元素添加引脚
 	for(int32 i = 0; i < ElementCount - 1; ++i)
 		MakeArrayNode->AddInputPin();

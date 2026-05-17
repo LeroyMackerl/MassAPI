@@ -93,7 +93,7 @@ void UMagnusNode_Assign::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>
 			break;
 		}
 	}
-  
+
 	if( OldTargetPin )
 	{
 		UEdGraphPin* NewTargetPin = GetTargetPin();
@@ -127,7 +127,7 @@ void UMagnusNode_Assign::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
 					K2Schema->RecombinePin(ParentPin->SubPins[0]);
 				}
 			};
-			
+
 			// Pin disconnected...revert to wildcard
 			TargetPin->PinType.PinCategory = UEdGraphSchema_K2::PC_Wildcard;
 			TargetPin->PinType.PinSubCategory = NAME_None;
@@ -141,7 +141,7 @@ void UMagnusNode_Assign::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
 			ValuePin->BreakAllPinLinks();
 			TryRecombineSubPins(ValuePin);
 		}
-		
+
 		// Get the graph to refresh our title and default value info
 		GetGraph()->NotifyNodeChanged(this);
 	}
@@ -340,7 +340,7 @@ private:
 				if (CastingUtils::FImplicitCastParams* CastParams = ImplicitCastMap.Find(VarRefNode))
 				{
 					CastingUtils::InsertImplicitCastStatement(Context, *CastParams, RHSTerm);
-			
+
 					RHSTerm = CastParams->TargetTerminal;
 
 					ImplicitCastMap.Remove(VarRefNode);

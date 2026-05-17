@@ -64,7 +64,7 @@ public:
 	virtual void PinConnectionListChanged(UEdGraphPin* Pin) override;
 	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
 
-	//———————— Pin.Connection		 		 		 		 		 		 		 		 		 				————	
+	//———————— Pin.Connection		 		 		 		 		 		 		 		 		 				————
 
 	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override;
 

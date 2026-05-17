@@ -28,7 +28,7 @@ public class MagnusUtilities : ModuleRules
                 "SlateCore"
             }
         );
-        
+
         if (Target.bBuildEditor)
         {
             PrivateDependencyModuleNames.AddRange(

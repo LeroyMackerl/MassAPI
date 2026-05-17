@@ -26,7 +26,7 @@ class MASSAPIUNCOOKED_API UK2Node_SetMassFlag : public UK2Node
 
 public:
 
-	//================ Node.Configuration																		========	
+	//================ Node.Configuration																		========
 
 	//———————— Node.Config																							————
 
@@ -51,6 +51,7 @@ public:
 
 	virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) override;
 	virtual void PostReconstructNode() override;
+	virtual void PinDefaultValueChanged(UEdGraphPin* Pin) override;
 
 	//———————— Pin.Connection																						————
 
@@ -82,6 +83,8 @@ public:
 	static FName DataSourcePinName() { return TEXT("DataSource"); }
 	static FName FlagPinName() { return TEXT("Flag"); }
 	static FName ReturnValuePinName() { return TEXT("ReturnValue"); }
+	static FName DeferredPinName() { return TEXT("bDeferred"); }
+	static FName OnFinishedPinName() { return TEXT("OnFinished"); }
 
 };
 

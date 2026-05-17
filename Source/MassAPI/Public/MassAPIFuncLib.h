@@ -46,6 +46,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", BlueprintPure, meta = (WorldContext = "WorldContextObject", DisplayName = "IsValid (EntityHandle)", Tooltip = "Checks if the provided entity handle refers to a valid and active entity.", Keywords = "valid isvalid mass entity check active exists"))
 	static bool IsValid(const UObject* WorldContextObject, const FEntityHandle& EntityHandle);
 
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", BlueprintPure, meta = (DisplayName = "Equal (EntityHandle)", CompactNodeTitle = "==", Tooltip = "Returns true if both entity handles refer to the same entity.", Keywords = "equal same compare entity handle =="))
+	static bool EqualEqual_EntityHandle(const FEntityHandle& A, const FEntityHandle& B);
+
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", BlueprintPure, meta = (DisplayName = "Not Equal (EntityHandle)", CompactNodeTitle = "!=", Tooltip = "Returns true if the entity handles refer to different entities.", Keywords = "not equal different compare entity handle !="))
+	static bool NotEqual_EntityHandle(const FEntityHandle& A, const FEntityHandle& B);
+
 	//———————— Destroy.Entity																						————
 
 	/**
@@ -93,6 +99,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entities From Template Data", Tooltip = "Builds multiple entities based on the provided template data.", Keywords = "spawn create make construct build batch mass entity template array", AutoCreateRefTerm = "OnFinished"))
 	static TArray<FEntityHandle> BuildEntitiesFromTemplateData(const UObject* WorldContextObject, int32 Quantity, UPARAM(ref) const FEntityTemplateData& TemplateData, const bool bDeferred, const FOnMassDeferredFinished OnFinished);
 
+	/**
+	 * Builds one entity per template data entry in the provided array.
+	 * @param WorldContextObject The context object to retrieve the world.
+	 * @param TemplateDatas Array of template data, each defining a unique entity's composition and initial values.
+	 * @param bDeferred If true, creation is queued; otherwise, it happens immediately.
+	 * @param OnFinished Optional delegate to execute for EACH entity when the operation is complete.
+	 * @return An array of handles to the newly created (or reserved) entities (one per template).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Entity", meta = (WorldContext = "WorldContextObject", DisplayName = "Build Entities From Template Data Array", Tooltip = "Builds one entity per template data entry in the array.", Keywords = "spawn create make construct build batch mass entity template array multiple", AutoCreateRefTerm = "OnFinished"))
+	static TArray<FEntityHandle> BuildEntitiesFromTemplateDataArray(const UObject* WorldContextObject, UPARAM(ref) const TArray<FEntityTemplateData>& TemplateDatas, const bool bDeferred, const FOnMassDeferredFinished OnFinished);
+
 	//================ Entity Querying & BP Processors															========
 
 	/**
@@ -104,6 +121,18 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Query", BlueprintPure, meta = (WorldContext = "WorldContextObject", DisplayName = "Match Entity Query", Tooltip = "Checks if a specific entity matches the provided query criteria.", Keywords = "match query filter check mass entity"))
 	static bool MatchEntityQuery(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UPARAM(ref) const FEntityQuery& Query);
+
+	/**
+	 * Splits an array of entity handles into matching and unmatching arrays based on the provided query.
+	 * Invalid entities are placed into the unmatching array.
+	 * @param WorldContextObject The context object to retrieve the world.
+	 * @param EntityHandles The entities to test against the query.
+	 * @param Query The query rules (All, Any, None tags/fragments/flags).
+	 * @param MatchingHandles Output array of entities that match the query.
+	 * @param UnmatchingHandles Output array of entities that do NOT match the query (or are invalid).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject", DisplayName = "Match Entities Query", Tooltip = "Splits an array of entity handles into matching and unmatching arrays based on the provided query.", Keywords = "match query filter check split partition mass entity entities array"))
+	static void MatchEntitiesQuery(const UObject* WorldContextObject, const TArray<FEntityHandle>& EntityHandles, UPARAM(ref) const FEntityQuery& Query, TArray<FEntityHandle>& MatchingHandles, TArray<FEntityHandle>& UnmatchingHandles);
 
 	/**
 	 * Counts how many entities in the world match the provided query.
@@ -160,6 +189,37 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", BlueprintPure, meta = (DisplayName = "IsEmpty (TemplateData)", Tooltip = "Checks if the template data is empty or invalid.", Keywords = "check is empty valid template data mass"))
 	static bool IsEmpty_TemplateData(UPARAM(ref) const FEntityTemplateData& TemplateData);
+
+	//================ Entity Snapshot Operations																========
+
+	/**
+	 * Takes a snapshot of a live entity's full composition and returns it as a Blueprint-friendly FEntityTemplate.
+	 * Captures all tags, fragments (with current values), shared fragments, const shared fragments, and flags.
+	 * FEntityFlagFragment is decomposed into the Flags array for round-trip compatibility with GetTemplateData.
+	 * @param WorldContextObject The context object to retrieve the world.
+	 * @param EntityHandle The entity to snapshot.
+	 * @param bSuccess Output indicating if the snapshot was successful.
+	 * @return An FEntityTemplate populated with the entity's current composition and values.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Make Template Data From Entity", Tooltip = "Takes a snapshot of a live entity's full composition including all fragment values, tags, shared fragments, and flags.", Keywords = "make snapshot read capture entity template composition mass"))
+	static FEntityTemplate MakeTemplateDataFromEntity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, bool& bSuccess);
+
+	/**
+	 * Takes a snapshot of multiple live entities' compositions and returns them as Blueprint-friendly FEntityTemplates.
+	 * Invalid entities are skipped with a warning logged.
+	 * @param WorldContextObject The context object to retrieve the world.
+	 * @param EntityHandles The array of entity handles to snapshot.
+	 * @return An array of FEntityTemplate structs. Invalid entities produce no entry (array may be shorter than input).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Template", meta = (WorldContext = "WorldContextObject", DisplayName = "Make Template Data From Entities", Tooltip = "Takes a snapshot of multiple live entities' full compositions.", Keywords = "make snapshot read capture entity template composition mass batch array"))
+	static TArray<FEntityTemplate> MakeTemplateDataFromEntities(const UObject* WorldContextObject, const TArray<FEntityHandle>& EntityHandles);
+
+private:
+
+	/** Internal helper: snapshots a single validated entity into an FEntityTemplate. Caller must have validated entity and manager. */
+	static FEntityTemplate SnapshotEntityToTemplate(FMassEntityManager& EntityManager, const FMassEntityHandle& MassHandle);
+
+public:
 
 	//================ Math Conversions																			========
 
@@ -448,8 +508,8 @@ public:
 	 * @param FlagToSet The flag enum value to set.
 	 * @return True if the flag was set, false if the entity is invalid or lacks the required flag fragment.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Tooltip = "Requires the entity to have FEntityFlagFragment added via its Template.", Keywords = "set add update flag bitmask mass entity"))
-	static bool SetFlag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToSet);
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Tooltip = "Requires the entity to have FEntityFlagFragment added via its Template.", Keywords = "set add update flag bitmask mass entity", AutoCreateRefTerm = "OnFinished"))
+	static bool SetFlag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToSet, bool bDeferred, FOnMassDeferredFinished OnFinished);
 
 	//———————— Set.Flag.Template																					————
 
@@ -471,8 +531,8 @@ public:
 	 * @param FlagToClear The flag enum value to clear.
 	 * @return True if successful, false otherwise.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Tooltip = "Requires the entity to have FEntityFlagFragment added via its Template.", Keywords = "clear remove delete flag bitmask mass entity"))
-	static bool ClearFlag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToClear);
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Tooltip = "Requires the entity to have FEntityFlagFragment added via its Template.", Keywords = "clear remove delete flag bitmask mass entity", AutoCreateRefTerm = "OnFinished"))
+	static bool ClearFlag_Entity(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToClear, bool bDeferred, FOnMassDeferredFinished OnFinished);
 
 	//———————— Clear.Flag.Template																					————
 

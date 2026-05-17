@@ -8,7 +8,7 @@
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-//———————— GetPair																							        ————
+//———————— GetPair																									————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_GetPair)
 {
@@ -94,7 +94,7 @@ bool UMagnusNodesFuncLib_MapHelper::GenericMap_GetPair(const void* TargetMap, co
 	return false;
 }
 
-//———————— GetKey																							        ————
+//———————— GetKey																									————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_GetKey)
 {
@@ -108,19 +108,19 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_GetKey)
 		Stack.bArrayContextFailed = true;
 		return;
 	}
-	
+
 	// Get index
 	P_GET_PROPERTY(FIntProperty, Index);
-	
+
 	// Get key out value
 	FProperty* KeyProp = MapProperty->KeyProp;
 	const int32 KeyPropertySize = KeyProp->GetElementSize() * KeyProp->ArrayDim;
 	void* KeyStorageSpace = FMemory_Alloca(KeyPropertySize);
 	KeyProp->InitializeValue(KeyStorageSpace);
-	
+
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(KeyStorageSpace);
-	
+
 	const FFieldClass* KeyPropClass = KeyProp->GetClass();
 	const FFieldClass* MostRecentPropClass = Stack.MostRecentProperty->GetClass();
 	void* ItemPtr;
@@ -134,12 +134,12 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_GetKey)
 	{
 		ItemPtr = KeyStorageSpace;
 	}
-	
+
 	P_FINISH;
 	P_NATIVE_BEGIN;
 	*(bool*)RESULT_PARAM = GenericMap_GetKey(MapAddr, MapProperty, Index, ItemPtr);
 	P_NATIVE_END
-	
+
 	KeyProp->DestroyValue(KeyStorageSpace);
 }
 
@@ -151,14 +151,14 @@ bool UMagnusNodesFuncLib_MapHelper::GenericMap_GetKey(const void* TargetMap, con
 		if(Index < 0 || Index > MapHelper.Num()-1) return false;
 
 		MapHelper.KeyProp->CopyCompleteValueFromScriptVM(OutKeyPtr, MapHelper.GetKeyPtr(MapHelper.FindInternalIndex(Index)));
-		
+
 		return true;
 	}
-	
+
 	return false;
 }
 
-//———————— GetValue																							        ————
+//———————— GetValue																									————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_GetValue)
 {
@@ -172,22 +172,22 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_GetValue)
 		Stack.bArrayContextFailed = true;
 		return;
 	}
-	
+
 	// Get index
 	P_GET_PROPERTY(FIntProperty, Index);
-	
+
 	// Get value out value
 	FProperty* ValueProp = MapProperty->ValueProp;
 	const int32 ValuePropertySize = ValueProp->GetElementSize() * ValueProp->ArrayDim;
 	void* ValueStorageSpace = FMemory_Alloca(ValuePropertySize);
 	ValueProp->InitializeValue(ValueStorageSpace);
-	
+
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(ValueStorageSpace);
-	
+
 	const FFieldClass* ValuePropClass = ValueProp->GetClass();
 	const FFieldClass* MostRecentPropClass = Stack.MostRecentProperty->GetClass();
-	
+
 	void* ItemPtr;
 	if (Stack.MostRecentPropertyAddress != nullptr &&
 		ValuePropertySize == Stack.MostRecentProperty->GetElementSize()*Stack.MostRecentProperty->ArrayDim &&
@@ -199,7 +199,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_GetValue)
 	{
 		ItemPtr = ValueStorageSpace;
 	}
-	
+
 	P_FINISH;
 	P_NATIVE_BEGIN;
 	*(bool*)RESULT_PARAM = GenericMap_GetValue(MapAddr, MapProperty, Index, ItemPtr);
@@ -214,15 +214,15 @@ bool UMagnusNodesFuncLib_MapHelper::GenericMap_GetValue(const void* TargetMap, c
 	{
 		FScriptMapHelper MapHelper(MapProperty, TargetMap);
 		if(Index < 0 || Index > MapHelper.Num()-1) return false;
-			
+
 		MapHelper.ValueProp->CopySingleValueToScriptVM(OutValuePtr, MapHelper.GetValuePtr(MapHelper.FindInternalIndex(Index)));
 		return true;
 	}
-	
+
 	return false;
 }
 
-//———————— GetKeys																							        ————
+//———————— GetKeys																									————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_Keys)
 {
@@ -245,7 +245,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_Keys)
 		Stack.bArrayContextFailed = true;
 		return;
 	}
-	
+
 	P_FINISH;
 	P_NATIVE_BEGIN;
 	GenericMap_Keys(MapAddr, MapProperty, ArrayAddr, ArrayProperty);
@@ -275,7 +275,7 @@ void UMagnusNodesFuncLib_MapHelper::GenericMap_Keys(const void* MapAddr, const F
 	}
 }
 
-//———————— GetValues																						        ————
+//———————— GetValues																								————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_Values)
 {
@@ -298,7 +298,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_Values)
 		Stack.bArrayContextFailed = true;
 		return;
 	}
-	
+
 	P_FINISH;
 	P_NATIVE_BEGIN;
 	GenericMap_Values(MapAddr, MapProperty, ArrayAddr, ArrayProperty);
@@ -314,7 +314,7 @@ void UMagnusNodesFuncLib_MapHelper::GenericMap_Values(const void* MapAddr, const
 		ArrayHelper.EmptyValues();
 
 		const FProperty* InnerProp = ArrayProperty->Inner;
-		
+
 		int32 Size = MapHelper.Num();
 		for( int32 I = 0; Size; ++I )
 		{
@@ -328,88 +328,88 @@ void UMagnusNodesFuncLib_MapHelper::GenericMap_Values(const void* MapAddr, const
 	}
 }
 
-//———————— GetPair		  																					        ————
-	
+//———————— GetPair																									————
+
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMagnusLoop_Map_GetPair)
 {
-    // 获取Map参数
-    Stack.MostRecentProperty = nullptr;
-    Stack.StepCompiledIn<FMapProperty>(nullptr);
-    void* MapPtr = Stack.MostRecentPropertyAddress;
-    FMapProperty* MapProperty = CastField<FMapProperty>(Stack.MostRecentProperty);
-    if (!MapProperty)
-    {
-        Stack.bArrayContextFailed = true;
-        return;
-    }
+	// 获取Map参数
+	Stack.MostRecentProperty = nullptr;
+	Stack.StepCompiledIn<FMapProperty>(nullptr);
+	void* MapPtr = Stack.MostRecentPropertyAddress;
+	FMapProperty* MapProperty = CastField<FMapProperty>(Stack.MostRecentProperty);
+	if (!MapProperty)
+	{
+		Stack.bArrayContextFailed = true;
+		return;
+	}
 
-    // 获取索引参数
-    P_GET_PROPERTY(FIntProperty, Index);
+	// 获取索引参数
+	P_GET_PROPERTY(FIntProperty, Index);
 
-    // 获取Key输出参数
-    Stack.MostRecentProperty = nullptr;
-    Stack.StepCompiledIn<FProperty>(nullptr);
-    void* KeyPtr = Stack.MostRecentPropertyAddress;
-    FProperty* KeyProperty = Stack.MostRecentProperty;
+	// 获取Key输出参数
+	Stack.MostRecentProperty = nullptr;
+	Stack.StepCompiledIn<FProperty>(nullptr);
+	void* KeyPtr = Stack.MostRecentPropertyAddress;
+	FProperty* KeyProperty = Stack.MostRecentProperty;
 
-    // 获取Value输出参数
-    Stack.MostRecentProperty = nullptr;
-    Stack.StepCompiledIn<FProperty>(nullptr);
-    void* ValuePtr = Stack.MostRecentPropertyAddress;
-    FProperty* ValueProperty = Stack.MostRecentProperty;
+	// 获取Value输出参数
+	Stack.MostRecentProperty = nullptr;
+	Stack.StepCompiledIn<FProperty>(nullptr);
+	void* ValuePtr = Stack.MostRecentPropertyAddress;
+	FProperty* ValueProperty = Stack.MostRecentProperty;
 
-    P_FINISH;
+	P_FINISH;
 
-    // 调用泛型函数执行实际操作
-    bool bSuccess = GenericMagnusLoop_Map_GetPair(MapPtr, MapProperty, Index, KeyPtr, ValuePtr);
-    *(bool*)RESULT_PARAM = bSuccess;
+	// 调用泛型函数执行实际操作
+	bool bSuccess = GenericMagnusLoop_Map_GetPair(MapPtr, MapProperty, Index, KeyPtr, ValuePtr);
+	*(bool*)RESULT_PARAM = bSuccess;
 }
 
 bool UMagnusNodesFuncLib_MapHelper::GenericMagnusLoop_Map_GetPair(const void* TargetMap, const FMapProperty* MapProperty, int32 Index, void* OutKeyPtr, void* OutValuePtr)
 {
-    if (!MapProperty || !TargetMap || !OutKeyPtr || !OutValuePtr)
-    {
-        return false;
-    }
+	if (!MapProperty || !TargetMap || !OutKeyPtr || !OutValuePtr)
+	{
+		return false;
+	}
 
-    // 使用FScriptMapHelper处理Map
-    FScriptMapHelper MapHelper(MapProperty, TargetMap);
-    
-    if (Index < 0 || Index >= MapHelper.Num())
-    {
-        return false;
-    }
+	// 使用FScriptMapHelper处理Map
+	FScriptMapHelper MapHelper(MapProperty, TargetMap);
 
-    // 查找第Index个有效元素
-    int32 ElementIndex = INDEX_NONE;
-    int32 CurrentIndex = 0;
-    
-    for (int32 SparseIndex = 0; SparseIndex < MapHelper.GetMaxIndex(); ++SparseIndex)
-    {
-        if (MapHelper.IsValidIndex(SparseIndex))
-        {
-            if (CurrentIndex == Index)
-            {
-                ElementIndex = SparseIndex;
-                break;
-            }
-            ++CurrentIndex;
-        }
-    }
+	if (Index < 0 || Index >= MapHelper.Num())
+	{
+		return false;
+	}
 
-    if (ElementIndex == INDEX_NONE)
-    {
-        return false;
-    }
+	// 查找第Index个有效元素
+	int32 ElementIndex = INDEX_NONE;
+	int32 CurrentIndex = 0;
 
-    // 复制Key和Value到输出参数
-    MapProperty->KeyProp->CopyCompleteValue(OutKeyPtr, MapHelper.GetKeyPtr(ElementIndex));
-    MapProperty->ValueProp->CopyCompleteValue(OutValuePtr, MapHelper.GetValuePtr(ElementIndex));
+	for (int32 SparseIndex = 0; SparseIndex < MapHelper.GetMaxIndex(); ++SparseIndex)
+	{
+		if (MapHelper.IsValidIndex(SparseIndex))
+		{
+			if (CurrentIndex == Index)
+			{
+				ElementIndex = SparseIndex;
+				break;
+			}
+			++CurrentIndex;
+		}
+	}
 
-    return true;
+	if (ElementIndex == INDEX_NONE)
+	{
+		return false;
+	}
+
+	// 复制Key和Value到输出参数
+	MapProperty->KeyProp->CopyCompleteValue(OutKeyPtr, MapHelper.GetKeyPtr(ElementIndex));
+	MapProperty->ValueProp->CopyCompleteValue(OutValuePtr, MapHelper.GetValuePtr(ElementIndex));
+
+	return true;
 }
 
-//———————— ContainsValue																					        ————
+//———————— ContainsValue																							————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_ContainsValue)
 {
@@ -430,7 +430,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_ContainsValue)
 
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(ValueStorageSpace);
-	
+
 	const FFieldClass* CurrValuePropClass = CurrValueProp->GetClass();
 	const FFieldClass* MostRecentPropClass = Stack.MostRecentProperty->GetClass();
 	void* ValuePtr;
@@ -465,11 +465,11 @@ bool UMagnusNodesFuncLib_MapHelper::GenericMap_FindValue(const void* TargetMap, 
 			if(ValueProperty->Identical(ValuePtr, MapValuePtr, PPF_None)) return true;
 		}
 	}
-	
+
 	return false;
 }
 
-//———————— GetKeysFromValue																					        ————
+//———————— GetKeysFromValue																							————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_KeysFromValue)
 {
@@ -490,7 +490,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_KeysFromValue)
 
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(ValueStorageSpace);
-	
+
 	const FFieldClass* CurrValuePropClass = CurrValueProp->GetClass();
 	const FFieldClass* MostRecentPropClass = Stack.MostRecentProperty->GetClass();
 	void* ValuePtr;
@@ -504,7 +504,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_KeysFromValue)
 	{
 		ValuePtr = ValueStorageSpace;
 	}
-	
+
 	Stack.MostRecentProperty = nullptr;
 	Stack.StepCompiledIn<FArrayProperty>(nullptr);
 	const void* ArrayAddr = Stack.MostRecentPropertyAddress;
@@ -514,7 +514,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_KeysFromValue)
 		Stack.bArrayContextFailed = true;
 		return;
 	}
-	
+
 	P_FINISH;
 	P_NATIVE_BEGIN;
 	GenericMap_KeysFromValue(MapAddr, MapProperty, ArrayAddr, ArrayProperty, CurrValueProp, ValuePtr);
@@ -523,7 +523,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_KeysFromValue)
 	CurrValueProp->DestroyValue(ValueStorageSpace);
 }
 
-void UMagnusNodesFuncLib_MapHelper::GenericMap_KeysFromValue(const void* MapAddr, const FMapProperty* MapProperty, const void* ArrayAddr, const FArrayProperty* ArrayProperty,  const FProperty* ValueProperty, const void* ValuePtr)
+void UMagnusNodesFuncLib_MapHelper::GenericMap_KeysFromValue(const void* MapAddr, const FMapProperty* MapProperty, const void* ArrayAddr, const FArrayProperty* ArrayProperty,	const FProperty* ValueProperty, const void* ValuePtr)
 {
 	if(MapAddr)
 	{
@@ -532,12 +532,12 @@ void UMagnusNodesFuncLib_MapHelper::GenericMap_KeysFromValue(const void* MapAddr
 		ArrayHelper.EmptyValues();
 
 		const FProperty* InnerProp = ArrayProperty->Inner;
-		
+
 		for(int32 i = 0; i < MapHelper.Num(); i++)
 		{
 			const void* MapValuePtr = MapHelper.GetValuePtr(MapHelper.FindInternalIndex(i));
 			if(!MapValuePtr) continue;
-			
+
 			if(ValueProperty->Identical(ValuePtr, MapValuePtr, PPF_None))
 			{
 				const int32 LastIndex = ArrayHelper.AddValue();
@@ -547,7 +547,7 @@ void UMagnusNodesFuncLib_MapHelper::GenericMap_KeysFromValue(const void* MapAddr
 	}
 }
 
-//———————— RemoveEntries																					        ————
+//———————— RemoveEntries																							————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RemoveEntries)
 {
@@ -570,7 +570,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RemoveEntries)
 		Stack.bArrayContextFailed = true;
 		return;
 	}
-	
+
 	P_FINISH;
 	P_NATIVE_BEGIN;
 	*(bool*)RESULT_PARAM = GenericMap_RemoveEntries(MapAddr, MapProperty, ArrayAddr, ArrayProperty);
@@ -594,11 +594,11 @@ bool UMagnusNodesFuncLib_MapHelper::GenericMap_RemoveEntries(const void* MapAddr
 
 		return bResult;
 	}
-	
+
 	return false;
 }
 
-//———————— RemoveEntriesWithValue																			        ————
+//———————— RemoveEntriesWithValue																					————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RemoveEntriesWithValue)
 {
@@ -619,7 +619,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RemoveEntriesWithValue)
 
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(ValueStorageSpace);
-	
+
 	const FFieldClass* CurrValuePropClass = CurrValueProp->GetClass();
 	const FFieldClass* MostRecentPropClass = Stack.MostRecentProperty->GetClass();
 	void* ValuePtr;
@@ -633,7 +633,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RemoveEntriesWithValue)
 	{
 		ValuePtr = ValueStorageSpace;
 	}
-	
+
 	P_FINISH;
 	P_NATIVE_BEGIN;
 	*(bool*)RESULT_PARAM = GenericMap_RemoveEntriesWithValue(MapAddr, MapProperty, CurrValueProp, ValuePtr);
@@ -654,7 +654,7 @@ bool UMagnusNodesFuncLib_MapHelper::GenericMap_RemoveEntriesWithValue(const void
 		{
 			const void* MapValuePtr = MapHelper.GetValuePtr(MapHelper.FindInternalIndex(i));
 			if(!MapValuePtr) continue;
-			
+
 			if(ValueProperty->Identical(ValuePtr, MapValuePtr, PPF_None))
 			{
 				bFound = true;
@@ -673,7 +673,7 @@ bool UMagnusNodesFuncLib_MapHelper::GenericMap_RemoveEntriesWithValue(const void
 	return false;
 }
 
-//———————— SetValueAt																						        ————
+//———————— SetValueAt																								————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_SetValueAt)
 {
@@ -688,7 +688,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_SetValueAt)
 	}
 
 	P_GET_PROPERTY(FIntProperty, Index);
-	
+
 	const FProperty* CurrValueProp = MapProperty->ValueProp;
 	const int32 ValuePropertySize = CurrValueProp->GetElementSize() * CurrValueProp->ArrayDim;
 	void* ValueStorageSpace = FMemory_Alloca(ValuePropertySize);
@@ -696,7 +696,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_SetValueAt)
 
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(ValueStorageSpace);
-	
+
 	const FFieldClass* CurrValuePropClass = CurrValueProp->GetClass();
 	const FFieldClass* MostRecentPropClass = Stack.MostRecentProperty->GetClass();
 	void* ValuePtr;
@@ -710,7 +710,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_SetValueAt)
 	{
 		ValuePtr = ValueStorageSpace;
 	}
-	
+
 	P_FINISH;
 	P_NATIVE_BEGIN;
 	*(bool*) RESULT_PARAM = GenericMap_SetValueAt(MapAddr, MapProperty, Index, ValuePtr);
@@ -724,24 +724,24 @@ bool UMagnusNodesFuncLib_MapHelper::GenericMap_SetValueAt(const void* MapAddr, c
 	if(MapAddr)
 	{
 		FScriptMapHelper MapHelper(MapProperty, MapAddr);
-		
+
 		if(Index < 0 || Index > MapHelper.Num()-1) return false;
-		
+
 		const FProperty* KeyProperty = MapProperty->KeyProp;
 		const int32 KeyPropertySize = KeyProperty->GetElementSize() * KeyProperty->ArrayDim;
 		void* KeyStorageSpace = FMemory_Alloca(KeyPropertySize);
 		KeyProperty->InitializeValue(KeyStorageSpace);
-		
+
 		MapHelper.KeyProp->CopyCompleteValueFromScriptVM(KeyStorageSpace, MapHelper.GetKeyPtr(MapHelper.FindInternalIndex(Index)));
-		
+
 		MapHelper.AddPair(KeyStorageSpace, ValuePtr);
 		return true;
 	}
-	
+
 	return false;
 }
 
-//———————— RandomItem																						        ————
+//———————— RandomItem																								————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RandomItem)
 {
@@ -754,16 +754,16 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RandomItem)
 		Stack.bArrayContextFailed = true;
 		return;
 	}
-	
+
 	// Get key out value
 	FProperty* KeyProp = MapProperty->KeyProp;
 	const int32 KeyPropertySize = KeyProp->GetElementSize() * KeyProp->ArrayDim;
 	void* KeyStorageSpace = FMemory_Alloca(KeyPropertySize);
 	KeyProp->InitializeValue(KeyStorageSpace);
-	
+
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(KeyStorageSpace);
-	
+
 	const FFieldClass* KeyPropClass = KeyProp->GetClass();
 	const FFieldClass* KeyMostRecentPropClass = Stack.MostRecentProperty->GetClass();
 	void* KeyPtr;
@@ -777,19 +777,19 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RandomItem)
 	{
 		KeyPtr = KeyStorageSpace;
 	}
-	
+
 	// Get value out value
 	FProperty* ValueProp = MapProperty->ValueProp;
 	const int32 ValuePropertySize = ValueProp->GetElementSize() * ValueProp->ArrayDim;
 	void* ValueStorageSpace = FMemory_Alloca(ValuePropertySize);
 	ValueProp->InitializeValue(ValueStorageSpace);
-	
+
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(ValueStorageSpace);
-	
+
 	const FFieldClass* ValuePropClass = ValueProp->GetClass();
 	const FFieldClass* ValueMostRecentPropClass = Stack.MostRecentProperty->GetClass();
-	
+
 	void* ValuePtr;
 	if (Stack.MostRecentPropertyAddress != nullptr &&
 		ValuePropertySize == Stack.MostRecentProperty->GetElementSize()*Stack.MostRecentProperty->ArrayDim &&
@@ -806,7 +806,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RandomItem)
 	P_NATIVE_BEGIN;
 	GenericMap_RandomItem(MapAddr, MapProperty, KeyPtr, ValuePtr);
 	P_NATIVE_END
-	
+
 	KeyProp->DestroyValue(KeyStorageSpace);
 	ValueProp->DestroyValue(ValueStorageSpace);
 }
@@ -817,13 +817,13 @@ void UMagnusNodesFuncLib_MapHelper::GenericMap_RandomItem(const void* MapAddr, c
 	{
 		FScriptMapHelper MapHelper(MapProperty, MapAddr);
 		const int32 Index = FMath::RandRange(0, MapHelper.Num() - 1);
-		
+
 		MapHelper.KeyProp->CopyCompleteValueFromScriptVM(OutKeyPtr, MapHelper.GetKeyPtr(MapHelper.FindInternalIndex(Index)));
 		MapHelper.ValueProp->CopyCompleteValueFromScriptVM(OutValuePtr, MapHelper.GetValuePtr(MapHelper.FindInternalIndex(Index)));
 	}
 }
 
-//———————— RandomMapItemFromStream																			        ————
+//———————— RandomMapItemFromStream																					————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RandomItemFromStream)
 {
@@ -836,20 +836,20 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RandomItemFromStream)
 		Stack.bArrayContextFailed = true;
 		return;
 	}
-	
+
 	Stack.MostRecentProperty = nullptr;
 	Stack.StepCompiledIn<FProperty>(nullptr);
 	FRandomStream* RandomStream = (FRandomStream*)Stack.MostRecentPropertyAddress;
-	
+
 	// Get key out value
 	FProperty* KeyProp = MapProperty->KeyProp;
 	const int32 KeyPropertySize = KeyProp->GetElementSize() * KeyProp->ArrayDim;
 	void* KeyStorageSpace = FMemory_Alloca(KeyPropertySize);
 	KeyProp->InitializeValue(KeyStorageSpace);
-	
+
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(KeyStorageSpace);
-	
+
 	const FFieldClass* KeyPropClass = KeyProp->GetClass();
 	const FFieldClass* KeyMostRecentPropClass = Stack.MostRecentProperty->GetClass();
 	void* KeyPtr;
@@ -863,19 +863,19 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RandomItemFromStream)
 	{
 		KeyPtr = KeyStorageSpace;
 	}
-	
+
 	// Get value out value
 	FProperty* ValueProp = MapProperty->ValueProp;
 	const int32 ValuePropertySize = ValueProp->GetElementSize() * ValueProp->ArrayDim;
 	void* ValueStorageSpace = FMemory_Alloca(ValuePropertySize);
 	ValueProp->InitializeValue(ValueStorageSpace);
-	
+
 	Stack.MostRecentPropertyAddress = nullptr;
 	Stack.StepCompiledIn<FProperty>(ValueStorageSpace);
-	
+
 	const FFieldClass* ValuePropClass = ValueProp->GetClass();
 	const FFieldClass* ValueMostRecentPropClass = Stack.MostRecentProperty->GetClass();
-	
+
 	void* ValuePtr;
 	if (Stack.MostRecentPropertyAddress != nullptr &&
 		ValuePropertySize == Stack.MostRecentProperty->GetElementSize()*Stack.MostRecentProperty->ArrayDim &&
@@ -892,7 +892,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_RandomItemFromStream)
 	P_NATIVE_BEGIN;
 	GenericMap_RandomItemFromStream(MapAddr, MapProperty, RandomStream, KeyPtr, ValuePtr);
 	P_NATIVE_END
-	
+
 	KeyProp->DestroyValue(KeyStorageSpace);
 	ValueProp->DestroyValue(ValueStorageSpace);
 }
@@ -903,13 +903,13 @@ void UMagnusNodesFuncLib_MapHelper::GenericMap_RandomItemFromStream(const void* 
 	{
 		FScriptMapHelper MapHelper(MapProperty, MapAddr);
 		const int32 Index = RandomStream->RandRange(0, MapHelper.Num() - 1);
-		
+
 		MapHelper.KeyProp->CopyCompleteValueFromScriptVM(OutKeyPtr, MapHelper.GetKeyPtr(MapHelper.FindInternalIndex(Index)));
 		MapHelper.ValueProp->CopyCompleteValueFromScriptVM(OutValuePtr, MapHelper.GetValuePtr(MapHelper.FindInternalIndex(Index)));
 	}
 }
 
-//———————— MapIdentical																						        ————
+//———————— MapIdentical																								————
 
 DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_Identical)
 {
@@ -944,7 +944,7 @@ DEFINE_FUNCTION(UMagnusNodesFuncLib_MapHelper::execMap_Identical)
 		Stack.bArrayContextFailed = true;
 		return;
 	}
-	
+
 	P_FINISH;
 	P_NATIVE_BEGIN;
 	*(bool*)RESULT_PARAM = GenericMap_Identical(MapAddr, MapProperty, ArrayKeysAddr, ArrayKeysProperty, ArrayValuesAddr, ArrayValuesProperty);
@@ -978,11 +978,11 @@ bool UMagnusNodesFuncLib_MapHelper::GenericMap_Identical(const void* MapAddr, co
 
 				if(!bFound) return false;
 			}
-			
+
 			return true;
 		}
 	}
-	
+
 	return false;
 }
 

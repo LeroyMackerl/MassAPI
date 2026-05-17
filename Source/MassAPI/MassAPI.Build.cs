@@ -37,6 +37,11 @@ public class MassAPI : ModuleRules
             }
         );
 
+        if (Target.Version.MajorVersion >= 5 && Target.Version.MinorVersion >= 8)
+        {
+            PublicDependencyModuleNames.Add("MassCore");
+        }
+
         if (Target.bBuildEditor == true)
         {
             PublicDependencyModuleNames.AddRange(

@@ -67,7 +67,7 @@ void UMagnusNode_ForLoop::PostEditChangeProperty(FPropertyChangedEvent& Property
 {
 	ReconstructNode();
 	GetGraph()->NotifyGraphChanged();
-	
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
@@ -129,7 +129,7 @@ void UMagnusNode_ForLoop::AllocateDefaultPins()
 	UEdGraphPin* BreakPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Exec, BreakPinName);
 	BreakPin->PinFriendlyName = FText::FromName(BreakPinName);
 	BreakPin->bHidden = !CouldBreak;
-	
+
 	// Loop body
 	CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, LoopBodyPinName);
 
@@ -228,8 +228,8 @@ HNCH_StartExpandNode(UMagnusNode_ForLoop)
 
 		// 初始化 Loop Counter = FirstIndex
 		UK2Node_AssignmentStatement* InitLoopCounterNode = SpawnAssignNode(LoopCounterPin);
-        Link(ProxyPin(OwnerNode->FirstIndexName), AssignValuePin(InitLoopCounterNode));
-		
+		Link(ProxyPin(OwnerNode->FirstIndexName), AssignValuePin(InitLoopCounterNode));
+
 		// 连接两条路径到 LoopCounter 初始化
 		Link(ThenPin(SetDecNode), ExecPin(InitLoopCounterNode));
 		Link(ThenPin(SetIncNode), ExecPin(InitLoopCounterNode));

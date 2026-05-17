@@ -35,7 +35,7 @@ class MAGNUSUTILITIES_API UMagnusNodesFuncLib_MapHelper : public UBlueprintFunct
 public:
 
 	//———————— GetPair																								————
-	
+
 	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Get Pair", CompactNodeTitle = "GET PAIR", MapParam = "TargetMap", MapKeyParam = "Key", MapValueParam = "Value"), Category = "Utilities|Map")
 	static bool Map_GetPair(const TMap<int32, int32>& TargetMap, int32 Index, int32& Key, int32& Value);
 
@@ -51,7 +51,7 @@ public:
 	DECLARE_FUNCTION(execMap_GetKey);
 
 	static bool GenericMap_GetKey(const void* TargetMap, const FMapProperty* MapProperty, int32 Index, void* OutKeyPtr);
-		
+
 	//———————— GetValue																								————
 
 	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Get Value", CompactNodeTitle = "GET VALUE", MapParam = "TargetMap", MapValueParam = "Value"), Category = "Utilities|Map")
@@ -60,23 +60,23 @@ public:
 	DECLARE_FUNCTION(execMap_GetValue);
 
 	static bool GenericMap_GetValue(const void* TargetMap, const FMapProperty* MapProperty, int32 Index, void* OutValuePtr);
-	
+
 	//———————— GetKeys																								————
 
 	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Get Keys", CompactNodeTitle = "GET KEYS", MapParam = "TargetMap", MapKeyParam = "Keys", AutoCreateRefTerm = "Keys"), Category = "Utilities|Map")
 	static void Map_Keys(const TMap<int32, int32>& TargetMap, TArray<int32>& Keys);
-	
+
 	DECLARE_FUNCTION(execMap_Keys);
-	
+
 	static void GenericMap_Keys(const void* MapAddr, const FMapProperty* MapProperty, const void* ArrayAddr, const FArrayProperty* ArrayProperty);
 
 	//———————— GetValues																							————
 
 	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Get Values", CompactNodeTitle = "GET VALUES", MapParam = "TargetMap", MapValueParam = "Values", AutoCreateRefTerm = "Values"), Category = "Utilities|Map")
 	static void Map_Values(const TMap<int32, int32>& TargetMap, TArray<int32>& Values);
-	
+
 	DECLARE_FUNCTION(execMap_Values);
-	
+
 	static void GenericMap_Values(const void* MapAddr, const FMapProperty* MapProperty, const void* ArrayAddr, const FArrayProperty* ArrayProperty);
 
 	//———————— GetPair		  																						————
@@ -87,52 +87,52 @@ public:
 	DECLARE_FUNCTION(execMagnusLoop_Map_GetPair);
 
 	static bool GenericMagnusLoop_Map_GetPair(const void* TargetMap, const FMapProperty* MapProperty, int32 Index, void* OutKeyPtr, void* OutValuePtr);
-	
+
 	//———————— ContainsValue																						————
 
 	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Contains Value", CompactNodeTitle = "CONTAINS VALUE", MapParam = "TargetMap", MapValueParam = "Value", AutoCreateRefTerm = "Value", BlueprintThreadSafe), Category = "Utilities|Map")
 	static bool Map_ContainsValue(const TMap<int32, int32>& TargetMap, const int32& Value);
-	
+
 	DECLARE_FUNCTION(execMap_ContainsValue);
-	
+
 	static bool GenericMap_FindValue(const void* TargetMap, const FMapProperty* MapProperty, const FProperty* ValueProperty, const void* ValuePtr);
-	
+
 	//———————— GetKeysFromValue																						————
 
 	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Get Keys From Value", CompactNodeTitle = "GET KEYS FROM VALUE", MapParam = "TargetMap", MapValueParam = "Value", MapKeyParam = "Keys", AutoCreateRefTerm = "Keys"), Category = "Utilities|Map")
 	static void Map_KeysFromValue(const TMap<int32, int32>& TargetMap, int32 Value, TArray<int32>& Keys);
-	
+
 	DECLARE_FUNCTION(execMap_KeysFromValue);
-	
+
 	static void GenericMap_KeysFromValue(const void* MapAddr, const FMapProperty* MapProperty, const void* ArrayAddr, const FArrayProperty* ArrayProperty,  const FProperty* ValueProperty, const void* ValuePtr);
 
 	//———————— RemoveEntries																						————
-	
+
 	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Remove Entries", CompactNodeTitle = "REMOVE ENTRIES", MapParam = "TargetMap", MapKeyParam = "Keys",  AutoCreateRefTerm = "Keys"), Category = "Utilities|Map")
 	static bool Map_RemoveEntries(const TMap<int32, int32>& TargetMap, const TArray<int32>& Keys);
 
 	DECLARE_FUNCTION(execMap_RemoveEntries);
 
 	static bool GenericMap_RemoveEntries(const void* MapAddr, const FMapProperty* MapProperty, const void* ArrayAddr, const FArrayProperty* ArrayProperty);
-	
+
 	//———————— RemoveEntriesWithValue																				————
-	
+
 	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Remove Entries With Value", CompactNodeTitle = "REMOVE ENTRIES WITH VALUE", MapParam = "TargetMap", MapValueParam = "Value"), Category = "Utilities|Map")
 	static bool Map_RemoveEntriesWithValue(const TMap<int32, int32>& TargetMap, const int32 Value);
 
 	DECLARE_FUNCTION(execMap_RemoveEntriesWithValue);
 
 	static bool GenericMap_RemoveEntriesWithValue(const void* MapAddr, const FMapProperty* MapProperty, const FProperty* ValueProperty, const void* ValuePtr);
-	
+
 	//———————— SetValueAt																							————
-	
+
 	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Set Value At", MapParam = "TargetMap", MapValueParam = "Value"), Category = "Utilities|Map")
 	static bool Map_SetValueAt(const TMap<int32, int32>& TargetMap, const int32 Index, const int32 Value);
 
 	DECLARE_FUNCTION(execMap_SetValueAt);
 
 	static bool GenericMap_SetValueAt(const void* MapAddr, const FMapProperty* MapProperty, const int32 Index, const void* ValuePtr);
-	
+
 	//———————— RandomItem																							————
 
 	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Random Map Item", CompactNodeTitle = "RANDOM MAP ITEM", MapParam = "TargetMap", MapKeyParam = "Key", MapValueParam = "Value"), Category = "Utilities|Map")
@@ -141,25 +141,25 @@ public:
 	DECLARE_FUNCTION(execMap_RandomItem);
 
 	static void GenericMap_RandomItem(const void* MapAddr, const FMapProperty* MapProperty, void* OutKeyPtr, void* OutValuePtr);
-	
+
 	//———————— RandomMapItemFromStream																				————
-	
+
 	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Random Map Item From Stream", MapParam = "TargetMap", MapKeyParam = "Key", MapValueParam = "Value"), Category = "Utilities|Map")
 	static void Map_RandomItemFromStream(const TMap<int32, int32>& TargetMap, UPARAM(Ref) FRandomStream& RandomStream, int32& Key, int32& Value);
 
 	DECLARE_FUNCTION(execMap_RandomItemFromStream);
 
 	static void GenericMap_RandomItemFromStream(const void* MapAddr, const FMapProperty* MapProperty, FRandomStream* RandomStream, void* OutKeyPtr, void* OutValuePtr);
-	
+
 	//———————— MapIdentical																							————
-	
+
 	UFUNCTION(BlueprintPure, BlueprintInternalUseOnly, CustomThunk, meta = (MapParam = "MapA", MapKeyParam = "KeysB", MapValueParam = "ValuesB"))
 	static bool Map_Identical(const TMap<int32, int32>& MapA, const TArray<int32>& KeysB, const TArray<int32>& ValuesB);
-	
+
 	DECLARE_FUNCTION(execMap_Identical);
-	
+
 	static bool GenericMap_Identical(const void* MapAddr, const FMapProperty* MapProperty, const void* KeysBAddr, const FArrayProperty* KeysBProp, const void* ValuesBAddr, const FArrayProperty* ValuesBProp);
-	
+
 };
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -254,7 +254,7 @@ public:
 	static bool MapTree_ContainsMapItem(const TMap<int32, int32>& TargetMap, const int32& Key, const FName& MemberName, const int32& SubKey, const int32& Value);
 	DECLARE_FUNCTION(execMapTree_ContainsMapItem);
 	static bool GenericMapTree_ContainsMapItem(const void* TargetMap, const FMapProperty* MapProperty, const void* KeyPtr, const FName& MemberName, const void* SubKeyPtr, const void* ValuePtr);
-	
+
 };
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

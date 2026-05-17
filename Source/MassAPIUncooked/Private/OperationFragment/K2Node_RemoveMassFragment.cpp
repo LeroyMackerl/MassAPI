@@ -160,7 +160,7 @@ void UK2Node_RemoveMassFragment::ReallocatePinsDuringReconstruction(TArray<UEdGr
 		}
 	}
 
-	// [FIX] Check OLD pins for the deferred value. 
+	// [FIX] Check OLD pins for the deferred value.
 	// The new pin (FindPin) will typically have the default "false" value at this stage,
 	// so we must look at what the user had before reconstruction.
 	bool bWasDeferred = false;

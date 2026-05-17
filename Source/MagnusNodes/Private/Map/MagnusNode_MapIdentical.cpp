@@ -155,7 +155,7 @@ void UMagnusNode_MapIdentical::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
 				}
 			}
 		}
-		
+
 		GetGraph()->NotifyGraphChanged();
 	}
 }
@@ -174,7 +174,7 @@ void UMagnusNode_MapIdentical::GetMenuActions(FBlueprintActionDatabaseRegistrar&
 		check(Spawner != nullptr);
 
 		ActionRegistrar.AddBlueprintAction(Action, Spawner);
-	}	
+	}
 }
 
 //———————— Blueprint.Compile																						————
@@ -203,14 +203,14 @@ HNCH_StartExpandNode(UMagnusNode_MapIdentical)
 		// Map Identical function call
 		UK2Node_CallFunction* MapIdenticalNode = HNCH_SpawnFunctionNode(UMagnusNodesFuncLib_MapHelper, Map_Identical);
 
-        // Link MapA input
+		// Link MapA input
 		Link(MapAPin, FunctionInputPin(MapIdenticalNode, "MapA"));
 
-        // Link MapB Keys and Values to MapIdentical
+		// Link MapB Keys and Values to MapIdentical
 		Link(FunctionReturnPin(MapBGetKeysNode, UMagnusNode_MapIdentical::InputKeysPinName().ToString()), FunctionInputPin(MapIdenticalNode, TEXT("KeysB")));
 		Link(FunctionReturnPin(MapBGetValuesNode, UMagnusNode_MapIdentical::InputValuesPinName().ToString()), FunctionInputPin(MapIdenticalNode, TEXT("ValuesB")));
 
-        // Link result to OwnerNode's ReturnValue pin
+		// Link result to OwnerNode's ReturnValue pin
 		Link(FunctionReturnPin(MapIdenticalNode), ProxyPin(UMagnusNode_MapIdentical::OutputResultPinName()));
 	}
 

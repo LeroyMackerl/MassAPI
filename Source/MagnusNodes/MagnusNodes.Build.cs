@@ -28,7 +28,7 @@ public class MagnusNodes : ModuleRules
                 "SlateCore"
             }
         );
-        
+
         if (Target.bBuildEditor)
         {
             PrivateDependencyModuleNames.AddRange(

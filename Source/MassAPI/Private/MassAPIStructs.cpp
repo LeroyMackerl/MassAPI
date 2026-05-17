@@ -5,84 +5,85 @@
 */
 
 #include "MassAPIStructs.h"
+#include "MassAPISubsystem.h"
 #include "MassEntityQuery.h"
 
 void FEntityTemplate::GetTemplateData(FMassEntityTemplateData& OutTemplateData, FMassEntityManager& EntityManager) const
 {
-    // Clear any existing data to ensure a fresh start
-    OutTemplateData = FMassEntityTemplateData();
+	// Clear any existing data to ensure a fresh start
+	OutTemplateData = FMassEntityTemplateData();
 
-    // 1. Add Tags
-    for (const FInstancedStruct& TagInstance : Tags)
-    {
-        if (TagInstance.IsValid())
-        {
-            OutTemplateData.AddTag(*TagInstance.GetScriptStruct());
-        }
-    }
+	// 1. Add Tags
+	for (const FInstancedStruct& TagInstance : Tags)
+	{
+		if (TagInstance.IsValid())
+		{
+			TEMPLATE_ADD_TAG(OutTemplateData, TagInstance.GetScriptStruct());
+		}
+	}
 
-    // 2. Add Fragments with initial values
-    for (const FInstancedStruct& FragmentInstance : Fragments)
-    {
-        if (FragmentInstance.IsValid())
-        {
-            // AddFragment with FConstStructView will add the fragment to the composition 
-            // and also store its initial value.
-            OutTemplateData.AddFragment(FConstStructView(FragmentInstance));
-        }
-    }
+	// 2. Add Fragments with initial values
+	for (const FInstancedStruct& FragmentInstance : Fragments)
+	{
+		if (FragmentInstance.IsValid())
+		{
+			// AddFragment with FConstStructView will add the fragment to the composition
+			// and also store its initial value.
+			OutTemplateData.AddFragment(FConstStructView(FragmentInstance));
+		}
+	}
 
-    // 3. Add Mutable Shared Fragments
-    for (const FInstancedStruct& SharedFragmentInstance : MutableSharedFragments)
-    {
-        if (SharedFragmentInstance.IsValid())
-        {
-            // The EntityManager is needed to create a handle to the shared data instance.
-            // This ensures that all entities with the same shared fragment data point to the same memory.
-            // We use the overload that takes a script struct and raw memory to avoid template ambiguity.
-            const FSharedStruct& SharedStruct = EntityManager.GetOrCreateSharedFragment(*SharedFragmentInstance.GetScriptStruct(), SharedFragmentInstance.GetMemory());
-            OutTemplateData.AddSharedFragment(SharedStruct);
-        }
-    }
+	// 3. Add Mutable Shared Fragments
+	for (const FInstancedStruct& SharedFragmentInstance : MutableSharedFragments)
+	{
+		if (SharedFragmentInstance.IsValid())
+		{
+			// The EntityManager is needed to create a handle to the shared data instance.
+			// This ensures that all entities with the same shared fragment data point to the same memory.
+			// We use the overload that takes a script struct and raw memory to avoid template ambiguity.
+			const FSharedStruct& SharedStruct = EntityManager.GetOrCreateSharedFragment(*SharedFragmentInstance.GetScriptStruct(), SharedFragmentInstance.GetMemory());
+			OutTemplateData.AddSharedFragment(SharedStruct);
+		}
+	}
 
-    // 4. Add Const Shared Fragments
-    for (const FInstancedStruct& ConstSharedFragmentInstance : ConstSharedFragments)
-    {
-        if (ConstSharedFragmentInstance.IsValid())
-        {
-            // Similar to mutable shared fragments, the EntityManager manages the instance.
-            // We use the overload that takes a script struct and raw memory to avoid template ambiguity.
-            const FConstSharedStruct& ConstSharedStruct = EntityManager.GetOrCreateConstSharedFragment(*ConstSharedFragmentInstance.GetScriptStruct(), ConstSharedFragmentInstance.GetMemory());
-            OutTemplateData.AddConstSharedFragment(ConstSharedStruct);
-        }
-    }
+	// 4. Add Const Shared Fragments
+	for (const FInstancedStruct& ConstSharedFragmentInstance : ConstSharedFragments)
+	{
+		if (ConstSharedFragmentInstance.IsValid())
+		{
+			// Similar to mutable shared fragments, the EntityManager manages the instance.
+			// We use the overload that takes a script struct and raw memory to avoid template ambiguity.
+			const FConstSharedStruct& ConstSharedStruct = EntityManager.GetOrCreateConstSharedFragment(*ConstSharedFragmentInstance.GetScriptStruct(), ConstSharedFragmentInstance.GetMemory());
+			OutTemplateData.AddConstSharedFragment(ConstSharedStruct);
+		}
+	}
 
-    // 5. Add Entity Flags
-    // If the Flags array has content, we create an FEntityFlagFragment, calculate the bitmasks,
-    // and add it to the template data. Flags 0-63 go to Flags, 64-127 go to FlagsHigh.
-    if (Flags.Num() > 0)
-    {
-        FEntityFlagFragment FlagFragment;
-        FlagFragment.Flags = 0;
-        FlagFragment.FlagsHigh = 0;
+	// 5. Add Entity Flags
+	// If the Flags array has content, we create an FEntityFlagFragment, calculate the bitmasks,
+	// and add it to the template data. Flags 0-63 go to Flags, 64-127 go to FlagsHigh.
+	if (Flags.Num() > 0)
+	{
+		FEntityFlagFragment FlagFragment;
+		FlagFragment.Flags = 0;
+		FlagFragment.FlagsHigh = 0;
 
-        for (const EEntityFlags Flag : Flags)
-        {
-            if (Flag < EEntityFlags::EEntityFlags_MAX)
-            {
-                const uint8 Index = static_cast<uint8>(Flag);
-                if (Index >= 64)
-                {
-                    FlagFragment.FlagsHigh |= (1LL << (Index - 64));
-                }
-                else
-                {
-                    FlagFragment.Flags |= (1LL << Index);
-                }
-            }
-        }
+		for (const EEntityFlags Flag : Flags)
+		{
+			if (Flag < EEntityFlags::EEntityFlags_MAX)
+			{
+				const uint8 Index = static_cast<uint8>(Flag);
+				if (Index >= 64)
+				{
+					FlagFragment.FlagsHigh |= (1LL << (Index - 64));
+				}
+				else
+				{
+					FlagFragment.Flags |= (1LL << Index);
+				}
+			}
+		}
 
-        // Add the fragment to the composition and store its initial value (the calculated bitmasks)
-        OutTemplateData.AddFragment(FConstStructView::Make(FlagFragment));
-    }
+		// Add the fragment to the composition and store its initial value (the calculated bitmasks)
+		OutTemplateData.AddFragment(FConstStructView::Make(FlagFragment));
+	}
 }

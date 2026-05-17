@@ -9,14 +9,14 @@
 
 void FMagnusExtensionModule::StartupModule()
 {
-    
+
 }
 
 void FMagnusExtensionModule::ShutdownModule()
 {
-    
+
 }
 
 #undef LOCTEXT_NAMESPACE
-    
+
 IMPLEMENT_MODULE(FMagnusExtensionModule, MagnusExtension)

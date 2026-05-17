@@ -23,6 +23,30 @@
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+namespace K2Node_SetMassFlag_Local
+{
+
+static void SetDelegatePinType(UEdGraphPin* Pin)
+{
+	if (!Pin) { return; }
+	UFunction* Function = UMassAPIFuncLib::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UMassAPIFuncLib, SetFragment_Entity_Unified));
+	if (Function)
+	{
+		if (FDelegateProperty* DelegateProp = CastField<FDelegateProperty>(Function->FindPropertyByName(TEXT("OnFinished"))))
+		{
+			Pin->PinType.PinCategory = UEdGraphSchema_K2::PC_Delegate;
+			Pin->PinType.PinSubCategoryObject = DelegateProp->SignatureFunction;
+			if (DelegateProp->SignatureFunction)
+			{
+				FMemberReference::FillSimpleMemberReference(static_cast<UFunction*>(DelegateProp->SignatureFunction.Get()), Pin->PinType.PinSubCategoryMemberReference);
+			}
+		}
+	}
+}
+
+} // namespace K2Node_SetMassFlag_Local
+
 namespace UK2Node_SetMassFlagHelper
 {
 	// DataSource类型到标题的映射
@@ -119,6 +143,10 @@ void UK2Node_SetMassFlag::AllocateDefaultPins()
 	// Template模式下会在UpdateDataSourceType中移除
 	CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Boolean, ReturnValuePinName());
 
+	// Create Deferred Pin (default false) | 创建延迟标志引脚（默认关闭）
+	UEdGraphPin* DeferredPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, DeferredPinName());
+	DeferredPin->DefaultValue = TEXT("false");
+
 	Super::AllocateDefaultPins();
 
 	// 初始化DataSource类型
@@ -145,6 +173,44 @@ void UK2Node_SetMassFlag::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*
 		}
 	}
 
+	// Restore Deferred / Delegate Logic | 恢复延迟/委托逻辑
+	// [FIX] Check OLD pins for the deferred value. | [修复] 检查旧引脚上的延迟值
+	bool bWasDeferred = false;
+	for (const UEdGraphPin* OldPin : OldPins)
+	{
+		if (OldPin && OldPin->PinName == DeferredPinName())
+		{
+			bWasDeferred = (OldPin->DefaultValue == TEXT("true"));
+			break;
+		}
+	}
+
+	if (bWasDeferred)
+	{
+		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
+		if (!DelegatePin)
+		{
+			DelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
+		}
+
+		K2Node_SetMassFlag_Local::SetDelegatePinType(DelegatePin);
+
+		for (UEdGraphPin* OldPin : OldPins)
+		{
+			if (OldPin && OldPin->PinName == OnFinishedPinName())
+			{
+				if (OldPin->LinkedTo.Num() > 0)
+				{
+					for (UEdGraphPin* Linked : OldPin->LinkedTo)
+					{
+						DelegatePin->MakeLinkTo(Linked);
+					}
+				}
+				break;
+			}
+		}
+	}
+
 	// 更新缓存的DataSource类型
 	UpdateDataSourceType();
 }
@@ -153,6 +219,42 @@ void UK2Node_SetMassFlag::PostReconstructNode()
 {
 	Super::PostReconstructNode();
 	UpdateDataSourceType();
+}
+
+//------------------------ Pin.ValueChange ------------------------ | 引脚值变更 ------------------------
+
+void UK2Node_SetMassFlag::PinDefaultValueChanged(UEdGraphPin* Pin)
+{
+	Super::PinDefaultValueChanged(Pin);
+
+	// Handle Deferred Checkbox Toggle | 处理延迟复选框切换
+	if (Pin && Pin->PinName == DeferredPinName())
+	{
+		const bool bIsChecked = (Pin->DefaultValue == TEXT("true"));
+		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
+
+		bool bChanged = false;
+
+		if (bIsChecked && !DelegatePin)
+		{
+			// User checked 'bDeferred': Create the pin | 用户勾选延迟：创建引脚
+			DelegatePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Delegate, OnFinishedPinName());
+			K2Node_SetMassFlag_Local::SetDelegatePinType(DelegatePin);
+			bChanged = true;
+		}
+		else if (!bIsChecked && DelegatePin)
+		{
+			// User unchecked 'bDeferred': Destroy the pin | 用户取消延迟：销毁引脚
+			DelegatePin->BreakAllPinLinks();
+			RemovePin(DelegatePin);
+			bChanged = true;
+		}
+
+		if (bChanged)
+		{
+			GetGraph()->NotifyNodeChanged(this);
+		}
+	}
 }
 
 //———————— Pin.Connection																							————
@@ -292,9 +394,33 @@ void UK2Node_SetMassFlag::UpdateDataSourceType()
 			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Boolean, ReturnValuePinName());
 		}
 	}
-}
 
-//================ Editor.PropertyChange																		========
+	// Toggle bDeferred visibility based on source type | 根据源类型切换延迟引脚可见性
+	UEdGraphPin* DeferredPin = FindPin(DeferredPinName());
+	if (DeferredPin)
+	{
+		// Only Entities (single or array) can handle deferred commands | 只有实体（单个或数组）可以处理延迟命令
+		const bool bShow = (CachedDataSourceType == EMassFragmentSourceDataType::EntityHandle ||
+							CachedDataSourceType == EMassFragmentSourceDataType::EntityHandleArray);
+
+		if (DeferredPin->bHidden == bShow)
+		{
+			DeferredPin->bHidden = !bShow;
+			if (!bShow)
+			{
+				DeferredPin->BreakAllPinLinks();
+			}
+		}
+
+		// Also handle OnFinished visibility if we are hiding Deferred | 隐藏延迟时也处理 OnFinished
+		UEdGraphPin* DelegatePin = FindPin(OnFinishedPinName());
+		if (DelegatePin && !bShow)
+		{
+			DelegatePin->BreakAllPinLinks();
+			RemovePin(DelegatePin);
+		}
+	}
+}
 
 void UK2Node_SetMassFlag::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -418,6 +544,14 @@ virtual void Compile() override
 		}
 
 		Link(ProxyPin(UK2Node_SetMassFlag::FlagPinName()), FunctionInputPin(SetFunctionNode, TEXT("FlagToSet")));
+			if (bIsEntityMode)
+			{
+				Link(ProxyPin(UK2Node_SetMassFlag::DeferredPinName()), FunctionInputPin(SetFunctionNode, TEXT("bDeferred")));
+				if (UEdGraphPin* DelegatePin = ProxyPin(UK2Node_SetMassFlag::OnFinishedPinName()))
+				{
+					Link(DelegatePin, FunctionInputPin(SetFunctionNode, TEXT("OnFinished")));
+				}
+			}
 
 		// Connect execution flow
 		Link(SequenceNode->GetThenPinGivenIndex(0), ExecPin(SetFunctionNode));
@@ -472,6 +606,17 @@ virtual void Compile() override
 		// 连接参数引脚
 		Link(ProxyPin(UK2Node_SetMassFlag::DataSourcePinName()), FunctionInputPin(SetFunctionNode, FunctionDataSourcePinName));
 		Link(ProxyPin(UK2Node_SetMassFlag::FlagPinName()), FunctionInputPin(SetFunctionNode, TEXT("FlagToSet")));
+
+
+			// Link bDeferred and OnFinished for entity mode | 实体模式下链接延迟引脚
+			if (OwnerNode->CachedDataSourceType == EMassFragmentSourceDataType::EntityHandle)
+			{
+			Link(ProxyPin(UK2Node_SetMassFlag::DeferredPinName()), FunctionInputPin(SetFunctionNode, TEXT("bDeferred")));
+			if (UEdGraphPin* DelegatePin = ProxyPin(UK2Node_SetMassFlag::OnFinishedPinName()))
+			{
+				Link(DelegatePin, FunctionInputPin(SetFunctionNode, TEXT("OnFinished")));
+			}
+			}
 
 		// 连接返回值引脚（仅EntityHandle模式）
 		if (OwnerNode->CachedDataSourceType == EMassFragmentSourceDataType::EntityHandle)

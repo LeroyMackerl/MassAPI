@@ -21,10 +21,10 @@ void FMagnusUtilitiesModule::StartupModule()
 void FMagnusUtilitiesModule::ShutdownModule()
 {
 	#if WITH_EDITOR
-    FMCPHCustomPropertyAdder::OnUnregisterCustomProperties().Broadcast();
+	FMCPHCustomPropertyAdder::OnUnregisterCustomProperties().Broadcast();
 	#endif
 }
 
 #undef LOCTEXT_NAMESPACE
-    
+
 IMPLEMENT_MODULE(FMagnusUtilitiesModule, MagnusUtilities)

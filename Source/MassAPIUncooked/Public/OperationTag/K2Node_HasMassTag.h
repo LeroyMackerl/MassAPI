@@ -43,7 +43,7 @@ public:
 
 	//================ Pin.Management																			========
 
-	//———————— Pin.Construction																						————	
+	//———————— Pin.Construction																						————
 
 	virtual void AllocateDefaultPins() override;
 

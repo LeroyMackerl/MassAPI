@@ -7,7 +7,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Runtime/Launch/Resources/Version.h" 
+#include "Runtime/Launch/Resources/Version.h"
 #include "MassSubsystemBase.h"
 #include "MassAPIStructs.h"
 #include "MassAPIEnums.h"
@@ -20,6 +20,7 @@
 #include "MassExecutionContext.h"
 #include "Stats/StatsSystemTypes.h"
 #include "Subsystems/SubsystemCollection.h"
+#include "MassAPIVersion.h"
 
 #include "MassAPISubsystem.generated.h"
 
@@ -28,22 +29,8 @@
 // 声明每次迭代的委托
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEntityIterate, FEntityHandle, Element, int32, Index);
 
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7
-// UE 5.7 accessor methods
-#define GET_TAGS GetTags()
-#define GET_FRAGMENTS GetFragments()
-#define GET_CHUNK_FRAGMENTS GetChunkFragments()
-#define GET_SHARED_FRAGMENTS GetSharedFragments()
-#define GET_CONST_SHARED_FRAGMENTS GetConstSharedFragments()
-#else
-// < UE 5.7 accessor methods
-#define GET_TAGS Tags
-#define GET_FRAGMENTS Fragments
-#define GET_CHUNK_FRAGMENTS ChunkFragments
-#define GET_SHARED_FRAGMENTS SharedFragments
-#define GET_CONST_SHARED_FRAGMENTS ConstSharedFragments
-#endif
 
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 /**
@@ -99,26 +86,16 @@ public:
 
 	//----------------- Filters ---------------
 
-	// A contains all of B
+	// A contains all of B | A 包含 B 的全部
 	FORCEINLINE static bool HasAll(const FMassArchetypeCompositionDescriptor& ThisComposition, const FMassArchetypeCompositionDescriptor& OtherComposition)
 	{
-		return
-			ThisComposition.GET_FRAGMENTS.HasAll(OtherComposition.GET_FRAGMENTS) &&
-			ThisComposition.GET_TAGS.HasAll(OtherComposition.GET_TAGS) &&
-			ThisComposition.GET_CHUNK_FRAGMENTS.HasAll(OtherComposition.GET_CHUNK_FRAGMENTS) &&
-			ThisComposition.GET_SHARED_FRAGMENTS.HasAll(OtherComposition.GET_SHARED_FRAGMENTS) &&
-			ThisComposition.GET_CONST_SHARED_FRAGMENTS.HasAll(OtherComposition.GET_CONST_SHARED_FRAGMENTS);
+		return HAS_ALL_COMPOSITION(ThisComposition, OtherComposition);
 	}
 
-	// A contains any of B
+	// A contains any of B | A 包含 B 的任一
 	FORCEINLINE static bool HasAny(const FMassArchetypeCompositionDescriptor& ThisComposition, const FMassArchetypeCompositionDescriptor& OtherComposition)
 	{
-		return
-			ThisComposition.GET_FRAGMENTS.HasAny(OtherComposition.GET_FRAGMENTS) ||
-			ThisComposition.GET_TAGS.HasAny(OtherComposition.GET_TAGS) ||
-			ThisComposition.GET_CHUNK_FRAGMENTS.HasAny(OtherComposition.GET_CHUNK_FRAGMENTS) ||
-			ThisComposition.GET_SHARED_FRAGMENTS.HasAny(OtherComposition.GET_SHARED_FRAGMENTS) ||
-			ThisComposition.GET_CONST_SHARED_FRAGMENTS.HasAny(OtherComposition.GET_CONST_SHARED_FRAGMENTS);
+		return HAS_ANY_COMPOSITION(ThisComposition, OtherComposition);
 	}
 
 	FORCEINLINE static bool MatchQueryAll(const FMassArchetypeCompositionDescriptor& Composition, const FEntityQuery& Query)
@@ -292,6 +269,108 @@ public:
 	TArray<FMassEntityHandle> BuildEntities(int32 Quantity, FMassEntityTemplateData& TemplateData) const;
 
 	/**
+	 * Pull a const-shared fragment value back out of a FMassEntityTemplateData.
+	 * Useful when caching values from a template at spawn-time without going through
+	 * the per-agent fragment slot (e.g. for fragments that are registered as
+	 * const-shared and intentionally have no per-agent counterpart).
+	 * @return Pointer to the stored value, or nullptr if the template carries no
+	 *         const-shared fragment of type T.
+	 */
+	template<typename T>
+	static const T* FindConstSharedFragmentInTemplate(const FMassEntityTemplateData& Tmpl)
+	{
+		const auto& Composition = Tmpl.GetSharedFragmentValues();
+		for (const FConstSharedStruct& SS : Composition.GetConstSharedFragments())
+		{
+			if (SS.GetScriptStruct() == T::StaticStruct())
+			{
+				// FConstSharedStruct::GetPtr<U>() is constrained to const U via TEnableIf.
+				return SS.GetPtr<const T>();
+			}
+		}
+		return nullptr;
+	}
+
+	/**
+	 * Pull a (mutable) shared fragment value back out of a FMassEntityTemplateData.
+	 * Mirror of FindConstSharedFragmentInTemplate for fragments registered via
+	 * AddSharedFragment / GetOrCreateSharedFragment.
+	 */
+	template<typename T>
+	static T* FindSharedFragmentInTemplate(const FMassEntityTemplateData& Tmpl)
+	{
+		const auto& Composition = Tmpl.GetSharedFragmentValues();
+		for (const FSharedStruct& SS : Composition.GetSharedFragments())
+		{
+			if (SS.GetScriptStruct() == T::StaticStruct())
+			{
+				return SS.GetPtr<T>();
+			}
+		}
+		return nullptr;
+	}
+
+	/**
+	 * Replace (or add) a const-shared fragment of type T inside a FMassEntityTemplateData.
+	 * Rebuilds the template from scratch, copying every tag / fragment / shared
+	 * fragment except any pre-existing const-shared T, then dedupes the new value
+	 * through the entity manager's const-shared store. Useful when a per-spawn
+	 * tweak (e.g. ScaleMult baked into RenderShared.Transform) needs to land on
+	 * a SharedTemplate copy that the rest of the spawn pipeline still reads from.
+	 */
+	template<typename T>
+	static void ReplaceConstSharedFragmentInTemplate(
+		FMassEntityTemplateData& Template,
+		const T& NewValue,
+		FMassEntityManager& EntityManager)
+	{
+		FMassEntityTemplateData NewData;
+
+		// Carry over template name for debug parity.
+		NewData.SetTemplateName(Template.GetTemplateName());
+
+		// Tags
+		Template.GetTags().ExportTypes([&NewData](const UScriptStruct* TagType)
+		{
+			TEMPLATE_ADD_TAG(NewData, TagType);
+			return true;
+		});
+
+		// Fragments — composition + initial values
+		Template.GetCompositionDescriptor().GET_FRAGMENTS.ExportTypes([&NewData](const UScriptStruct* Type)
+		{
+			TEMPLATE_ADD_FRAGMENT(NewData, Type);
+			return true;
+		});
+		for (const FInstancedStruct& Frag : Template.GetInitialFragmentValues())
+		{
+			NewData.AddFragment(FConstStructView(Frag));
+		}
+
+		// Chunk fragments are type-only in templates (no per-template payload to preserve);
+		// the composition would still be reflected if any consumer relied on them, but the
+		// MassBattle agent template doesn't register chunk fragments today.
+
+		// Shared fragments — pass through
+		for (const FSharedStruct& S : Template.GetSharedFragmentValues().GetSharedFragments())
+		{
+			NewData.AddSharedFragment(S);
+		}
+
+		// Const-shared fragments — skip any existing entry of type T, then add the new one
+		for (const FConstSharedStruct& C : Template.GetSharedFragmentValues().GetConstSharedFragments())
+		{
+			if (C.GetScriptStruct() != T::StaticStruct())
+			{
+				NewData.AddConstSharedFragment(C);
+			}
+		}
+		NewData.AddConstSharedFragment(EntityManager.GetOrCreateConstSharedFragment<T>(NewValue));
+
+		Template = MoveTemp(NewData);
+	}
+
+	/**
 	 * Spawn entities with mixed tags, fragments, and shared fragments
 	 * The function automatically distinguishes between different types
 	 * @param Quantity Number of entities to spawn
@@ -336,25 +415,25 @@ public:
 					// Check if it's a Tag
 					if constexpr (UE::Mass::CTag<ArgType>)
 					{
-						Tags.Add(*ArgType::StaticStruct());
+						BIT_SET_ADD(Tags, ArgType::StaticStruct());
 					}
 					// Check if it's a regular Fragment
 					else if constexpr (UE::Mass::CFragment<ArgType>)
 					{
-						Fragments.Add(*ArgType::StaticStruct());
+						BIT_SET_ADD(Fragments, ArgType::StaticStruct());
 						FragmentInstances.Add(FInstancedStruct::Make(Forward<decltype(Arg)>(Arg)));
 					}
 					// Check if it's specifically a SharedFragment or ConstSharedFragment
 					else if constexpr (UE::Mass::CSharedFragment<ArgType>)
 					{
-						SharedFragments.Add(*ArgType::StaticStruct());
+						BIT_SET_ADD(SharedFragments, ArgType::StaticStruct());
 						// Create or get the shared fragment instance
 						const FSharedStruct& SharedStruct = Manager->GetOrCreateSharedFragment(Forward<decltype(Arg)>(Arg));
 						SharedFragmentValues.Add(SharedStruct);
 					}
 					else if constexpr (UE::Mass::CConstSharedFragment<ArgType>)
 					{
-						ConstSharedFragments.Add(*ArgType::StaticStruct());
+						BIT_SET_ADD(ConstSharedFragments, ArgType::StaticStruct());
 						// Create or get the const shared fragment instance
 						const FConstSharedStruct& ConstSharedStruct = Manager->GetOrCreateConstSharedFragment(Forward<decltype(Arg)>(Arg));
 						SharedFragmentValues.Add(ConstSharedStruct);
@@ -544,7 +623,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_TAGS.Contains(*TagType);
+		return CONTAINS_TAG(Composition, TagType);
 	}
 
 	/**
@@ -568,7 +647,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_TAGS.Contains<T>();
+		return CONTAINS_T_TAG(Composition, T);
 	}
 
 	/**
@@ -590,7 +669,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_FRAGMENTS.Contains(*FragmentType);
+		return CONTAINS_FRAGMENT(Composition, FragmentType);
 	}
 
 	/**
@@ -614,7 +693,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_FRAGMENTS.Contains<T>();
+		return CONTAINS_T_FRAGMENT(Composition, T);
 	}
 
 	/**
@@ -634,7 +713,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_CHUNK_FRAGMENTS.Contains(*ChunkFragmentType);
+		return CONTAINS_CHUNK(Composition, ChunkFragmentType);
 	}
 
 	/**
@@ -658,7 +737,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_CHUNK_FRAGMENTS.Contains<T>();
+		return CONTAINS_T_CHUNK(Composition, T);
 	}
 
 	/**
@@ -678,7 +757,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_SHARED_FRAGMENTS.Contains(*SharedFragmentType);
+		return CONTAINS_SHARED(Composition, SharedFragmentType);
 	}
 
 	/**
@@ -702,7 +781,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_SHARED_FRAGMENTS.Contains<T>();
+		return CONTAINS_T_SHARED(Composition, T);
 	}
 
 	/**
@@ -722,7 +801,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_CONST_SHARED_FRAGMENTS.Contains(*ConstSharedFragmentType);
+		return CONTAINS_CONST_SHARED(Composition, ConstSharedFragmentType);
 	}
 
 	/**
@@ -746,7 +825,7 @@ public:
 			return false;
 		}
 		const FMassArchetypeCompositionDescriptor& Composition = Manager->GetArchetypeComposition(Archetype);
-		return Composition.GET_CONST_SHARED_FRAGMENTS.Contains<T>();
+		return CONTAINS_T_CONST_SHARED(Composition, T);
 	}
 
 	/**
@@ -1198,7 +1277,7 @@ public:
 		FMassEntityManager* Manager = GetEntityManager();
 		checkf(Manager, TEXT("EntityManager is not available for RemoveSharedFragment"));
 
-		return Manager->RemoveSharedFragmentFromEntity(EntityHandle, *T::StaticStruct());
+		return ENTITY_MANAGER_REMOVE_SHARED(Manager, EntityHandle, T::StaticStruct());
 	}
 
 	/**
@@ -1213,7 +1292,7 @@ public:
 		FMassEntityManager* Manager = GetEntityManager();
 		checkf(Manager, TEXT("EntityManager is not available for RemoveSharedFragment"));
 		if (UNLIKELY(!SharedFragmentType) || !SharedFragmentType->IsChildOf(FMassSharedFragment::StaticStruct())) return false;
-		return Manager->RemoveSharedFragmentFromEntity(EntityHandle, *SharedFragmentType);  // Dereference pointer!
+		return ENTITY_MANAGER_REMOVE_SHARED(Manager, EntityHandle, SharedFragmentType);
 	}
 
 	/**
@@ -1230,7 +1309,7 @@ public:
 		FMassEntityManager* Manager = GetEntityManager();
 		checkf(Manager, TEXT("EntityManager is not available for RemoveConstSharedFragment"));
 
-		return Manager->RemoveConstSharedFragmentFromEntity(EntityHandle, *T::StaticStruct());
+		return ENTITY_MANAGER_REMOVE_CONST_SHARED(Manager, EntityHandle, T::StaticStruct());
 	}
 
 	/**
@@ -1245,7 +1324,7 @@ public:
 		FMassEntityManager* Manager = GetEntityManager();
 		checkf(Manager, TEXT("EntityManager is not available for RemoveConstSharedFragment"));
 		if (UNLIKELY(!ConstSharedFragmentType) || !ConstSharedFragmentType->IsChildOf(FMassConstSharedFragment::StaticStruct())) return false;
-		return Manager->RemoveConstSharedFragmentFromEntity(EntityHandle, *ConstSharedFragmentType);  // Dereference pointer!
+		return ENTITY_MANAGER_REMOVE_CONST_SHARED(Manager, EntityHandle, ConstSharedFragmentType);
 	}
 
 	/**
@@ -1276,20 +1355,342 @@ public:
 
 	//---------------- Template Data Operations -----------------
 
-	/**
-	 * @brief Gets a reference to a fragment within a specified FMassEntityTemplateData.
-	 * @tparam TFragment The type of fragment to retrieve, which must inherit from FMassFragment.
-	 * @param TemplateData The entity template data containing the fragment.
-	 * @return A mutable reference to the fragment.
-	 * @note This function will trigger an assertion (checkf) if the fragment type does not exist in the TemplateData,
-	 * as it cannot return a valid reference. Ensure the fragment has been added via AddFragment or AddFragment_GetRef before calling.
-	 */
-	template<typename TFragment>
-	FORCEINLINE TFragment& GetFragmentRef(FMassEntityTemplateData& TemplateData) const
+	//=== Has — existence checks | 存在性检查 ============================================
+
+	/** Check if template data contains a specific tag type | 检查模板数据是否包含特定标签类型 */
+	template<typename T>
+	FORCEINLINE static bool HasTag(const FMassEntityTemplateData& Tmpl)
 	{
-		TFragment* FragmentPtr = TemplateData.GetMutableFragment<TFragment>();
-		checkf(FragmentPtr, TEXT("Attempted to get a reference to fragment '%s' which does not exist in the provided TemplateData. Please add the fragment first."), *TFragment::StaticStruct()->GetName());
-		return *FragmentPtr;
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		bool bFound = false;
+		Tmpl.GetTags().ExportTypes([&bFound](const UScriptStruct* Type) {
+			if (Type == T::StaticStruct()) { bFound = true; return false; }
+			return true;
+		});
+		return bFound;
+	}
+
+	/** Check if template data contains a specific fragment type | 检查模板数据是否包含特定片段类型 */
+	template<typename T>
+	FORCEINLINE static bool HasFragment(const FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		return CONTAINS_T_FRAGMENT(Tmpl.GetCompositionDescriptor(), T);
+	}
+
+	/** Check if template data contains a specific chunk fragment type | 检查模板数据是否包含特定块片段类型 */
+	template<typename T>
+	FORCEINLINE static bool HasChunkFragment(const FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CChunkFragment<T>, "T must be a valid chunk fragment type inheriting from FMassChunkFragment");
+		return CONTAINS_T_CHUNK(Tmpl.GetCompositionDescriptor(), T);
+	}
+
+	/** Check if template data contains a specific shared fragment type | 检查模板数据是否包含特定共享片段类型 */
+	template<typename T>
+	FORCEINLINE static bool HasSharedFragment(const FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CSharedFragment<T>, "T must be a valid shared fragment type inheriting from FMassSharedFragment");
+		return CONTAINS_T_SHARED(Tmpl.GetCompositionDescriptor(), T);
+	}
+
+	/** Check if template data contains a specific const shared fragment type | 检查模板数据是否包含特定常量共享片段类型 */
+	template<typename T>
+	FORCEINLINE static bool HasConstSharedFragment(const FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CConstSharedFragment<T>, "T must be a valid const shared fragment type inheriting from FMassConstSharedFragment");
+		return CONTAINS_T_CONST_SHARED(Tmpl.GetCompositionDescriptor(), T);
+	}
+
+	//=== Get — value retrieval | 值获取 ==================================================
+
+	/** Get fragment value by copy from template data | 从模板数据获取片段值（拷贝） */
+	template<typename T>
+	FORCEINLINE static T GetFragment(const FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		const TConstArrayView<FInstancedStruct> Values = Tmpl.GetInitialFragmentValues();
+		for (const FInstancedStruct& Frag : Values)
+		{
+			if (Frag.GetScriptStruct() == T::StaticStruct())
+			{
+				return Frag.Get<T>();
+			}
+		}
+		checkf(false, TEXT("Template does not contain fragment '%s'. Use HasFragment before GetFragment, or use GetFragmentPtr for nullable access."), *T::StaticStruct()->GetName());
+		return T();
+	}
+
+	/** Get mutable pointer to fragment in template data, nullptr if not found | 获取模板数据中片段的可变指针，未找到则返回 nullptr */
+	template<typename T>
+	FORCEINLINE static T* GetFragmentPtr(FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		return Tmpl.GetMutableFragment<T>();
+	}
+
+	/** Get mutable reference to fragment in template data (asserts if missing) | 获取模板数据中片段的可变引用（缺失时断言） */
+	template<typename T>
+	FORCEINLINE static T& GetFragmentRef(FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		T* Ptr = Tmpl.GetMutableFragment<T>();
+		checkf(Ptr, TEXT("Template does not contain fragment '%s'. Add it first via AddFragment or SetFragment."), *T::StaticStruct()->GetName());
+		return *Ptr;
+	}
+
+	/** Get shared fragment value by copy from template data | 从模板数据获取共享片段值（拷贝） */
+	template<typename T>
+	FORCEINLINE static T GetSharedFragment(const FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CSharedFragment<T>, "T must be a valid shared fragment type inheriting from FMassSharedFragment");
+		const T* Ptr = FindSharedFragmentInTemplate<T>(Tmpl);
+		checkf(Ptr, TEXT("Template does not contain shared fragment '%s'."), *T::StaticStruct()->GetName());
+		return *Ptr;
+	}
+
+	/** Get mutable pointer to shared fragment in template data, nullptr if not found | 获取模板数据中共享片段的可变指针，未找到则返回 nullptr */
+	template<typename T>
+	FORCEINLINE static T* GetSharedFragmentPtr(FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CSharedFragment<T>, "T must be a valid shared fragment type inheriting from FMassSharedFragment");
+		// engine stores shared fragments as FSharedStruct internally, GetPtr<T>() returns T* | 引擎内部将共享片段存储为 FSharedStruct，GetPtr<T>() 返回 T*
+		return FindSharedFragmentInTemplate<T>(Tmpl);
+	}
+
+	/** Get const shared fragment value by copy from template data | 从模板数据获取常量共享片段值（拷贝） */
+	template<typename T>
+	FORCEINLINE static T GetConstSharedFragment(const FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CConstSharedFragment<T>, "T must be a valid const shared fragment type inheriting from FMassConstSharedFragment");
+		const T* Ptr = FindConstSharedFragmentInTemplate<T>(Tmpl);
+		checkf(Ptr, TEXT("Template does not contain const shared fragment '%s'."), *T::StaticStruct()->GetName());
+		return *Ptr;
+	}
+
+	/** Get const pointer to const shared fragment in template data, nullptr if not found | 获取模板数据中常量共享片段的常量指针，未找到则返回 nullptr */
+	template<typename T>
+	FORCEINLINE static const T* GetConstSharedFragmentPtr(const FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CConstSharedFragment<T>, "T must be a valid const shared fragment type inheriting from FMassConstSharedFragment");
+		return FindConstSharedFragmentInTemplate<T>(Tmpl);
+	}
+
+	//=== Set — add or overwrite | 添加或覆盖 =============================================
+
+	/** Set fragment value in template data (overwrites if exists, adds if not) | 在模板数据中设置片段值（存在则覆盖，不存在则添加） */
+	template<typename T>
+	FORCEINLINE static void SetFragment(FMassEntityTemplateData& Tmpl, const T& Value)
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		T* Ptr = Tmpl.GetMutableFragment<T>();
+		if (Ptr)
+		{
+			*Ptr = Value;
+		}
+		else
+		{
+			Tmpl.AddFragment(FConstStructView::Make(Value));
+		}
+	}
+
+	/** Set shared fragment value in template data (removes old if exists, then adds new) | 在模板数据中设置共享片段值（移除旧的然后添加新的） */
+	template<typename T>
+	FORCEINLINE static void SetSharedFragment(FMassEntityTemplateData& Tmpl, const T& Value, FMassEntityManager& Mgr)
+	{
+		static_assert(UE::Mass::CSharedFragment<T>, "T must be a valid shared fragment type inheriting from FMassSharedFragment");
+		// copy-on-write: rebuild template, skip old T, add new value | 写时复制：重建模板，跳过旧 T，添加新值
+		FMassEntityTemplateData NewData;
+		NewData.SetTemplateName(Tmpl.GetTemplateName());
+		Tmpl.GetTags().ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_TAG(NewData, Type); return true; });
+		Tmpl.GetCompositionDescriptor().GET_FRAGMENTS.ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_FRAGMENT(NewData, Type); return true; });
+		for (const FInstancedStruct& Frag : Tmpl.GetInitialFragmentValues()) { NewData.AddFragment(FConstStructView(Frag)); }
+		for (const FSharedStruct& S : Tmpl.GetSharedFragmentValues().GetSharedFragments())
+		{
+			if (S.GetScriptStruct() != T::StaticStruct()) NewData.AddSharedFragment(S);
+		}
+		for (const FConstSharedStruct& C : Tmpl.GetSharedFragmentValues().GetConstSharedFragments()) { NewData.AddConstSharedFragment(C); }
+		NewData.AddSharedFragment(Mgr.GetOrCreateSharedFragment(Value));
+		Tmpl = MoveTemp(NewData);
+	}
+
+	/** Set const shared fragment value in template data (removes old if exists, then adds new) | 在模板数据中设置常量共享片段值（移除旧的然后添加新的） */
+	template<typename T>
+	FORCEINLINE static void SetConstSharedFragment(FMassEntityTemplateData& Tmpl, const T& Value, FMassEntityManager& Mgr)
+	{
+		static_assert(UE::Mass::CConstSharedFragment<T>, "T must be a valid const shared fragment type inheriting from FMassConstSharedFragment");
+		FMassEntityTemplateData NewData;
+		NewData.SetTemplateName(Tmpl.GetTemplateName());
+		Tmpl.GetTags().ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_TAG(NewData, Type); return true; });
+		Tmpl.GetCompositionDescriptor().GET_FRAGMENTS.ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_FRAGMENT(NewData, Type); return true; });
+		for (const FInstancedStruct& Frag : Tmpl.GetInitialFragmentValues()) { NewData.AddFragment(FConstStructView(Frag)); }
+		for (const FSharedStruct& S : Tmpl.GetSharedFragmentValues().GetSharedFragments()) { NewData.AddSharedFragment(S); }
+		for (const FConstSharedStruct& C : Tmpl.GetSharedFragmentValues().GetConstSharedFragments())
+		{
+			if (C.GetScriptStruct() != T::StaticStruct()) NewData.AddConstSharedFragment(C);
+		}
+		NewData.AddConstSharedFragment(Mgr.GetOrCreateConstSharedFragment(Value));
+		Tmpl = MoveTemp(NewData);
+	}
+
+	//=== Add — append new (no-op if already exists) | 追加新的（已存在则无操作）=============
+
+	/** Add a tag to template data | 向模板数据添加标签 */
+	template<typename T>
+	FORCEINLINE static void AddTag(FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		TEMPLATE_ADD_TAG(Tmpl, T::StaticStruct());
+	}
+
+	/** Add a fragment with default value to template data | 向模板数据添加具有默认值的片段 */
+	template<typename T>
+	FORCEINLINE static void AddFragment(FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		TEMPLATE_ADD_FRAGMENT(Tmpl, T::StaticStruct());
+	}
+
+	/** Add a fragment with initial value to template data | 向模板数据添加具有初始值的片段 */
+	template<typename T>
+	FORCEINLINE static void AddFragment(FMassEntityTemplateData& Tmpl, const T& Value)
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		TEMPLATE_ADD_FRAGMENT(Tmpl, T::StaticStruct());
+		Tmpl.AddFragment(FConstStructView::Make(Value));
+	}
+
+	/** Add a shared fragment to template data | 向模板数据添加共享片段 */
+	template<typename T>
+	FORCEINLINE static void AddSharedFragment(FMassEntityTemplateData& Tmpl, const T& Value, FMassEntityManager& Mgr)
+	{
+		static_assert(UE::Mass::CSharedFragment<T>, "T must be a valid shared fragment type inheriting from FMassSharedFragment");
+		Tmpl.AddSharedFragment(Mgr.GetOrCreateSharedFragment(Value));
+	}
+
+	/** Add a const shared fragment to template data | 向模板数据添加常量共享片段 */
+	template<typename T>
+	FORCEINLINE static void AddConstSharedFragment(FMassEntityTemplateData& Tmpl, const T& Value, FMassEntityManager& Mgr)
+	{
+		static_assert(UE::Mass::CConstSharedFragment<T>, "T must be a valid const shared fragment type inheriting from FMassConstSharedFragment");
+		Tmpl.AddConstSharedFragment(Mgr.GetOrCreateConstSharedFragment(Value));
+	}
+
+	//=== Remove — copy-on-write exclude | 写时复制排除 ====================================
+
+	/** Remove a tag from template data | 从模板数据移除标签 */
+	template<typename T>
+	FORCEINLINE static void RemoveTag(FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CTag<T>, "T must be a valid tag type inheriting from FMassTag");
+		FMassEntityTemplateData NewData;
+		NewData.SetTemplateName(Tmpl.GetTemplateName());
+		Tmpl.GetTags().ExportTypes([&NewData](const UScriptStruct* Type) {
+			if (Type != T::StaticStruct()) TEMPLATE_ADD_TAG(NewData, Type);
+			return true;
+		});
+		Tmpl.GetCompositionDescriptor().GET_FRAGMENTS.ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_FRAGMENT(NewData, Type); return true; });
+		for (const FInstancedStruct& Frag : Tmpl.GetInitialFragmentValues()) { NewData.AddFragment(FConstStructView(Frag)); }
+		for (const FSharedStruct& S : Tmpl.GetSharedFragmentValues().GetSharedFragments()) { NewData.AddSharedFragment(S); }
+		for (const FConstSharedStruct& C : Tmpl.GetSharedFragmentValues().GetConstSharedFragments()) { NewData.AddConstSharedFragment(C); }
+		Tmpl = MoveTemp(NewData);
+	}
+
+	/** Remove a fragment from template data | 从模板数据移除片段 */
+	template<typename T>
+	FORCEINLINE static void RemoveFragment(FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CFragment<T>, "T must be a valid fragment type inheriting from FMassFragment");
+		FMassEntityTemplateData NewData;
+		NewData.SetTemplateName(Tmpl.GetTemplateName());
+		Tmpl.GetTags().ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_TAG(NewData, Type); return true; });
+		Tmpl.GetCompositionDescriptor().GET_FRAGMENTS.ExportTypes([&NewData](const UScriptStruct* Type) {
+			if (Type != T::StaticStruct()) TEMPLATE_ADD_FRAGMENT(NewData, Type);
+			return true;
+		});
+		for (const FInstancedStruct& Frag : Tmpl.GetInitialFragmentValues())
+		{
+			if (Frag.GetScriptStruct() != T::StaticStruct()) NewData.AddFragment(FConstStructView(Frag));
+		}
+		for (const FSharedStruct& S : Tmpl.GetSharedFragmentValues().GetSharedFragments()) { NewData.AddSharedFragment(S); }
+		for (const FConstSharedStruct& C : Tmpl.GetSharedFragmentValues().GetConstSharedFragments()) { NewData.AddConstSharedFragment(C); }
+		Tmpl = MoveTemp(NewData);
+	}
+
+	/** Remove a shared fragment from template data | 从模板数据移除共享片段 */
+	template<typename T>
+	FORCEINLINE static void RemoveSharedFragment(FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CSharedFragment<T>, "T must be a valid shared fragment type inheriting from FMassSharedFragment");
+		FMassEntityTemplateData NewData;
+		NewData.SetTemplateName(Tmpl.GetTemplateName());
+		Tmpl.GetTags().ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_TAG(NewData, Type); return true; });
+		Tmpl.GetCompositionDescriptor().GET_FRAGMENTS.ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_FRAGMENT(NewData, Type); return true; });
+		for (const FInstancedStruct& Frag : Tmpl.GetInitialFragmentValues()) { NewData.AddFragment(FConstStructView(Frag)); }
+		for (const FSharedStruct& S : Tmpl.GetSharedFragmentValues().GetSharedFragments())
+		{
+			if (S.GetScriptStruct() != T::StaticStruct()) NewData.AddSharedFragment(S);
+		}
+		for (const FConstSharedStruct& C : Tmpl.GetSharedFragmentValues().GetConstSharedFragments()) { NewData.AddConstSharedFragment(C); }
+		Tmpl = MoveTemp(NewData);
+	}
+
+	/** Remove a const shared fragment from template data | 从模板数据移除常量共享片段 */
+	template<typename T>
+	FORCEINLINE static void RemoveConstSharedFragment(FMassEntityTemplateData& Tmpl)
+	{
+		static_assert(UE::Mass::CConstSharedFragment<T>, "T must be a valid const shared fragment type inheriting from FMassConstSharedFragment");
+		FMassEntityTemplateData NewData;
+		NewData.SetTemplateName(Tmpl.GetTemplateName());
+		Tmpl.GetTags().ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_TAG(NewData, Type); return true; });
+		Tmpl.GetCompositionDescriptor().GET_FRAGMENTS.ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_FRAGMENT(NewData, Type); return true; });
+		for (const FInstancedStruct& Frag : Tmpl.GetInitialFragmentValues()) { NewData.AddFragment(FConstStructView(Frag)); }
+		for (const FSharedStruct& S : Tmpl.GetSharedFragmentValues().GetSharedFragments()) { NewData.AddSharedFragment(S); }
+		for (const FConstSharedStruct& C : Tmpl.GetSharedFragmentValues().GetConstSharedFragments())
+		{
+			if (C.GetScriptStruct() != T::StaticStruct()) NewData.AddConstSharedFragment(C);
+		}
+		Tmpl = MoveTemp(NewData);
+	}
+
+	//=== Merge — variadic composition merge | 可变参数组合合并 =============================
+
+	/** Merge additional tags/fragments/shared fragments into template data | 将额外的标签/片段/共享片段合并到模板数据中 */
+	template<typename... TArgs>
+	FORCEINLINE static void MergeTemplate(FMassEntityTemplateData& Tmpl, TArgs&&... Args)
+	{
+		auto ProcessArg = [&](auto&& Arg)
+		{
+			using ArgType = std::decay_t<decltype(Arg)>;
+			if constexpr (UE::Mass::CTag<ArgType>)
+			{
+				AddTag<ArgType>(Tmpl);
+			}
+			else if constexpr (UE::Mass::CFragment<ArgType>)
+			{
+				AddFragment<ArgType>(Tmpl, Forward<decltype(Arg)>(Arg));
+			}
+			else
+			{
+				static_assert(UE::Mass::TAlwaysFalse<ArgType>, "MergeTemplate args must be Tags or Fragments. Shared fragments require EntityManager — use AddSharedFragment directly.");
+			}
+		};
+		(ProcessArg(Forward<TArgs>(Args)), ...);
+	}
+
+	//=== Clone — deep copy | 深拷贝 ======================================================
+
+	/** Create a deep copy of template data | 创建模板数据的深拷贝 */
+	FORCEINLINE static FMassEntityTemplateData CloneTemplate(const FMassEntityTemplateData& Source)
+	{
+		FMassEntityTemplateData NewData;
+		NewData.SetTemplateName(Source.GetTemplateName());
+		Source.GetTags().ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_TAG(NewData, Type); return true; });
+		Source.GetCompositionDescriptor().GET_FRAGMENTS.ExportTypes([&NewData](const UScriptStruct* Type) { TEMPLATE_ADD_FRAGMENT(NewData, Type); return true; });
+		for (const FInstancedStruct& Frag : Source.GetInitialFragmentValues()) { NewData.AddFragment(FConstStructView(Frag)); }
+		for (const FSharedStruct& S : Source.GetSharedFragmentValues().GetSharedFragments()) { NewData.AddSharedFragment(S); }
+		for (const FConstSharedStruct& C : Source.GetSharedFragmentValues().GetConstSharedFragments()) { NewData.AddConstSharedFragment(C); }
+		return NewData;
 	}
 
 	//--------------- Flag Operations ---------------
@@ -1333,6 +1734,50 @@ public:
 	 * @return True if the flag was successfully cleared (or was already clear), false on failure.
 	 */
 	bool ClearEntityFlag(FMassEntityHandle EntityHandle, EEntityFlags FlagToClear) const;
+
+	// Deferred set flag — CmdBuf overload | 延迟设置标志 — CmdBuf 重载
+	FORCEINLINE void SetEntityFlagDefer(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, EEntityFlags FlagToSet) const
+	{
+		if (FlagToSet >= EEntityFlags::EEntityFlags_MAX) return;
+			CommandBuffer.PushCommand<FMassDeferredSetCommand>([EntityHandle, FlagToSet](FMassEntityManager& Manager)
+			{
+				if (Manager.IsEntityValid(EntityHandle))
+				{
+					if (FEntityFlagFragment* Frag = Manager.GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+					{
+						Frag->SetFlag(FlagToSet);
+					}
+				}
+			});
+	}
+
+	// Deferred set flag — Context overload | 延迟设置标志 — Context 重载
+	FORCEINLINE void SetEntityFlagDefer(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, EEntityFlags FlagToSet) const
+	{
+		SetEntityFlagDefer(Context.Defer(), EntityHandle, FlagToSet);
+	}
+
+	// Deferred clear flag — CmdBuf overload | 延迟清除标志 — CmdBuf 重载
+	FORCEINLINE void ClearEntityFlagDefer(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, EEntityFlags FlagToClear) const
+	{
+		if (FlagToClear >= EEntityFlags::EEntityFlags_MAX) return;
+			CommandBuffer.PushCommand<FMassDeferredSetCommand>([EntityHandle, FlagToClear](FMassEntityManager& Manager)
+			{
+				if (Manager.IsEntityValid(EntityHandle))
+				{
+					if (FEntityFlagFragment* Frag = Manager.GetFragmentDataPtr<FEntityFlagFragment>(EntityHandle))
+					{
+						Frag->ClearFlag(FlagToClear);
+					}
+				}
+			});
+	}
+
+	// Deferred clear flag — Context overload | 延迟清除标志 — Context 重载
+	FORCEINLINE void ClearEntityFlagDefer(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, EEntityFlags FlagToClear) const
+	{
+		ClearEntityFlagDefer(Context.Defer(), EntityHandle, FlagToClear);
+	}
 
 
 	//--------------- Entity Query Iteration ---------------

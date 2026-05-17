@@ -37,6 +37,11 @@ public class MassAPIUncooked : ModuleRules
             }
         );
 
+        if (Target.Version.MajorVersion >= 5 && Target.Version.MinorVersion >= 8)
+        {
+            PrivateDependencyModuleNames.Add("MassCore");
+        }
+
         if (Target.bBuildEditor)
         {
             PrivateDependencyModuleNames.AddRange(

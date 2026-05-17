@@ -181,7 +181,7 @@ void UK2Node_SetMassFragment::AllocateDefaultPins()
 
 	// 4. Delegate Pin (Dynamic)
 	// In standard allocation, we don't usually create this unless we know bDeferred is true.
-	// However, Super::AllocateDefaultPins() is just the start. 
+	// However, Super::AllocateDefaultPins() is just the start.
 	// Reconstruction/Value changes handle the visibility logic mostly.
 
 	Super::AllocateDefaultPins();

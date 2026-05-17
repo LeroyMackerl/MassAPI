@@ -18,5 +18,5 @@ void FMassAPIModule::ShutdownModule()
 }
 
 #undef LOCTEXT_NAMESPACE
-	
+
 IMPLEMENT_MODULE(FMassAPIModule, MassAPI)

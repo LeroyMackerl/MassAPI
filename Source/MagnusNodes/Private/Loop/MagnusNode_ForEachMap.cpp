@@ -84,7 +84,7 @@ void UMagnusNode_ForEachMap::PostEditChangeProperty(FPropertyChangedEvent& Prope
 {
 	ReconstructNode();
 	GetGraph()->NotifyGraphChanged();
-	
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
@@ -142,7 +142,7 @@ void UMagnusNode_ForEachMap::AllocateDefaultPins()
 	// Execute
 	CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Execute);
 
-	// Map 
+	// Map
 	UEdGraphNode::FCreatePinParams PinParams;
 	PinParams.ContainerType = EPinContainerType::Map;
 	PinParams.ValueTerminalType.TerminalCategory = UEdGraphSchema_K2::PC_Wildcard;
@@ -172,7 +172,7 @@ void UMagnusNode_ForEachMap::AllocateDefaultPins()
 		CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Wildcard, ValuePinName);
 		CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Int, IndexPinName);
 	}
-	
+
 	// Completed
 	CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Then)->PinFriendlyName = FText::FromName(UEdGraphSchema_K2::PN_Completed);
 
@@ -212,10 +212,10 @@ void UMagnusNode_ForEachMap::RefreshBreakPin() const
 
 void UMagnusNode_ForEachMap::RefreshPinType() const
 {
-    bool bNotifyGraphChanged = false;
-    UEdGraphPin* MapPin = GetMapPin();
-    UEdGraphPin* KeyPin = GetKeyPin();
-    UEdGraphPin* ValuePin = GetValuePin();
+	bool bNotifyGraphChanged = false;
+	UEdGraphPin* MapPin = GetMapPin();
+	UEdGraphPin* KeyPin = GetKeyPin();
+	UEdGraphPin* ValuePin = GetValuePin();
 
 	// 第一种情况：Map引脚无连接
 	if (MapPin->LinkedTo.Num() == 0)
@@ -265,126 +265,126 @@ void UMagnusNode_ForEachMap::RefreshPinType() const
 
 		bNotifyGraphChanged = true;
 	}
-	
+
 	// 第二种情况：Map引脚有连接且需要更新类型
 	else if (MapPin->LinkedTo.Num() > 0)
 	{
-	    const UEdGraphPin* ConnectedPin = MapPin->LinkedTo[0];
-	    
-	    if (ConnectedPin->PinType.ContainerType == EPinContainerType::Map)
-	    {
-	        bool bShouldUpdate = false;
-	        
-	        // 更新 Map 引脚的容器类型
-	        if (MapPin->PinType.ContainerType != EPinContainerType::Map)
-	        {
-	            MapPin->PinType.ContainerType = EPinContainerType::Map;
-	            bShouldUpdate = true;
-	        }
+		const UEdGraphPin* ConnectedPin = MapPin->LinkedTo[0];
 
-	        // 处理 Key 类型
-	        if (KeyPin->LinkedTo.Num() > 0 && KeyPin->LinkedTo[0]->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard)
-	        {
-	            // 使用已连接的 Key 引脚类型
-	            const UEdGraphPin* ConnectedKeyPin = KeyPin->LinkedTo[0];
-	            MapPin->PinType.PinCategory = ConnectedKeyPin->PinType.PinCategory;
-	            MapPin->PinType.PinSubCategory = ConnectedKeyPin->PinType.PinSubCategory;
-	            MapPin->PinType.PinSubCategoryObject = ConnectedKeyPin->PinType.PinSubCategoryObject;
-	            KeyPin->PinType = ConnectedKeyPin->PinType;
-	            bShouldUpdate = true;
-	        }
-	        else if (ConnectedPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard)
-	        {
-	        	// 使用外部 Map 的 Key 类型（而不是整个 Map 的类型）
-	        	MapPin->PinType.PinCategory = ConnectedPin->PinType.PinCategory;
-	        	MapPin->PinType.PinSubCategory = ConnectedPin->PinType.PinSubCategory;
-	        	MapPin->PinType.PinSubCategoryObject = ConnectedPin->PinType.PinSubCategoryObject;
-    
-	        	KeyPin->PinType.PinCategory = ConnectedPin->PinType.PinCategory;
-	        	KeyPin->PinType.PinSubCategory = ConnectedPin->PinType.PinSubCategory;
-	        	KeyPin->PinType.PinSubCategoryObject = ConnectedPin->PinType.PinSubCategoryObject;
-	        	bShouldUpdate = true;
-	        }
+		if (ConnectedPin->PinType.ContainerType == EPinContainerType::Map)
+		{
+			bool bShouldUpdate = false;
 
-	        // 处理 Value 类型
-	        if (ValuePin->LinkedTo.Num() > 0 && ValuePin->LinkedTo[0]->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard)
-	        {
-	            // 使用已连接的 Value 引脚类型
-	            const UEdGraphPin* ConnectedValuePin = ValuePin->LinkedTo[0];
-	            MapPin->PinType.PinValueType.TerminalCategory = ConnectedValuePin->PinType.PinCategory;
-	            MapPin->PinType.PinValueType.TerminalSubCategory = ConnectedValuePin->PinType.PinSubCategory;
-	            MapPin->PinType.PinValueType.TerminalSubCategoryObject = ConnectedValuePin->PinType.PinSubCategoryObject;
-	            ValuePin->PinType = ConnectedValuePin->PinType;
-	            bShouldUpdate = true;
-	        }
-	        else if (ConnectedPin->PinType.PinValueType.TerminalCategory != UEdGraphSchema_K2::PC_Wildcard)
-	        {
-	            // 使用外部 Map 的 Value 类型
-	            const FEdGraphPinType ValuePinType = FEdGraphPinType::GetPinTypeForTerminalType(ConnectedPin->PinType.PinValueType);
-	            MapPin->PinType.PinValueType = ConnectedPin->PinType.PinValueType;
-	            ValuePin->PinType = ValuePinType;
-	            bShouldUpdate = true;
-	        }
+			// 更新 Map 引脚的容器类型
+			if (MapPin->PinType.ContainerType != EPinContainerType::Map)
+			{
+				MapPin->PinType.ContainerType = EPinContainerType::Map;
+				bShouldUpdate = true;
+			}
 
-	        if (bShouldUpdate)
-	        {
-	            bNotifyGraphChanged = true;
-	        }
-	    }
+			// 处理 Key 类型
+			if (KeyPin->LinkedTo.Num() > 0 && KeyPin->LinkedTo[0]->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard)
+			{
+				// 使用已连接的 Key 引脚类型
+				const UEdGraphPin* ConnectedKeyPin = KeyPin->LinkedTo[0];
+				MapPin->PinType.PinCategory = ConnectedKeyPin->PinType.PinCategory;
+				MapPin->PinType.PinSubCategory = ConnectedKeyPin->PinType.PinSubCategory;
+				MapPin->PinType.PinSubCategoryObject = ConnectedKeyPin->PinType.PinSubCategoryObject;
+				KeyPin->PinType = ConnectedKeyPin->PinType;
+				bShouldUpdate = true;
+			}
+			else if (ConnectedPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard)
+			{
+				// 使用外部 Map 的 Key 类型（而不是整个 Map 的类型）
+				MapPin->PinType.PinCategory = ConnectedPin->PinType.PinCategory;
+				MapPin->PinType.PinSubCategory = ConnectedPin->PinType.PinSubCategory;
+				MapPin->PinType.PinSubCategoryObject = ConnectedPin->PinType.PinSubCategoryObject;
+
+				KeyPin->PinType.PinCategory = ConnectedPin->PinType.PinCategory;
+				KeyPin->PinType.PinSubCategory = ConnectedPin->PinType.PinSubCategory;
+				KeyPin->PinType.PinSubCategoryObject = ConnectedPin->PinType.PinSubCategoryObject;
+				bShouldUpdate = true;
+			}
+
+			// 处理 Value 类型
+			if (ValuePin->LinkedTo.Num() > 0 && ValuePin->LinkedTo[0]->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard)
+			{
+				// 使用已连接的 Value 引脚类型
+				const UEdGraphPin* ConnectedValuePin = ValuePin->LinkedTo[0];
+				MapPin->PinType.PinValueType.TerminalCategory = ConnectedValuePin->PinType.PinCategory;
+				MapPin->PinType.PinValueType.TerminalSubCategory = ConnectedValuePin->PinType.PinSubCategory;
+				MapPin->PinType.PinValueType.TerminalSubCategoryObject = ConnectedValuePin->PinType.PinSubCategoryObject;
+				ValuePin->PinType = ConnectedValuePin->PinType;
+				bShouldUpdate = true;
+			}
+			else if (ConnectedPin->PinType.PinValueType.TerminalCategory != UEdGraphSchema_K2::PC_Wildcard)
+			{
+				// 使用外部 Map 的 Value 类型
+				const FEdGraphPinType ValuePinType = FEdGraphPinType::GetPinTypeForTerminalType(ConnectedPin->PinType.PinValueType);
+				MapPin->PinType.PinValueType = ConnectedPin->PinType.PinValueType;
+				ValuePin->PinType = ValuePinType;
+				bShouldUpdate = true;
+			}
+
+			if (bShouldUpdate)
+			{
+				bNotifyGraphChanged = true;
+			}
+		}
 	}
 
-    if (bNotifyGraphChanged)
-    {
-        GetGraph()->NotifyGraphChanged();
-    }
+	if (bNotifyGraphChanged)
+	{
+		GetGraph()->NotifyGraphChanged();
+	}
 }
 
 //———————— Pin.Connection																						————
 
 bool UMagnusNode_ForEachMap::IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const
 {
-    if (Super::IsConnectionDisallowed(MyPin, OtherPin, OutReason))
-    {
-        return true;
-    }
+	if (Super::IsConnectionDisallowed(MyPin, OtherPin, OutReason))
+	{
+		return true;
+	}
 
-    // 只检查 Map 引脚的连接
-    if (MyPin == GetMapPin() || (OtherPin->PinType.ContainerType == EPinContainerType::Map && OtherPin->Direction != MyPin->Direction))
-    {
-        const UEdGraphPin* MapPin = (MyPin == GetMapPin()) ? MyPin : OtherPin;
-        const UEdGraphPin* OtherMapPin = (MyPin == GetMapPin()) ? OtherPin : MyPin;
+	// 只检查 Map 引脚的连接
+	if (MyPin == GetMapPin() || (OtherPin->PinType.ContainerType == EPinContainerType::Map && OtherPin->Direction != MyPin->Direction))
+	{
+		const UEdGraphPin* MapPin = (MyPin == GetMapPin()) ? MyPin : OtherPin;
+		const UEdGraphPin* OtherMapPin = (MyPin == GetMapPin()) ? OtherPin : MyPin;
 
-        // 确保另一个引脚也是 Map 类型
-        if (OtherMapPin->PinType.ContainerType != EPinContainerType::Map)
-        {
-            OutReason = TEXT("目标引脚必须是 Map 类型");
-            return true;
-        }
+		// 确保另一个引脚也是 Map 类型
+		if (OtherMapPin->PinType.ContainerType != EPinContainerType::Map)
+		{
+			OutReason = TEXT("目标引脚必须是 Map 类型");
+			return true;
+		}
 
-        // 检查 Key 类型是否匹配（如果不是 Wildcard）
-        if (MapPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard &&
-            OtherMapPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard &&
-            (MapPin->PinType.PinCategory != OtherMapPin->PinType.PinCategory ||
-             MapPin->PinType.PinSubCategory != OtherMapPin->PinType.PinSubCategory ||
-             MapPin->PinType.PinSubCategoryObject != OtherMapPin->PinType.PinSubCategoryObject))
-        {
-            OutReason = TEXT("Map 的 Key 类型不匹配");
-            return true;
-        }
+		// 检查 Key 类型是否匹配（如果不是 Wildcard）
+		if (MapPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard &&
+			OtherMapPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Wildcard &&
+			(MapPin->PinType.PinCategory != OtherMapPin->PinType.PinCategory ||
+			 MapPin->PinType.PinSubCategory != OtherMapPin->PinType.PinSubCategory ||
+			 MapPin->PinType.PinSubCategoryObject != OtherMapPin->PinType.PinSubCategoryObject))
+		{
+			OutReason = TEXT("Map 的 Key 类型不匹配");
+			return true;
+		}
 
-        // 检查 Value 类型是否匹配（如果不是 Wildcard）
-        if (MapPin->PinType.PinValueType.TerminalCategory != UEdGraphSchema_K2::PC_Wildcard &&
-            OtherMapPin->PinType.PinValueType.TerminalCategory != UEdGraphSchema_K2::PC_Wildcard &&
-            (MapPin->PinType.PinValueType.TerminalCategory != OtherMapPin->PinType.PinValueType.TerminalCategory ||
-             MapPin->PinType.PinValueType.TerminalSubCategory != OtherMapPin->PinType.PinValueType.TerminalSubCategory ||
-             MapPin->PinType.PinValueType.TerminalSubCategoryObject != OtherMapPin->PinType.PinValueType.TerminalSubCategoryObject))
-        {
-            OutReason = TEXT("Map 的 Value 类型不匹配");
-            return true;
-        }
-    }
+		// 检查 Value 类型是否匹配（如果不是 Wildcard）
+		if (MapPin->PinType.PinValueType.TerminalCategory != UEdGraphSchema_K2::PC_Wildcard &&
+			OtherMapPin->PinType.PinValueType.TerminalCategory != UEdGraphSchema_K2::PC_Wildcard &&
+			(MapPin->PinType.PinValueType.TerminalCategory != OtherMapPin->PinType.PinValueType.TerminalCategory ||
+			 MapPin->PinType.PinValueType.TerminalSubCategory != OtherMapPin->PinType.PinValueType.TerminalSubCategory ||
+			 MapPin->PinType.PinValueType.TerminalSubCategoryObject != OtherMapPin->PinType.PinValueType.TerminalSubCategoryObject))
+		{
+			OutReason = TEXT("Map 的 Value 类型不匹配");
+			return true;
+		}
+	}
 
-    return false;
+	return false;
 }
 
 //================ Blueprint.Integration																		========
@@ -401,7 +401,7 @@ void UMagnusNode_ForEachMap::GetMenuActions(FBlueprintActionDatabaseRegistrar& A
 		check(Spawner != nullptr);
 
 		ActionRegistrar.AddBlueprintAction(Action, Spawner);
-	}	
+	}
 }
 
 //———————— Blueprint.Compile																						————
