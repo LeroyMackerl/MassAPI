@@ -74,7 +74,6 @@ public:
 
 	FEntityFlagFragment(const FEntityFlagFragment& Other)
 	{
-		LockFlag.store(Other.LockFlag.load());
 		Flags = Other.Flags;
 		FlagsHigh = Other.FlagsHigh;
 	}
@@ -83,7 +82,6 @@ public:
 	{
 		if (this != &Other)
 		{
-			LockFlag.store(Other.LockFlag.load());
 			Flags = Other.Flags;
 			FlagsHigh = Other.FlagsHigh;
 		}
@@ -524,6 +522,97 @@ private:
 			TIsDerivedFrom<T, FMassConstSharedFragment>::IsDerived,
 			"Template arguments must be derived from FMassFragment, FMassTag, etc."
 			);
+	}
+};
+
+// ----------- Fluent Query Builder | 流式查询构建器 -----------
+
+// Compile-time access tags — short, collision-resistant | 编译期读写标签，简短防冲突
+template<EMassFragmentAccess Val>
+struct FAccessTag { static constexpr EMassFragmentAccess Value = Val; };
+
+inline constexpr FAccessTag<EMassFragmentAccess::ReadOnly>  MARO;  // MassAPI ReadOnly
+inline constexpr FAccessTag<EMassFragmentAccess::ReadWrite> MARW;  // MassAPI ReadWrite
+
+/**
+ * Fluent API for configuring FMassEntityQuery from processor ConfigureQueries.
+ * Groups fragments by (Presence, Access) with variadic template packs,
+ * auto-detects Tags/Shared/ConstShared for type-safe dispatch.
+ *
+ * Usage | 用法:
+ *   FEntityQueryBuilder(EntityQuery)
+ *       .All<FAgentTag, FAITag>()                 // Tags: access ignored | 标签：忽略读写
+ *       .All<FLocating, FRotating>(MARW)          // ReadWrite
+ *       .All<FScaling, FCollider>(MARO)           // ReadOnly
+ *       .RegisterWithProcessor(*this);
+ */
+struct FEntityQueryBuilder
+{
+	FMassEntityQuery& Query;
+
+	explicit FEntityQueryBuilder(FMassEntityQuery& InQuery) : Query(InQuery) {}
+
+	template<typename... TArgs, typename TAccess = decltype(MARO)>
+	FEntityQueryBuilder& All(TAccess = MARO)
+	{
+		(AddSingle<TArgs, TAccess::Value>(EMassFragmentPresence::All), ...);
+		return *this;
+	}
+
+	template<typename... TArgs, typename TAccess = decltype(MARO)>
+	FEntityQueryBuilder& Any(TAccess = MARO)
+	{
+		(AddSingle<TArgs, TAccess::Value>(EMassFragmentPresence::Any), ...);
+		return *this;
+	}
+
+	template<typename... TArgs, typename TAccess = decltype(MARO)>
+	FEntityQueryBuilder& None(TAccess = MARO)
+	{
+		(AddSingle<TArgs, TAccess::Value>(EMassFragmentPresence::None), ...);
+		return *this;
+	}
+
+	template<typename... TArgs, typename TAccess = decltype(MARO)>
+	FEntityQueryBuilder& Optional(TAccess = MARO)
+	{
+		(AddSingle<TArgs, TAccess::Value>(EMassFragmentPresence::Optional), ...);
+		return *this;
+	}
+
+	void RegisterWithProcessor(UMassProcessor& Processor)
+	{
+		Query.RegisterWithProcessor(Processor);
+	}
+
+private:
+	template<typename T, EMassFragmentAccess Access>
+	void AddSingle(EMassFragmentPresence Presence)
+	{
+		if constexpr (TIsDerivedFrom<T, FMassTag>::IsDerived)
+		{
+			// Tag — silently ignore Access | 标签 — 静默忽略读写
+			Query.AddTagRequirement<T>(Presence);
+		}
+		else if constexpr (TIsDerivedFrom<T, FMassConstSharedFragment>::IsDerived)
+		{
+			// ConstSharedFragment + ReadWrite = compile-time error | 常量共享片段 + 写入 = 编译期报错
+			static_assert(Access != EMassFragmentAccess::ReadWrite,
+				"ConstSharedFragment cannot be ReadWrite. Omit () or use ReadOnly. | 常量共享片段不支持 ReadWrite。请省略 () 或使用 ReadOnly。");
+			Query.AddConstSharedRequirement<T>(Presence);
+		}
+		else if constexpr (TIsDerivedFrom<T, FMassSharedFragment>::IsDerived)
+		{
+			Query.AddSharedRequirement<T>(Access, Presence);
+		}
+		else if constexpr (TIsDerivedFrom<T, FMassChunkFragment>::IsDerived)
+		{
+			Query.AddChunkRequirement<T>(Access, Presence);
+		}
+		else
+		{
+			Query.AddRequirement<T>(Access, Presence);
+		}
 	}
 };
 
