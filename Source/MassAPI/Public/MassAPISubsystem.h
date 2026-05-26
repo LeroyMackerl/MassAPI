@@ -1783,6 +1783,63 @@ public:
 		ClearEntityFlagDefer(Context.Defer(), EntityHandle, FlagToClear);
 	}
 
+	//--------------- Flag Operations (FName) | 旗标操作（基于FName）---------------
+
+	// EEntityFlags shorthand — delegate to internal impl | EEntityFlags简写
+	FORCEINLINE bool HasFlag(FMassEntityHandle EntityHandle, EEntityFlags Flag) const { return HasEntityFlag(EntityHandle, Flag); }
+	FORCEINLINE bool SetFlag(FMassEntityHandle EntityHandle, EEntityFlags Flag) const { return SetEntityFlag(EntityHandle, Flag); }
+	FORCEINLINE bool ClearFlag(FMassEntityHandle EntityHandle, EEntityFlags Flag) const { return ClearEntityFlag(EntityHandle, Flag); }
+	FORCEINLINE void SetFlagDefer(FMassCommandBuffer& B, FMassEntityHandle H, EEntityFlags F) const { SetEntityFlagDefer(B, H, F); }
+	FORCEINLINE void SetFlagDefer(FMassExecutionContext& C, FMassEntityHandle H, EEntityFlags F) const { SetEntityFlagDefer(C, H, F); }
+	FORCEINLINE void ClearFlagDefer(FMassCommandBuffer& B, FMassEntityHandle H, EEntityFlags F) const { ClearEntityFlagDefer(B, H, F); }
+	FORCEINLINE void ClearFlagDefer(FMassExecutionContext& C, FMassEntityHandle H, EEntityFlags F) const { ClearEntityFlagDefer(C, H, F); }
+
+	FORCEINLINE bool HasFlag(FMassEntityHandle EntityHandle, FName FlagName) const
+	{
+		const EEntityFlags Resolved = UMassAPIFlagSettings::ResolveFlag(FlagName);
+		return (Resolved != EEntityFlags::EEntityFlags_MAX) && HasFlag(EntityHandle, Resolved);
+	}
+
+	FORCEINLINE bool SetFlag(FMassEntityHandle EntityHandle, FName FlagName) const
+	{
+		const EEntityFlags Resolved = UMassAPIFlagSettings::ResolveFlag(FlagName);
+		return (Resolved != EEntityFlags::EEntityFlags_MAX) && SetFlag(EntityHandle, Resolved);
+	}
+
+	FORCEINLINE bool ClearFlag(FMassEntityHandle EntityHandle, FName FlagName) const
+	{
+		const EEntityFlags Resolved = UMassAPIFlagSettings::ResolveFlag(FlagName);
+		return (Resolved != EEntityFlags::EEntityFlags_MAX) && ClearFlag(EntityHandle, Resolved);
+	}
+
+	FORCEINLINE void SetFlagDefer(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, FName FlagName) const
+	{
+		const EEntityFlags Resolved = UMassAPIFlagSettings::ResolveFlag(FlagName);
+		if (Resolved != EEntityFlags::EEntityFlags_MAX)
+		{
+			SetFlagDefer(CommandBuffer, EntityHandle, Resolved);
+		}
+	}
+
+	FORCEINLINE void SetFlagDefer(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, FName FlagName) const
+	{
+		SetFlagDefer(Context.Defer(), EntityHandle, FlagName);
+	}
+
+	FORCEINLINE void ClearFlagDefer(FMassCommandBuffer& CommandBuffer, FMassEntityHandle EntityHandle, FName FlagName) const
+	{
+		const EEntityFlags Resolved = UMassAPIFlagSettings::ResolveFlag(FlagName);
+		if (Resolved != EEntityFlags::EEntityFlags_MAX)
+		{
+			ClearFlagDefer(CommandBuffer, EntityHandle, Resolved);
+		}
+	}
+
+	FORCEINLINE void ClearFlagDefer(FMassExecutionContext& Context, FMassEntityHandle EntityHandle, FName FlagName) const
+	{
+		ClearFlagDefer(Context.Defer(), EntityHandle, FlagName);
+	}
+
 
 	//--------------- Entity ForEach Iteration (cursor-based, Apparatus-style) | 实体遍历迭代（游标模式）---------------
 

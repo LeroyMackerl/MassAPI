@@ -232,6 +232,41 @@ public:
 
 		Unlock(); // Exit Critical Section
 	}
+
+	// --- FName-based flag operations | 基于FName的旗标操作 ---
+
+	FORCEINLINE bool HasFlagByName(const FName FlagName) const
+	{
+		const EEntityFlags Resolved = UMassAPIFlagSettings::ResolveFlag(FlagName);
+		return (Resolved != EEntityFlags::EEntityFlags_MAX) && HasFlag(Resolved);
+	}
+
+	FORCEINLINE void SetFlagByName(const FName FlagName)
+	{
+		const EEntityFlags Resolved = UMassAPIFlagSettings::ResolveFlag(FlagName);
+		if (Resolved != EEntityFlags::EEntityFlags_MAX)
+		{
+			SetFlag(Resolved);
+		}
+	}
+
+	FORCEINLINE void ClearFlagByName(const FName FlagName)
+	{
+		const EEntityFlags Resolved = UMassAPIFlagSettings::ResolveFlag(FlagName);
+		if (Resolved != EEntityFlags::EEntityFlags_MAX)
+		{
+			ClearFlag(Resolved);
+		}
+	}
+
+	FORCEINLINE void SetFlagValueByName(const FName FlagName, const bool bValue)
+	{
+		const EEntityFlags Resolved = UMassAPIFlagSettings::ResolveFlag(FlagName);
+		if (Resolved != EEntityFlags::EEntityFlags_MAX)
+		{
+			SetFlagValue(Resolved, bValue);
+		}
+	}
 };
 
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7

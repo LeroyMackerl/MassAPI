@@ -15,8 +15,8 @@
 /**
  * Map human-readable flag names (FName) to internal bit positions (EEntityFlags).
  * Designers edit this in Project Settings → Plugins → MassAPI Flags.
- * Built-in defaults come from C++ (GetBuiltInDefaults); ini stores user extensions/overrides.
- * | 将可读旗标名映射到位位置。内置默认值来自 C++；ini 存储用户扩展/覆盖。
+ * FlagRegistry starts empty — users or integrating plugins populate it.
+ * | 将可读旗标名映射到位位置。注册表初始为空 — 由用户或集成插件填充。
  */
 UCLASS(Config=MassAPI, DefaultConfig, meta=(DisplayName="MassAPI Flags"))
 class MASSAPI_API UMassAPIFlagSettings : public UDeveloperSettings
@@ -25,7 +25,7 @@ class MASSAPI_API UMassAPIFlagSettings : public UDeveloperSettings
 
 public:
 
-	/** FName → bit-position mapping. User edits in Project Settings. Built-in defaults auto-populated at first boot. | FName → 位位置映射 */
+	/** FName → bit-position mapping. User edits in Project Settings. | FName → 位位置映射 */
 	UPROPERTY(Config, EditAnywhere, Category="Flag Registry", meta=(DisplayName="Flag Registry"))
 	TMap<FName, EEntityFlags> FlagRegistry;
 
@@ -46,12 +46,8 @@ public:
 	}
 #endif
 
-	virtual void PostInitProperties() override;
-
-	//———————— Built-in defaults | 内置默认映射
-
-	/** Return the 46 built-in flag name → bit-position mappings matching EBattleFlags. | 返回与 EBattleFlags 匹配的 46 个内置映射 */
-	static TMap<FName, EEntityFlags> GetBuiltInDefaults();
+	/** Resolve a flag FName to its EEntityFlags bit position. Returns EEntityFlags_MAX if not found. | 将旗标 FName 解析为位位置 */
+	static EEntityFlags ResolveFlag(FName FlagName);
 };
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
