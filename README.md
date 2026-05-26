@@ -4,6 +4,8 @@
 * Feel free to integrate this plugin into your Mass project to provide a more user-friendly API.
 
 # Update Log
+*20250527 Updated to v1.4.0 with nameable flag and faster for each loop in bp.
+
 *20250517 Updated to v1.3.1 with fluent query builder.
 
 *20250517 Updated to v1.3.0 with support for ue 5.8 preview.
