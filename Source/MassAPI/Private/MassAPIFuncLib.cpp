@@ -24,6 +24,7 @@
 #include "Logging/LogMacros.h"
 #include "MassAPIStructs.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "MassAPIFlagSettings.h"
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -565,10 +566,63 @@ TArray<FEntityHandle> UMassAPIFuncLib::GetMatchingEntities(const UObject* WorldC
 	return BPHandles;
 }
 
-UMassAPISubsystem* UMassAPIFuncLib::ForEachMatchingEntities(const UObject* WorldContextObject)
+int32 UMassAPIFuncLib::BeginEntityForEach(const UObject* WorldContextObject, const FEntityQuery& Query)
 {
-	// 直接返回 Subsystem，不再使用静态缓存的 Helper
-	return UMassAPISubsystem::GetPtr(WorldContextObject);
+	UMassAPISubsystem* Subsystem = UMassAPISubsystem::GetPtr(WorldContextObject);
+	if (!Subsystem) return -1;
+
+	TArray<FEntityHandle> Matching = GetMatchingEntities(WorldContextObject, Query);
+	const int32 IterId = Subsystem->NextForEachId++;
+	FEntityForEachState& State = Subsystem->EntityForEachStates.Add(IterId);
+	State.Entities = MoveTemp(Matching);
+	State.CurrentIndex = 0;
+	return IterId;
+}
+
+bool UMassAPIFuncLib::AdvanceEntityForEach(const UObject* WorldContextObject, int32 IterId, FEntityHandle& OutElement, int32& OutIndex)
+{
+	UMassAPISubsystem* Subsystem = UMassAPISubsystem::GetPtr(WorldContextObject);
+	if (!Subsystem) return false;
+
+	FEntityForEachState* State = Subsystem->EntityForEachStates.Find(IterId);
+	if (!State || State->CurrentIndex >= State->Entities.Num())
+	{
+		if (State) Subsystem->EntityForEachStates.Remove(IterId);
+		return false;
+	}
+	OutElement = State->Entities[State->CurrentIndex];
+	OutIndex = State->CurrentIndex;
+	State->CurrentIndex++;
+	return true;
+}
+
+int32 UMassAPIFuncLib::BeginEntityHandleArrayForEach(const UObject* WorldContextObject, const TArray<FEntityHandle>& Array)
+{
+	UMassAPISubsystem* Subsystem = UMassAPISubsystem::GetPtr(WorldContextObject);
+	if (!Subsystem) return -1;
+
+	const int32 IterId = Subsystem->NextForEachId++;
+	FEntityForEachState& State = Subsystem->EntityForEachStates.Add(IterId);
+	State.Entities = Array;  // copy for safety | 安全拷贝
+	State.CurrentIndex = 0;
+	return IterId;
+}
+
+bool UMassAPIFuncLib::AdvanceEntityHandleArrayForEach(const UObject* WorldContextObject, int32 IterId, FEntityHandle& OutElement, int32& OutIndex)
+{
+	UMassAPISubsystem* Subsystem = UMassAPISubsystem::GetPtr(WorldContextObject);
+	if (!Subsystem) return false;
+
+	FEntityForEachState* State = Subsystem->EntityForEachStates.Find(IterId);
+	if (!State || State->CurrentIndex >= State->Entities.Num())
+	{
+		if (State) Subsystem->EntityForEachStates.Remove(IterId);
+		return false;
+	}
+	OutElement = State->Entities[State->CurrentIndex];
+	OutIndex = State->CurrentIndex;
+	State->CurrentIndex++;
+	return true;
 }
 
 //================ TemplateData Operations																		========
@@ -1881,6 +1935,63 @@ bool UMassAPIFuncLib::HasFlag_Template(UPARAM(ref) const FEntityTemplateData& Te
 	}
 
 	return false;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+// Flag Operations (FName-Based) | FName 旗标操作
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+// Helper: resolve FName → EEntityFlags via settings registry | 通过设置注册表解析 FName → EEntityFlags
+static bool LookupFlagByName(FName FlagName, EEntityFlags& OutFlag)
+{
+	const UMassAPIFlagSettings* Settings = GetDefault<UMassAPIFlagSettings>();
+	if (!Settings) return false;
+	const EEntityFlags* Found = Settings->FlagRegistry.Find(FlagName);
+	if (!Found) return false;
+	OutFlag = *Found;
+	return true;
+}
+
+bool UMassAPIFuncLib::HasFlag_EntityByName(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, FName FlagName)
+{
+	EEntityFlags Flag;
+	if (!LookupFlagByName(FlagName, Flag)) return false;
+	return HasFlag_Entity(WorldContextObject, EntityHandle, Flag);
+}
+
+bool UMassAPIFuncLib::HasFlag_TemplateByName(UPARAM(ref) const FEntityTemplateData& TemplateData, FName FlagName)
+{
+	EEntityFlags Flag;
+	if (!LookupFlagByName(FlagName, Flag)) return false;
+	return HasFlag_Template(TemplateData, Flag);
+}
+
+bool UMassAPIFuncLib::SetFlag_EntityByName(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, FName FlagName, bool bDeferred, FOnMassDeferredFinished OnFinished)
+{
+	EEntityFlags Flag;
+	if (!LookupFlagByName(FlagName, Flag)) return false;
+	return SetFlag_Entity(WorldContextObject, EntityHandle, Flag, bDeferred, OnFinished);
+}
+
+void UMassAPIFuncLib::SetFlag_TemplateByName(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, FName FlagName)
+{
+	EEntityFlags Flag;
+	if (!LookupFlagByName(FlagName, Flag)) return;
+	SetFlag_Template(WorldContextObject, TemplateData, Flag);
+}
+
+bool UMassAPIFuncLib::ClearFlag_EntityByName(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, FName FlagName, bool bDeferred, FOnMassDeferredFinished OnFinished)
+{
+	EEntityFlags Flag;
+	if (!LookupFlagByName(FlagName, Flag)) return false;
+	return ClearFlag_Entity(WorldContextObject, EntityHandle, Flag, bDeferred, OnFinished);
+}
+
+void UMassAPIFuncLib::ClearFlag_TemplateByName(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, FName FlagName)
+{
+	EEntityFlags Flag;
+	if (!LookupFlagByName(FlagName, Flag)) return;
+	ClearFlag_Template(WorldContextObject, TemplateData, Flag);
 }
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

@@ -1,0 +1,57 @@
+/*
+* Magnus
+* Author: Ember, All Rights Reserved.
+*/
+
+using UnrealBuildTool;
+
+public class Magnus : ModuleRules
+{
+	public Magnus(ReadOnlyTargetRules Target) : base(Target)
+	{
+		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+		bUseUnity = false;
+
+		PublicIncludePaths.AddRange(new string[] {
+			ModuleDirectory + "/Public",
+			ModuleDirectory + "/Public/NodeCompiler"
+		});
+
+		PublicDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"Core",
+			}
+		);
+
+		PrivateDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"CoreUObject",
+				"Engine",
+				"Slate",
+				"SlateCore",
+			}
+		);
+
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"StructViewer",
+					"UnrealEd",
+					"BlueprintGraph",
+					"GraphEditor",
+					"Kismet",
+					"KismetWidgets",
+					"KismetCompiler",
+					"ToolMenus",
+					"ToolWidgets",
+					"EditorStyle",
+					"PropertyEditor",
+				}
+			);
+		}
+	}
+}

@@ -56,9 +56,8 @@ public class MassAPIUncooked : ModuleRules
                     "ToolMenus",
                     "EditorStyle",
                     "PropertyEditor",
-                    "MagnusExtension",
-                    "MagnusUtilities",
-                    "MagnusNodes",
+                    "Magnus",
+                    "MagnusUncooked",
                 }
             );
         }

@@ -458,22 +458,7 @@ bool UMassAPISubsystem::ClearEntityFlag(FMassEntityHandle EntityHandle, EEntityF
 	return false;
 }
 
-//----------------------------------------------------------------------//
-// Entity Query Iteration
-//----------------------------------------------------------------------//
-
-void UMassAPISubsystem::ExecuteForEach(const UObject* WorldContextObject, const FEntityQuery& Query)
-{
-	// 获取所有匹配的实体
-	TArray<FEntityHandle> MatchingEntities = UMassAPIFuncLib::GetMatchingEntities(WorldContextObject, Query);
-
-	// 遍历每个实体并触发委托
-	for (int32 Index = 0; Index < MatchingEntities.Num(); ++Index)
-	{
-		const FEntityHandle& Entity = MatchingEntities[Index];
-
-		// 触发委托 - 这会调用蓝图中的 LoopBody 执行引脚
-		OnEntityIterate.Broadcast(Entity, Index);
-	}
-}
+//--------------- Entity ForEach Iteration (cursor-based) | 实体遍历迭代（游标模式）---------------
+// State stored on subsystem via EntityForEachStates / NextForEachId
+// Native functions live on UMassAPIFuncLib (BeginEntityForEach, AdvanceEntityForEach, etc.)
 

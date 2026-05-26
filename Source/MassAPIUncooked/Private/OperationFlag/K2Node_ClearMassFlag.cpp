@@ -47,9 +47,9 @@ namespace UK2Node_ClearMassFlagHelper
 	// DataSource类型到标题的映射
 	static const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
 	{
-		{ EMassFragmentSourceDataType::None,				TEXT("ClearMassFlag") },
-		{ EMassFragmentSourceDataType::EntityHandle,		TEXT("ClearMassFlag-Entity") },
-		{ EMassFragmentSourceDataType::EntityTemplateData,	TEXT("ClearMassFlag-Template") }
+		{ EMassFragmentSourceDataType::None,				TEXT("ClearMassFlag [Deprecated]") },
+		{ EMassFragmentSourceDataType::EntityHandle,		TEXT("ClearMassFlag-Entity [Deprecated]") },
+		{ EMassFragmentSourceDataType::EntityTemplateData,	TEXT("ClearMassFlag-Template [Deprecated]") }
 	};
 
 	// 3. Clear - Icon Colors
@@ -408,13 +408,7 @@ void UK2Node_ClearMassFlag::PostEditChangeProperty(FPropertyChangedEvent& Proper
 
 void UK2Node_ClearMassFlag::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
-	UClass* ActionKey = GetClass();
-	if (ActionRegistrar.IsOpenForRegistration(ActionKey))
-	{
-		UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(GetClass());
-		check(NodeSpawner != nullptr);
-		ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
-	}
+	// Deprecated — use FName-based version instead | 已弃用 — 使用 FName 版本
 }
 
 //================ Compiler.Integration			========

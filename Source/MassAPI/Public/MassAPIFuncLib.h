@@ -11,6 +11,7 @@
 #include "MassAPISubsystem.h"
 #include "MassAPIEnums.h"
 #include "MassAPIStructs.h"
+#include "MassAPIFlagSettings.h"
 #include "MassAPIFuncLib.generated.h"
 
 
@@ -154,13 +155,36 @@ public:
 	static TArray<FEntityHandle> GetMatchingEntities(const UObject* WorldContextObject, UPARAM(ref) const FEntityQuery& Query);
 
 	/**
-	 * Returns the MassAPI subsystem to perform iteration.
-	 * Used internally by the "For Each Matching Entity" macro/node logic.
-	 * @param WorldContextObject The context object to retrieve the world.
-	 * @return A pointer to the MassAPI subsystem.
+	 * Begins a ForEach iteration over entities matching the Query.
+	 * Stores the entity list on the subsystem and returns a cursor ID.
+	 * Used internally by the ForEachMatchingEntities K2Node.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintInternalUseOnly, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject", Tooltip = "Returns the MassAPI subsystem to perform iteration.", Keywords = "loop iterate foreach query mass entity"))
-	static class UMassAPISubsystem* ForEachMatchingEntities(const UObject* WorldContextObject);
+	UFUNCTION(BlueprintCallable, BlueprintInternalUseOnly, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject"))
+	static int32 BeginEntityForEach(const UObject* WorldContextObject, UPARAM(ref) const FEntityQuery& Query);
+
+	/**
+	 * Advances the ForEach cursor. Returns true and populates OutElement/OutIndex
+	 * if there is a next entity. Returns false when iteration is complete
+	 * (cleans up the cursor state automatically).
+	 * Used internally by the ForEachMatchingEntities K2Node.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintInternalUseOnly, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject"))
+	static bool AdvanceEntityForEach(const UObject* WorldContextObject, int32 IterId, FEntityHandle& OutElement, int32& OutIndex);
+
+	/**
+	 * Begins a ForEach iteration over a TArray<FEntityHandle>.
+	 * Copies the array and returns a cursor ID.
+	 * Used internally by the ForEachEntityHandle K2Node.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintInternalUseOnly, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject"))
+	static int32 BeginEntityHandleArrayForEach(const UObject* WorldContextObject, const TArray<FEntityHandle>& Array);
+
+	/**
+	 * Advances the EntityHandle array ForEach cursor. Same semantics as AdvanceEntityForEach.
+	 * Used internally by the ForEachEntityHandle K2Node.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintInternalUseOnly, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject"))
+	static bool AdvanceEntityHandleArrayForEach(const UObject* WorldContextObject, int32 IterId, FEntityHandle& OutElement, int32& OutIndex);
 
 	//================ TemplateData Operations																	========
 
@@ -545,6 +569,38 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Tooltip = "Requires the entity to have FEntityFlagFragment added via its Template.", Keywords = "clear remove delete flag bitmask template mass"))
 	static void ClearFlag_Template(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, EEntityFlags FlagToClear);
 
+	//================ Flag Operations (FName-Based)                                                            ========
+
+	//———————— Has.Flag.ByName.Entity                                                                           ————
+
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, BlueprintPure, meta = (WorldContext = "WorldContextObject", Keywords = "has check exist flag fname mass entity"))
+	static bool HasFlag_EntityByName(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, FName FlagName);
+
+	//———————— Has.Flag.ByName.Template                                                                         ————
+
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, BlueprintPure, meta = (Keywords = "has check exist flag fname template mass"))
+	static bool HasFlag_TemplateByName(UPARAM(ref) const FEntityTemplateData& TemplateData, FName FlagName);
+
+	//———————— Set.Flag.ByName.Entity                                                                           ————
+
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "OnFinished", Keywords = "set add update flag fname mass entity"))
+	static bool SetFlag_EntityByName(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, FName FlagName, bool bDeferred, FOnMassDeferredFinished OnFinished);
+
+	//———————— Set.Flag.ByName.Template                                                                         ————
+
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Keywords = "set add update flag fname template mass"))
+	static void SetFlag_TemplateByName(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, FName FlagName);
+
+	//———————— Clear.Flag.ByName.Entity                                                                         ————
+
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "OnFinished", Keywords = "clear remove delete flag fname mass entity"))
+	static bool ClearFlag_EntityByName(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, FName FlagName, bool bDeferred, FOnMassDeferredFinished OnFinished);
+
+	//———————— Clear.Flag.ByName.Template                                                                       ————
+
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|Flag", BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", Keywords = "clear remove delete flag fname template mass"))
+	static void ClearFlag_TemplateByName(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, FName FlagName);
+
 
 	//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 	// Deprecated Functions
@@ -558,42 +614,42 @@ public:
 	 * Deprecated. Use HasTag_Entity instead.
 	 * Checks if an entity has a specific Tag.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "HasMassTag(Deprecated)", BlueprintPure, meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "HasMassTag(Deprecated)", BlueprintPure, meta = (DeprecatedFunction, DeprecationMessage = "Use HasTag_Entity instead.", WorldContext = "WorldContextObject"))
 	static bool HasTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType);
 
 	/**
 	 * Deprecated. Use AddTag_Entity instead.
 	 * Adds a Tag to an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "AddMassTag(Deprecated)", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "AddMassTag(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use AddTag_Entity instead.", WorldContext = "WorldContextObject"))
 	static void AddTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType);
 
 	/**
 	 * Deprecated. Use RemoveTag_Entity instead.
 	 * Removes a Tag from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "RemoveMassTag(Deprecated)", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "RemoveMassTag(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use RemoveTag_Entity instead.", WorldContext = "WorldContextObject"))
 	static void RemoveTag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* TagType);
 
 	/**
 	 * Deprecated. Use HasTag_Template instead.
 	 * Checks if Template Data contains a specific Tag.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "HasMassTag_Template(Deprecated)", BlueprintPure, meta = ())
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "HasMassTag_Template(Deprecated)", BlueprintPure, meta = (DeprecatedFunction, DeprecationMessage = "Use HasTag_Template instead."))
 	static bool HasTag_TemplateData(UPARAM(ref) const FEntityTemplateData& TemplateData, UScriptStruct* TagType);
 
 	/**
 	 * Deprecated. Use AddTag_Template instead.
 	 * Adds a Tag to Template Data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "AddMassTag_Template(Deprecated)", meta = ())
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "AddMassTag_Template(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use AddTag_Template instead."))
 	static void AddTag_TemplateData(UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* TagType);
 
 	/**
 	 * Deprecated. Use RemoveTag_Template instead.
 	 * Removes a Tag from Template Data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "RemoveMassTag_Template(Deprecated)", meta = ())
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "RemoveMassTag_Template(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use RemoveTag_Template instead."))
 	static void RemoveTag_TemplateData(UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* TagType);
 
 	//———————————————————Fragment Ops
@@ -602,21 +658,21 @@ public:
 	 * Deprecated. Use HasFragment_Entity_Unified instead.
 	 * Checks if an entity has a specific Fragment.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "HasMassFragment(Deprecated)", BlueprintPure, meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "HasMassFragment(Deprecated)", BlueprintPure, meta = (DeprecatedFunction, DeprecationMessage = "Use HasFragment_Entity_Unified instead.", WorldContext = "WorldContextObject"))
 	static bool HasFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType);
 
 	/**
 	 * Deprecated. Use RemoveFragment_Entity_Unified instead.
 	 * Removes a Fragment from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "RemoveMassFragment(Deprecated)", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "RemoveMassFragment(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use RemoveFragment_Entity_Unified instead.", WorldContext = "WorldContextObject"))
 	static bool RemoveFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType);
 
 	/**
 	 * Deprecated. Use GetFragment_Entity_Unified instead.
 	 * Gets a Fragment value from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use GetFragment_Entity_Unified instead.", WorldContext = "WorldContextObject", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
 	static void GetFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 	DECLARE_FUNCTION(execGetFragment);
 
@@ -624,7 +680,7 @@ public:
 	 * Deprecated. Use SetFragment_Entity_Unified instead.
 	 * Sets a Fragment value on an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use SetFragment_Entity_Unified instead.", WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const FGenericStruct& InFragment, bool& bSuccess);
 	DECLARE_FUNCTION(execSetFragment);
 
@@ -632,21 +688,21 @@ public:
 	 * Deprecated. Use HasFragment_Template_Unified instead.
 	 * Checks if Template Data contains a specific Fragment.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "HasMassFragment_Template(Deprecated)", BlueprintPure, meta = ())
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "HasMassFragment_Template(Deprecated)", BlueprintPure, meta = (DeprecatedFunction, DeprecationMessage = "Use HasFragment_Template_Unified instead."))
 	static bool HasFragment_TemplateData(UPARAM(ref) const FEntityTemplateData& TemplateData, UScriptStruct* FragmentType);
 
 	/**
 	 * Deprecated. Use RemoveFragment_Template_Unified instead.
 	 * Removes a Fragment from Template Data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "RemoveMassFragment_Template(Deprecated)", meta = ())
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "RemoveMassFragment_Template(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use RemoveFragment_Template_Unified instead."))
 	static void RemoveFragmentInTemplate(UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* FragmentType);
 
 	/**
 	 * Deprecated. Use GetFragment_Template_Unified instead.
 	 * Gets a Fragment value from Template Data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use GetFragment_Template_Unified instead.", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
 	static void GetFragmentFromTemplate(UPARAM(ref) const FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 	DECLARE_FUNCTION(execGetFragmentFromTemplate);
 
@@ -654,7 +710,7 @@ public:
 	 * Deprecated. Use SetFragment_Template_Unified instead.
 	 * Sets a Fragment value in Template Data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use SetFragment_Template_Unified instead.", WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetFragmentInTemplate(UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, const FGenericStruct& InFragment);
 	DECLARE_FUNCTION(execSetFragmentInTemplate);
 
@@ -666,14 +722,14 @@ public:
 	 * Deprecated. Use RemoveFragment_Entity_Unified instead.
 	 * Removes a Shared Fragment from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "RemoveSharedFragment(Deprecated)", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "RemoveSharedFragment(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use RemoveFragment_Entity_Unified instead.", WorldContext = "WorldContextObject"))
 	static bool RemoveSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType);
 
 	/**
 	 * Deprecated. Use GetFragment_Entity_Unified instead.
 	 * Gets a Shared Fragment value from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use GetFragment_Entity_Unified instead.", WorldContext = "WorldContextObject", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
 	static void GetSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 	DECLARE_FUNCTION(execGetSharedFragment);
 
@@ -681,7 +737,7 @@ public:
 	 * Deprecated. Use SetFragment_Entity_Unified instead.
 	 * Sets a Shared Fragment value on an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use SetFragment_Entity_Unified instead.", WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const FGenericStruct& InFragment, bool& bSuccess);
 	DECLARE_FUNCTION(execSetSharedFragment);
 
@@ -691,7 +747,7 @@ public:
 	 * Deprecated. Use RemoveFragment_Template_Unified instead.
 	 * Removes a Shared Fragment from Template Data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "RemoveSharedFragment_Template(Deprecated)", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "RemoveSharedFragment_Template(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use RemoveFragment_Template_Unified instead.", WorldContext = "WorldContextObject"))
 	static void RemoveSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* FragmentType);
 
 	// Missing GetSharedFragmentInTemplate
@@ -700,7 +756,7 @@ public:
 	 * Deprecated. Use SetFragment_Template_Unified instead.
 	 * Sets a Shared Fragment value in Template Data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use SetFragment_Template_Unified instead.", WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, const FGenericStruct& InFragment);
 	DECLARE_FUNCTION(execSetSharedFragmentInTemplate);
 
@@ -713,14 +769,14 @@ public:
 	 * Deprecated. Use RemoveFragment_Entity_Unified instead.
 	 * Removes a Const Shared Fragment from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "RemoveConstSharedFragment(Deprecated)", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "RemoveConstSharedFragment(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use RemoveFragment_Entity_Unified instead.", WorldContext = "WorldContextObject"))
 	static bool RemoveConstSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType);
 
 	/**
 	 * Deprecated. Use GetFragment_Entity_Unified instead.
 	 * Gets a Const Shared Fragment value from an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintPure, CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use GetFragment_Entity_Unified instead.", WorldContext = "WorldContextObject", CustomStructureParam = "OutFragment", AutoCreateRefTerm = "OutFragment"))
 	static void GetConstSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, FGenericStruct& OutFragment, bool& bSuccess);
 	DECLARE_FUNCTION(execGetConstSharedFragment);
 
@@ -728,7 +784,7 @@ public:
 	 * Deprecated. Use SetFragment_Entity_Unified instead.
 	 * Sets a Const Shared Fragment value on an entity.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use SetFragment_Entity_Unified instead.", WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetConstSharedFragment(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, UScriptStruct* FragmentType, const FGenericStruct& InFragment, bool& bSuccess);
 	DECLARE_FUNCTION(execSetConstSharedFragment);
 
@@ -738,7 +794,7 @@ public:
 	 * Deprecated. Use RemoveFragment_Template_Unified instead.
 	 * Removes a Const Shared Fragment from Template Data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "RemoveConstSharedFragment_Template(Deprecated)", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "RemoveConstSharedFragment_Template(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use RemoveFragment_Template_Unified instead.", WorldContext = "WorldContextObject"))
 	static void RemoveConstSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* FragmentType);
 
 	// Missing GetSharedFragmentInTemplate
@@ -747,7 +803,7 @@ public:
 	 * Deprecated. Use SetFragment_Template_Unified instead.
 	 * Sets a Const Shared Fragment value in Template Data.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", CustomThunk, BlueprintInternalUseOnly, meta = (DeprecatedFunction, DeprecationMessage = "Use SetFragment_Template_Unified instead.", WorldContext = "WorldContextObject", CustomStructureParam = "InFragment", AutoCreateRefTerm = "InFragment"))
 	static void SetConstSharedFragmentInTemplate(const UObject* WorldContextObject, UPARAM(ref) FEntityTemplateData& TemplateData, UScriptStruct* FragmentType, const FGenericStruct& InFragment);
 	DECLARE_FUNCTION(execSetConstSharedFragmentInTemplate);
 
@@ -758,19 +814,19 @@ public:
 	/**
 	 * Deprecated. Use HasFlag_Entity instead.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "HasEntityFlag(Deprecated)", BlueprintPure, meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "HasEntityFlag(Deprecated)", BlueprintPure, meta = (DeprecatedFunction, DeprecationMessage = "Use HasFlag_Entity instead.", WorldContext = "WorldContextObject"))
 	static bool HasEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToTest);
 
 	/**
 	 * Deprecated. Use ClearFlag_Entity instead.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "ClearEntityFlag(Deprecated)", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "ClearEntityFlag(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use ClearFlag_Entity instead.", WorldContext = "WorldContextObject"))
 	static bool ClearEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToClear);
 
 	/**
 	 * Deprecated. Use SetFlag_Entity instead.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "SetEntityFlag(Deprecated)", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "SetEntityFlag(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use SetFlag_Entity instead.", WorldContext = "WorldContextObject"))
 	static bool SetEntityFlag(const UObject* WorldContextObject, const FEntityHandle& EntityHandle, EEntityFlags FlagToSet);
 
 	// --- Template Data Renames ---
@@ -778,19 +834,19 @@ public:
 	/**
 	 * Deprecated. Use HasFlag_Template instead.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "HasEntityFlag_Template(Deprecated)", BlueprintPure, meta = ())
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "HasEntityFlag_Template(Deprecated)", BlueprintPure, meta = (DeprecatedFunction, DeprecationMessage = "Use HasFlag_Template instead."))
 	static bool HasTemplateFlag(UPARAM(ref) const FEntityTemplateData& TemplateData, EEntityFlags FlagToTest);
 
 	/**
 	 * Deprecated. Use ClearFlag_Template instead.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "ClearEntityFlag_Template(Deprecated)", meta = ())
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "ClearEntityFlag_Template(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use ClearFlag_Template instead."))
 	static void ClearTemplateFlag(UPARAM(ref) FEntityTemplateData& TemplateData, EEntityFlags FlagToClear);
 
 	/**
 	 * Deprecated. Use SetFlag_Template instead.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", DisplayName = "SetEntityFlag_Template(Deprecated)", meta = ())
+	UFUNCTION(BlueprintCallable, Category = "MassAPI|ZDeprecated", BlueprintInternalUseOnly, DisplayName = "SetEntityFlag_Template(Deprecated)", meta = (DeprecatedFunction, DeprecationMessage = "Use SetFlag_Template instead."))
 	static void SetTemplateFlag(UPARAM(ref) FEntityTemplateData& TemplateData, EEntityFlags FlagToSet);
 
 };

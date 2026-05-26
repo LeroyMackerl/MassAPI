@@ -66,13 +66,7 @@ void UK2Node_SetSharedFragmentInTemplate::ReallocatePinsDuringReconstruction(TAr
 
 void UK2Node_SetSharedFragmentInTemplate::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
-	UClass* ActionKey = GetClass();
-	if (ActionRegistrar.IsOpenForRegistration(ActionKey))
-	{
-		UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(GetClass());
-		check(NodeSpawner != nullptr);
-		ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
-	}
+	// Deprecated — hidden from context menu | 已弃用 — 从右键菜单隐藏
 }
 
 void UK2Node_SetSharedFragmentInTemplate::OnFragmentTypeChanged()

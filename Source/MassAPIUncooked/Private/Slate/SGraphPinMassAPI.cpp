@@ -9,12 +9,14 @@
 #if WITH_EDITOR
 #include "Slate/SStructPicker.h"
 #include "MassEntityTypes.h"
+#include "MassAPIFlagSettings.h"
 #include "EdGraph/EdGraphPin.h"
 #include "EdGraph/EdGraphSchema.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SBox.h"
 #include "ScopedTransaction.h"
+#include "Widgets/Input/SComboBox.h"
 #endif
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -497,6 +499,140 @@ bool FMassTagStructFilter::IsAllowedMassTagType(const UScriptStruct* InTag) cons
 
 	// 检查是否继承自 FMassTag
 	return InTag->IsChildOf(MassTagStruct);
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+//================ SGraphPinFlagNameList | 旗标名称下拉选择器                                                  ========
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+void SGraphPinFlagNameList::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
+{
+	SGraphPin::Construct(SGraphPin::FArguments(), InGraphPinObj);
+	RefreshFlagNameOptions(FlagNameOptions);
+}
+
+TSharedRef<SWidget> SGraphPinFlagNameList::GetDefaultValueWidget()
+{
+	return SAssignNew(ComboButton, SComboButton)
+		.OnGetMenuContent(this, &SGraphPinFlagNameList::OnGetMenuContent)
+		.ContentPadding(FMargin(2.0f, 2.0f))
+		.ButtonContent()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(1.0f)
+			[
+				SNew(STextBlock)
+				.Text(this, &SGraphPinFlagNameList::GetSelectedFlagNameText)
+				.ToolTipText(this, &SGraphPinFlagNameList::GetSelectedFlagNameTooltip)
+				.Font(FAppStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+			]
+		];
+}
+
+TSharedRef<SWidget> SGraphPinFlagNameList::OnGetMenuContent()
+{
+	// Refresh options from settings (designer may have added flags since last open) | 从设置刷新选项
+	RefreshFlagNameOptions(FlagNameOptions);
+
+	return SNew(SBox)
+		.MinDesiredWidth(280.f)
+		.MaxDesiredHeight(400.f)
+		[
+			SNew(SComboBox<FName>)
+			.OptionsSource(&FlagNameOptions)
+			.InitiallySelectedItem(GetCurrentlySelectedFlagName())
+			.OnSelectionChanged_Lambda([this](FName Item, ESelectInfo::Type)
+			{
+				OnFlagNamePicked(Item);
+			})
+			.OnGenerateWidget_Lambda([](FName Item) -> TSharedRef<SWidget>
+			{
+				return SNew(SBox)
+					.Padding(FMargin(6.0f, 3.0f))
+					[
+						SNew(STextBlock)
+						.Text(FText::FromName(Item))
+						.Font(FAppStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+					];
+			})
+			[
+				SNew(STextBlock)
+				.Text_Lambda([this]() { return GetSelectedFlagNameText(); })
+				.Font(FAppStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+			]
+		];
+}
+
+void SGraphPinFlagNameList::OnFlagNamePicked(FName SelectedFlagName)
+{
+	if (GraphPinObj)
+	{
+		const FScopedTransaction Transaction(FText::FromString(TEXT("Change Flag Name")));
+		GraphPinObj->Modify();
+
+		// Write FName string to DefaultValue | 将 FName 字符串写入 DefaultValue
+		GraphPinObj->DefaultValue = SelectedFlagName.ToString();
+
+		if (const UEdGraphSchema* Schema = GraphPinObj->GetSchema())
+		{
+			Schema->TrySetDefaultValue(*GraphPinObj, SelectedFlagName.ToString());
+		}
+
+		if (GraphPinObj->GetOwningNode())
+		{
+			GraphPinObj->GetOwningNode()->PinDefaultValueChanged(GraphPinObj);
+		}
+
+		if (ComboButton.IsValid())
+		{
+			ComboButton->SetIsOpen(false);
+		}
+	}
+}
+
+FText SGraphPinFlagNameList::GetSelectedFlagNameText() const
+{
+	const FName Current = GetCurrentlySelectedFlagName();
+	if (!Current.IsNone())
+	{
+		return FText::FromName(Current);
+	}
+	return FText::FromString(TEXT("Select Flag..."));
+}
+
+FText SGraphPinFlagNameList::GetSelectedFlagNameTooltip() const
+{
+	const FName Current = GetCurrentlySelectedFlagName();
+	if (!Current.IsNone())
+	{
+		return FText::FromName(Current);
+	}
+	return FText::FromString(TEXT("Click to select a flag name from Project Settings | 从项目设置选择旗标名"));
+}
+
+void SGraphPinFlagNameList::RefreshFlagNameOptions(TArray<FName>& OutOptions)
+{
+	OutOptions.Reset();
+	if (const UMassAPIFlagSettings* Settings = GetDefault<UMassAPIFlagSettings>())
+	{
+		Settings->FlagRegistry.GetKeys(OutOptions);
+		// Sort for consistent UI | 排序保持 UI 一致性
+		OutOptions.Sort([](const FName& A, const FName& B) { return A.FastLess(B); });
+	}
+}
+
+FName SGraphPinFlagNameList::GetCurrentlySelectedFlagName() const
+{
+	if (GraphPinObj && !GraphPinObj->DefaultValue.IsEmpty())
+	{
+		return FName(*GraphPinObj->DefaultValue);
+	}
+	return NAME_None;
 }
 
 #endif // WITH_EDITOR

@@ -224,6 +224,54 @@ public:
 
 };
 
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+// Custom Pin Widget for selecting named flags from the FlagRegistry settings | 旗标名称下拉选择器
+class MASSAPIUNCOOKED_API SGraphPinFlagNameList : public SGraphPin
+{
+public:
+
+	//================ Slate.Arguments																				========
+
+	SLATE_BEGIN_ARGS(SGraphPinFlagNameList) {}
+	SLATE_END_ARGS()
+
+	//================ Construction																					========
+
+	void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj);
+
+	//================ Widget.Creation																				========
+
+protected:
+
+	virtual TSharedRef<SWidget> GetDefaultValueWidget() override;
+
+	//================ Event.Handlers																				========
+
+	TSharedRef<SWidget> OnGetMenuContent();
+
+	void OnFlagNamePicked(FName SelectedFlagName);
+
+	FText GetSelectedFlagNameText() const;
+
+	FText GetSelectedFlagNameTooltip() const;
+
+	//================ Options.Provider																			========
+
+	// Build options list from settings registry | 从设置注册表构建选项列表
+	static void RefreshFlagNameOptions(TArray<FName>& OutOptions);
+
+	//================ Properties.UI																					========
+
+	TSharedPtr<SComboButton> ComboButton;
+
+	TArray<FName> FlagNameOptions;
+
+	// Get currently selected flag name from pin DefaultValue | 获取当前选中的旗标名
+	FName GetCurrentlySelectedFlagName() const;
+
+};
+
 #endif
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

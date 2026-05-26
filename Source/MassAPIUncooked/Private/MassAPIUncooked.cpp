@@ -6,7 +6,9 @@
 
 #include "MassAPIUncooked.h"
 #include "Slate/MassAPIPinFactory.h"
+#include "Slate/MassAPIFlagPropertyCustomization.h"
 #include "EdGraphUtilities.h"
+#include "PropertyEditorModule.h"
 #include "Modules/ModuleManager.h"    // Required for IMPLEMENT_MODULE
 #include "Templates/SharedPointer.h"  // Required for MakeShareable
 
@@ -14,20 +16,31 @@
 
 void FMassAPIUncookedModule::StartupModule()
 {
-	// 创建 Pin Factory 实例
+	// Register Pin Factory | 注册引脚工厂
 	MassAPIPinFactory = MakeShareable(new FMassAPIPinFactory());
-
-	// 注册 Pin Factory 到编辑器
 	FEdGraphUtilities::RegisterVisualPinFactory(MassAPIPinFactory);
+
+	// Register property customization for query struct flag arrays | 注册查询结构体旗标数组属性定制
+	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyModule.RegisterCustomPropertyTypeLayout("FEntityQuery", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FMassAPIFlagPropertyCustomization::MakeInstance));
+	PropertyModule.RegisterCustomPropertyTypeLayout("FMassBattleQuery", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FMassAPIFlagPropertyCustomization::MakeInstance));
 }
 
 void FMassAPIUncookedModule::ShutdownModule()
 {
-	// 注销 Pin Factory
+	// Unregister Pin Factory | 注销引脚工厂
 	if (MassAPIPinFactory.IsValid())
 	{
 		FEdGraphUtilities::UnregisterVisualPinFactory(MassAPIPinFactory);
 		MassAPIPinFactory.Reset();
+	}
+
+	// Unregister property customizations | 注销属性定制
+	if (FModuleManager::Get().IsModuleLoaded("PropertyEditor"))
+	{
+		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.UnregisterCustomPropertyTypeLayout("FEntityQuery");
+		PropertyModule.UnregisterCustomPropertyTypeLayout("FMassBattleQuery");
 	}
 }
 

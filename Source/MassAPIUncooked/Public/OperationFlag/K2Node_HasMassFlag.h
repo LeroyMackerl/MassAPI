@@ -28,6 +28,10 @@ public:
 
 	//================ Node.Configuration																		========
 
+	//———————— Deprecation																							————
+
+	virtual bool IsDeprecated() const override { return true; }
+
 	//———————— Node.Config																							————
 
 	virtual bool IsNodePure() const override { return true; }

@@ -32,7 +32,8 @@ public class MassAPI : ModuleRules
                 "InputCore",
                 "MassEntity",
                 "MassCommon",
-                "MassSpawner"
+                "MassSpawner",
+                "DeveloperSettings"
                 // "BlueprintGraph" was moved below
             }
         );

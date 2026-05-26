@@ -22,9 +22,9 @@ namespace UK2Node_HasMassFlagHelper
 {
 	static const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
 	{
-		{ EMassFragmentSourceDataType::None,				TEXT("HasMassFlag") },
-		{ EMassFragmentSourceDataType::EntityHandle,		TEXT("HasMassFlag-Entity") },
-		{ EMassFragmentSourceDataType::EntityTemplateData,	TEXT("HasMassFlag-Template") }
+		{ EMassFragmentSourceDataType::None,				TEXT("HasMassFlag [Deprecated]") },
+		{ EMassFragmentSourceDataType::EntityHandle,		TEXT("HasMassFlag-Entity [Deprecated]") },
+		{ EMassFragmentSourceDataType::EntityTemplateData,	TEXT("HasMassFlag-Template [Deprecated]") }
 	};
 
 	// 1. Has - Icon Colors
@@ -208,13 +208,7 @@ void UK2Node_HasMassFlag::PostEditChangeProperty(FPropertyChangedEvent& Property
 
 void UK2Node_HasMassFlag::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
-	UClass* ActionKey = GetClass();
-	if (ActionRegistrar.IsOpenForRegistration(ActionKey))
-	{
-		UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(GetClass());
-		check(NodeSpawner != nullptr);
-		ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
-	}
+	// Deprecated — use FName-based version instead | 已弃用 — 使用 FName 版本
 }
 
 HNCH_StartExpandNode(UK2Node_HasMassFlag)

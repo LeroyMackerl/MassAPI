@@ -6,7 +6,6 @@
 
 #include "OperationFragment/K2Node_ForEachMatchingEntities.h"
 #include "MassAPIFuncLib.h"
-#include "MassAPISubsystem.h"
 #include "MassAPIStructs.h"
 #include "EdGraphSchema_K2.h"
 #include "BlueprintNodeSpawner.h"
@@ -38,7 +37,8 @@ FText UK2Node_ForEachMatchingEntities::GetMenuCategory() const
 
 FText UK2Node_ForEachMatchingEntities::GetTooltipText() const
 {
-	return FText::FromString(TEXT("Iterate over all entities matching the specified query. Use it for prototyping only, because for each loop in BP is slow"));
+	return FText::FromString(TEXT("Cursor-based iteration over all entities matching an FEntityQuery.\nFaster than the engine ForEachLoop — still, prototyping only.\nLoopBody fires per entity (Element=FEntityHandle, Index=int32).\nCompleted fires when done or query is empty.\n"
+		"游标式实体遍历 | 比引擎自带ForEachLoop快，但仍推荐仅prototyping使用。\nLoopBody每实体触发一次，提供Element和Index；Completed在遍历结束或查询为空时触发。"));
 }
 
 FSlateIcon UK2Node_ForEachMatchingEntities::GetIconAndTint(FLinearColor& OutColor) const
@@ -102,85 +102,36 @@ HNCH_StartExpandNode(UK2Node_ForEachMatchingEntities)
 
 virtual void Compile() override
 {
-	// 策略：使用临时 bool 变量实现 DoOnce 逻辑，确保委托只绑定一次
-	//
-	// 执行流程：
-	//   Execute → Sequence
-	//           → [0] Branch(bInitialized)
-	//                 → False: CreateHelper → BindDelegate → SetInitialized(true)
-	//                 → True: (跳过)
-	//           → [1] GetHelper → ExecuteForEach → Completed
+	// Cursor-based exec feedback loop — Begin stores result set, Advance steps one element per call | 游标驱动执行反馈循环
 
-	// 1. 创建 Sequence 节点（2个输出：初始化分支 + 主流程）
-	UK2Node_ExecutionSequence* InitSequence = SpawnSequenceNode(2);
-	Link(ProxyExecPin(), ExecPin(InitSequence));
+	// 1. Run query + store entity list, return cursor ID | 执行查询+缓存实体列表，返回游标ID
+	UK2Node_CallFunction* CursorSetup = HNCH_SpawnFunctionNode(UMassAPIFuncLib, BeginEntityForEach);
+	Link(ProxyExecPin(), ExecPin(CursorSetup));
+	Link(ProxyPin(UK2Node_ForEachMatchingEntities::QueryPinName()), FunctionInputPin(CursorSetup, TEXT("Query")));
 
-	// 2. 创建临时 bool 变量（用于追踪是否已初始化）
-	UK2Node_TemporaryVariable* InitializedVar = SpawnTempVarNode(
-		UEdGraphSchema_K2::PC_Boolean
-	);
+	// 2. Step cursor → returns bool + fills Element/Index when true | 步进游标 → 返回bool，为true时填充Element/Index
+	UK2Node_CallFunction* CursorStep = HNCH_SpawnFunctionNode(UMassAPIFuncLib, AdvanceEntityForEach);
+	Link(ThenPin(CursorSetup), ExecPin(CursorStep));
+	Link(FunctionReturnPin(CursorSetup), FunctionInputPin(CursorStep, TEXT("IterId")));
 
-	// 3. 创建 Branch 节点检查是否已初始化
-	UK2Node_IfThenElse* InitCheckBranch = SpawnBranchNode();
-	Link(SequenceOutPin(InitSequence, 0), ExecPin(InitCheckBranch));
-	Link(TempValuePin(InitializedVar), BranchConditionPin(InitCheckBranch));
+	// 3. Output data: Element + Index → proxy pins — valid only when CursorStep returns true | 输出数据：当CursorStep返回true时有效
+	Link(NodePin(CursorStep, TEXT("OutElement")), ProxyPin(UK2Node_ForEachMatchingEntities::ElementPinName()));
+	Link(NodePin(CursorStep, TEXT("OutIndex")), ProxyPin(UK2Node_ForEachMatchingEntities::IndexPinName()));
 
-	// 4. Branch.False 分支：首次执行，创建并绑定 Helper
-	UK2Node_CallFunction* CreateHelperNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, ForEachMatchingEntities);
-	Link(BranchFalsePin(InitCheckBranch), ExecPin(CreateHelperNode));
+	// 4. Gate: has more entities? | 门控：还有更多实体？
+	UK2Node_IfThenElse* MoreCheck = SpawnBranchNode();
+	Link(ThenPin(CursorStep), ExecPin(MoreCheck));
+	Link(FunctionReturnPin(CursorStep), BranchConditionPin(MoreCheck));
 
-	UEdGraphPin* HelperObjectPin = FunctionReturnPin(CreateHelperNode);
+	// 5. Loop body dispatch + feedback edge | 循环体调度+反馈边
+	UK2Node_ExecutionSequence* BodyThenLoopback = SpawnSequenceNode(2);
+	Link(BranchTruePin(MoreCheck), ExecPin(BodyThenLoopback));
 
-	UEdGraphPin* LastThenPin = ThenPin(CreateHelperNode);
-	UEdGraphPin* EventThenPin = nullptr;
+	Link(SequenceOutPin(BodyThenLoopback, 0), ProxyPin(UK2Node_ForEachMatchingEntities::LoopBodyPinName()));
+	Link(SequenceOutPin(BodyThenLoopback, 1), ExecPin(CursorStep));  // feedback edge — re-enters CursorStep | 反馈边 — 重新进入CursorStep
 
-	bool bSuccess = CreateAsyncDelegateBinding(
-		UMassAPISubsystem::StaticClass(),
-		GET_MEMBER_NAME_CHECKED(UMassAPISubsystem, OnEntityIterate),
-		HelperObjectPin,
-		LastThenPin,
-		EventThenPin
-	);
-
-	if (!bSuccess || !EventThenPin)
-	{
-		CompilerContext.MessageLog.Error(TEXT("Failed to create delegate binding for ForEachMatchingEntities. @@"), OwnerNode);
-		return;
-	}
-
-	// 5. 连接事件的输出引脚到 LoopBody
-	Link(EventThenPin, ProxyPin(UK2Node_ForEachMatchingEntities::LoopBodyPinName()));
-
-	// 6. 连接委托参数到输出数据引脚
-	UEdGraphNode* CustomEventNode = EventThenPin->GetOwningNode();
-	if (CustomEventNode)
-	{
-		if (UEdGraphPin* ElementEventPin = CustomEventNode->FindPin(TEXT("Element")))
-			Link(ElementEventPin, ProxyPin(UK2Node_ForEachMatchingEntities::ElementPinName()));
-
-		if (UEdGraphPin* IndexEventPin = CustomEventNode->FindPin(TEXT("Index")))
-			Link(IndexEventPin, ProxyPin(UK2Node_ForEachMatchingEntities::IndexPinName()));
-	}
-
-	// 7. 绑定完成后，设置 bInitialized = true
-	UK2Node_AssignmentStatement* SetInitializedNode = SpawnAssignNode(TempValuePin(InitializedVar), TEXT("true"));
-	Link(LastThenPin, ExecPin(SetInitializedNode));
-
-	// 8. Sequence[1]: 主流程 - 每次都执行
-	UK2Node_CallFunction* GetHelperNode = HNCH_SpawnFunctionNode(UMassAPIFuncLib, ForEachMatchingEntities);
-	Link(SequenceOutPin(InitSequence, 1), ExecPin(GetHelperNode));
-
-	UEdGraphPin* CachedHelperPin = FunctionReturnPin(GetHelperNode);
-
-	// 9. 调用 ExecuteForEach 来执行遍历
-	UK2Node_CallFunction* ExecuteForEachNode = HNCH_SpawnFunctionNode(UMassAPISubsystem, ExecuteForEach);
-
-	Link(ThenPin(GetHelperNode), ExecPin(ExecuteForEachNode));
-	Link(CachedHelperPin, FunctionTargetPin(ExecuteForEachNode));
-	Link(ProxyPin(UK2Node_ForEachMatchingEntities::QueryPinName()), FunctionInputPin(ExecuteForEachNode, TEXT("Query")));
-
-	// 10. ExecuteForEach 完成后连接到 Completed 引脚
-	Link(ThenPin(ExecuteForEachNode), ProxyPin(UK2Node_ForEachMatchingEntities::CompletedPinName()));
+	// 6. No more → Completed | 迭代结束 → 完成
+	Link(BranchFalsePin(MoreCheck), ProxyPin(UK2Node_ForEachMatchingEntities::CompletedPinName()));
 }
 
 HNCH_EndExpandNode(UK2Node_ForEachMatchingEntities)

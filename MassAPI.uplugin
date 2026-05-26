@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "1.3.1",
+	"VersionName": "1.4.0",
 	"FriendlyName": "MassAPI",
 	"Description": "Provide user-friendly C++ and blueprint API for MassEntity",
 	"Category": "MassEntity",
@@ -16,35 +16,169 @@
 	"Installed": false,
 	"Modules": [
 		{
+			"Name": "Magnus",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"PlatformAllowList": [
+				"Win64"
+			]
+		},
+		{
+			"Name": "MagnusUncooked",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default",
+			"PlatformAllowList": [
+				"Win64"
+			]
+		},
+		{
 			"Name": "MassAPI",
 			"Type": "Runtime",
-			"LoadingPhase": "PreDefault"
+			"LoadingPhase": "PreDefault",
+			"PlatformAllowList": [
+				"Win64"
+			]
 		},
 		{
 			"Name": "MassAPIUncooked",
 			"Type": "UncookedOnly",
-			"LoadingPhase": "Default"
-		},
-		{
-			"Name": "MagnusExtension",
-			"Type": "UncookedOnly",
-			"LoadingPhase": "Default"
-		},
-		{
-			"Name": "MagnusUtilities",
-			"Type": "Runtime",
-			"LoadingPhase": "Default"
-		},
-		{
-			"Name": "MagnusNodes",
-			"Type": "UncookedOnly",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"PlatformAllowList": [
+				"Win64"
+			]
 		}
 	],
 	"Plugins": [
 		{
 			"Name": "MassGameplay",
 			"Enabled": true
+		}
+	],
+	"CoreRedirects": [
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusExtension.Magnus_HyperNodeCompilerHandler",
+			"NewName": "/Script/Magnus.Magnus_HyperNodeCompilerHandler"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusUtilities.MagnusFuncLib_Convert",
+			"NewName": "/Script/Magnus.MagnusFuncLib_Convert"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusUtilities.MagnusFuncLib_MapTree",
+			"NewName": "/Script/Magnus.MagnusFuncLib_MapTree"
+		},
+		{
+			"Type": "Struct",
+			"OldName": "/Script/MagnusExtension.FGenericStructFilter",
+			"NewName": "/Script/Magnus.FGenericStructFilter"
+		},
+		{
+			"Type": "Struct",
+			"OldName": "/Script/MagnusUtilities.FStructMemberPropertyFilterRegistry",
+			"NewName": "/Script/Magnus.FStructMemberPropertyFilterRegistry"
+		},
+		{
+			"Type": "Struct",
+			"OldName": "/Script/MagnusUtilities.FStructMemberTreeNode",
+			"NewName": "/Script/Magnus.FStructMemberTreeNode"
+		},
+		{
+			"Type": "Struct",
+			"OldName": "/Script/MagnusUtilities.FStructMemberReference",
+			"NewName": "/Script/Magnus.FStructMemberReference"
+		},
+		{
+			"Type": "Struct",
+			"OldName": "/Script/MagnusUtilities.FStructRecursiveMemberReference",
+			"NewName": "/Script/Magnus.FStructRecursiveMemberReference"
+		},
+		{
+			"Type": "Package",
+			"OldName": "/Script/MagnusExtension",
+			"NewName": "/Script/Magnus"
+		},
+		{
+			"Type": "Package",
+			"OldName": "/Script/MagnusUtilities",
+			"NewName": "/Script/Magnus"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusUtilities.MagnusNodesFuncLib_MapHelper",
+			"NewName": "/Script/Magnus.MagnusNodesFuncLib_MapHelper"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.MagnusNode_Assign",
+			"NewName": "/Script/MagnusUncooked.MagnusNode_Assign"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.MagnusNode_ForEachArray",
+			"NewName": "/Script/MagnusUncooked.MagnusNode_ForEachArray"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.MagnusNode_ForEachMap",
+			"NewName": "/Script/MagnusUncooked.MagnusNode_ForEachMap"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.MagnusNode_ForEachSet",
+			"NewName": "/Script/MagnusUncooked.MagnusNode_ForEachSet"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.MagnusNode_ForLoop",
+			"NewName": "/Script/MagnusUncooked.MagnusNode_ForLoop"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.MagnusNode_MapIdentical",
+			"NewName": "/Script/MagnusUncooked.MagnusNode_MapIdentical"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.MagnusNode_MapTreeAdd",
+			"NewName": "/Script/MagnusUncooked.MagnusNode_MapTreeAdd"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.MagnusNode_MapTreeContains",
+			"NewName": "/Script/MagnusUncooked.MagnusNode_MapTreeContains"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.MagnusNode_MapTreeRemove",
+			"NewName": "/Script/MagnusUncooked.MagnusNode_MapTreeRemove"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.K2Node_GetStructMember",
+			"NewName": "/Script/MagnusUncooked.K2Node_GetStructMember"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.K2Node_GetStructRecursiveMember",
+			"NewName": "/Script/MagnusUncooked.K2Node_GetStructRecursiveMember"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.K2Node_SetStructMember",
+			"NewName": "/Script/MagnusUncooked.K2Node_SetStructMember"
+		},
+		{
+			"Type": "Class",
+			"OldName": "/Script/MagnusNodes.K2Node_SetStructRecursiveMember",
+			"NewName": "/Script/MagnusUncooked.K2Node_SetStructRecursiveMember"
+		},
+		{
+			"Type": "Package",
+			"OldName": "/Script/MagnusNodes",
+			"NewName": "/Script/MagnusUncooked"
 		}
 	]
 }

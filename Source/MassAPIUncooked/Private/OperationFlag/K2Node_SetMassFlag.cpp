@@ -52,11 +52,11 @@ namespace UK2Node_SetMassFlagHelper
 	// DataSource类型到标题的映射
 	static const TMap<EMassFragmentSourceDataType, FString> DataSourceTypeTitles =
 	{
-		{ EMassFragmentSourceDataType::None,					TEXT("SetMassFlag") },
-		{ EMassFragmentSourceDataType::EntityHandle,			TEXT("SetMassFlag-Entity") },
-		{ EMassFragmentSourceDataType::EntityTemplateData,		TEXT("SetMassFlag-Template") },
-		{ EMassFragmentSourceDataType::EntityHandleArray,		TEXT("SetMassFlag-Entities") },
-		{ EMassFragmentSourceDataType::EntityTemplateDataArray,	TEXT("SetMassFlag-Templates") }
+		{ EMassFragmentSourceDataType::None,					TEXT("SetMassFlag [Deprecated]") },
+		{ EMassFragmentSourceDataType::EntityHandle,			TEXT("SetMassFlag-Entity [Deprecated]") },
+		{ EMassFragmentSourceDataType::EntityTemplateData,		TEXT("SetMassFlag-Template [Deprecated]") },
+		{ EMassFragmentSourceDataType::EntityHandleArray,		TEXT("SetMassFlag-Entities [Deprecated]") },
+		{ EMassFragmentSourceDataType::EntityTemplateDataArray,	TEXT("SetMassFlag-Templates [Deprecated]") }
 	};
 
 	// 2. Set - Icon Colors
@@ -435,13 +435,7 @@ void UK2Node_SetMassFlag::PostEditChangeProperty(FPropertyChangedEvent& Property
 
 void UK2Node_SetMassFlag::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
-	UClass* ActionKey = GetClass();
-	if (ActionRegistrar.IsOpenForRegistration(ActionKey))
-	{
-		UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(GetClass());
-		check(NodeSpawner != nullptr);
-		ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
-	}
+	// Deprecated — use FName-based version instead | 已弃用 — 使用 FName 版本
 }
 
 //================ Compiler.Integration																			========

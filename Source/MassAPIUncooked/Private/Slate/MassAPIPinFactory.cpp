@@ -15,6 +15,10 @@
 #include "MassAPIUncooked/Public/OperationTag/K2Node_AddMassTag.h"
 #include "MassAPIUncooked/Public/OperationTag/K2Node_RemoveMassTag.h"
 #include "MassAPIUncooked/Public/OperationTag/K2Node_HasMassTag.h"
+#include "OperationFlag/K2Node_SetMassFlagByName.h"
+#include "OperationFlag/K2Node_HasMassFlagByName.h"
+#include "OperationFlag/K2Node_ClearMassFlagByName.h"
+#include "OperationFlag/K2Node_MakeLiteralFlagName.h"
 #include "EdGraph/EdGraphPin.h"
 #include "EdGraphSchema_K2.h"
 #endif
@@ -27,6 +31,29 @@
 
 TSharedPtr<SGraphPin> FMassAPIPinFactory::CreatePin(UEdGraphPin* InPin) const
 {
+	// Check for FName Flag pins on _ByName K2Nodes → dropdown selector | FName 旗标引脚 → 下拉选择器
+	if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Name)
+	{
+		if (InPin->PinName == TEXT("Flag"))
+		{
+			UObject* Outer = InPin->GetOuter();
+			if (Outer && (Outer->IsA(UK2Node_SetMassFlagByName::StaticClass()) ||
+						  Outer->IsA(UK2Node_HasMassFlagByName::StaticClass()) ||
+						  Outer->IsA(UK2Node_ClearMassFlagByName::StaticClass())))
+			{
+				return SNew(SGraphPinFlagNameList, InPin);
+			}
+		}
+		if (InPin->PinName == TEXT("Value"))
+		{
+			UObject* Outer = InPin->GetOuter();
+			if (Outer && Outer->IsA(UK2Node_MakeLiteralFlagName::StaticClass()))
+			{
+				return SNew(SGraphPinFlagNameList, InPin);
+			}
+		}
+	}
+
 	// 检查引脚类型是否为 Struct（结构体）
 	if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Struct)
 	{

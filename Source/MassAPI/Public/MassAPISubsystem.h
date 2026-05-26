@@ -26,8 +26,12 @@
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-// 声明每次迭代的委托
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEntityIterate, FEntityHandle, Element, int32, Index);
+// Per-cursor state shared by ForEachMatchingEntities / ForEachEntityHandle | 每次迭代的游标状态，两种 ForEach 节点共用
+struct FEntityForEachState
+{
+	TArray<FEntityHandle> Entities;
+	int32 CurrentIndex = 0;
+};
 
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -1780,23 +1784,13 @@ public:
 	}
 
 
-	//--------------- Entity Query Iteration ---------------
+	//--------------- Entity ForEach Iteration (cursor-based, Apparatus-style) | 实体遍历迭代（游标模式）---------------
 
-	/**
-	 * 每次迭代时触发的委托
-	 * 用于 ForEachMatchingEntities 蓝图节点
-	 */
-	UPROPERTY(BlueprintAssignable, Category = "MassAPI")
-	FOnEntityIterate OnEntityIterate;
+	/** Active ForEach cursors keyed by opaque IterId — supports nesting | 活跃游标映射表，支持嵌套遍历 */
+	TMap<int32, FEntityForEachState> EntityForEachStates;
 
-	/**
-	 * 执行遍历匹配的实体，对每个实体触发委托
-	 * 这是一个同步的遍历过程，使用委托机制来实现蓝图节点的多执行引脚输出
-	 * @param WorldContextObject 世界上下文对象
-	 * @param Query 查询条件
-	 */
-	UFUNCTION(BlueprintCallable, Category = "MassAPI|Query", meta = (WorldContext = "WorldContextObject"))
-	void ExecuteForEach(const UObject* WorldContextObject, UPARAM(ref) const FEntityQuery& Query);
+	/** Monotonically increasing cursor ID | 单调递增游标ID */
+	int32 NextForEachId = 0;
 
 
 private:

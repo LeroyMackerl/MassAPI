@@ -14,6 +14,7 @@
 #include "MassAPIEnums.h"
 #include "MassEntityQuery.h"
 #include <atomic>
+#include "MassAPIFlagSettings.h"
 #include "MassAPIStructs.generated.h"
 
 
@@ -336,15 +337,13 @@ public:
 	TArray<TObjectPtr<UScriptStruct>> NoneList;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags")
-	TArray<EEntityFlags> AllFlagsList;
+	TArray<FName> AllFlagsList;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags")
-	TArray<EEntityFlags> AnyFlagsList;
+	TArray<FName> AnyFlagsList;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MassAPI|Flags")
-	TArray<EEntityFlags> NoneFlagsList;
-
-	// ----------- Caching Logic -----------
+	TArray<FName> NoneFlagsList;
 
 private:
 	// Composition Descriptors (RESTORED)
@@ -467,32 +466,21 @@ private:
 		AllFlagsBitmask_Cache = 0; AnyFlagsBitmask_Cache = 0; NoneFlagsBitmask_Cache = 0;
 		AllFlagsBitmaskHigh_Cache = 0; AnyFlagsBitmaskHigh_Cache = 0; NoneFlagsBitmaskHigh_Cache = 0;
 
-		// Helper lambda to set the correct bitmask based on flag index
-		auto SetFlagBit = [](int64& LowMask, int64& HighMask, const EEntityFlags Flag)
+		// Resolve FName flags via settings registry | 通过设置注册表解析 FName 旗标
+		if (const UMassAPIFlagSettings* Settings = GetDefault<UMassAPIFlagSettings>())
 		{
-			if (Flag >= EEntityFlags::EEntityFlags_MAX) return;
-			const uint8 Index = static_cast<uint8>(Flag);
-			if (Index >= 64)
+			auto SetFlagBit = [&](int64& LowMask, int64& HighMask, const FName& FlagName)
 			{
-				HighMask |= (1LL << (Index - 64));
-			}
-			else
-			{
-				LowMask |= (1LL << Index);
-			}
-		};
-
-		for (const EEntityFlags Flag : AllFlagsList)
-		{
-			SetFlagBit(AllFlagsBitmask_Cache, AllFlagsBitmaskHigh_Cache, Flag);
-		}
-		for (const EEntityFlags Flag : AnyFlagsList)
-		{
-			SetFlagBit(AnyFlagsBitmask_Cache, AnyFlagsBitmaskHigh_Cache, Flag);
-		}
-		for (const EEntityFlags Flag : NoneFlagsList)
-		{
-			SetFlagBit(NoneFlagsBitmask_Cache, NoneFlagsBitmaskHigh_Cache, Flag);
+				if (const EEntityFlags* Flag = Settings->FlagRegistry.Find(FlagName))
+				{
+					const uint8 Index = static_cast<uint8>(*Flag);
+					if (Index >= 64) { HighMask |= (1LL << (Index - 64)); }
+					else { LowMask |= (1LL << Index); }
+				}
+			};
+			for (const FName& FlagName : AllFlagsList) { SetFlagBit(AllFlagsBitmask_Cache, AllFlagsBitmaskHigh_Cache, FlagName); }
+			for (const FName& FlagName : AnyFlagsList) { SetFlagBit(AnyFlagsBitmask_Cache, AnyFlagsBitmaskHigh_Cache, FlagName); }
+			for (const FName& FlagName : NoneFlagsList) { SetFlagBit(NoneFlagsBitmask_Cache, NoneFlagsBitmaskHigh_Cache, FlagName); }
 		}
 
 		bIsFlagsCacheDirty = false;
