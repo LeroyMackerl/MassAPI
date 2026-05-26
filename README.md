@@ -56,11 +56,14 @@ The Mass Entity framework in Unreal Engine 5 provides exceptional performance fo
 ### When to Use Mass API vs Native Mass
 
 **Use Mass API when:**
-* Working outside of Mass processors (gameplay code, subsystems, actors)
-* Spawning entities from Blueprint or gameplay events
-* Performing simple entity queries and iterations
-* Need Blueprint support for entity operations
-* Want cleaner syntax for deferred operations
+* Working outside of Mass processors
+* Reading from other entity inside processors
+* Operating on individual entity
+* Building entities in runtime
+* Need Blueprint support for mass entity
+* Need flag system to avoid archytype migrations
+* Need cleaner c++ api and less boilerplate code
+* Want an unified entry for mass operations
 
 **Use Native Mass API when:**
 * Inside Mass processors (for optimal performance)
